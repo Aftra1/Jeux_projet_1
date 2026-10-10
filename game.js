@@ -11,12 +11,13 @@ const DEFS = {
   boost:   {name:'Amplificateur',  icon:'AMP', ins:1, outs:1, cost:500,   t:0.4,  mult:1.5, unlock:400, desc:'Valeur x1,5, très rapide. Idéal en fin de chaîne.'},
   clone:   {name:'Clonage',       icon:'CLN', ins:1, outs:2, cost:900,   t:1.2,  unlock:600,         desc:'Duplique un fichier sur les deux sorties.'},
   ai:      {name:'Analyseur IA',  icon:'IA', ins:1, outs:1, cost:2000,  t:7.0,  mult:8,   unlock:1500, desc:'Valeur ×8. Lent mais puissant.'},
+  lab:     {name:'Laboratoire',   icon:'LAB', ins:1, outs:0, cost:8000,  t:1.5,  unlock:5000, desc:'Absorbe les fichiers et produit des points de recherche.'},
   mega:    {name:'Super Source',  icon:'SRC+', ins:0, outs:1, cost:6000,  t:3.0,  val:25,   unlock:4000, desc:'Génère des fichiers de valeur 25.'},
   quantum: {name:'Quantique',     icon:'QNT', ins:1, outs:1, cost:40000, t:14.0, mult:40,  unlock:25000, desc:'Valeur ×40. Très lent, très puissant.'},
   sing:    {name:'Singularité',   icon:'SNG', ins:1, outs:1, cost:3e6,   t:40.0, mult:1000, unlock:2e6, needQp:1, desc:'Valeur ×1000. Réservé aux joueurs ayant fait un Reboot.'},
 };
 const ORDER = Object.keys(DEFS);
-const COLORS = {source:'#4fd1c5',upload:'#f6c453',split:'#9f7aea',compress:'#63b3ed',merge:'#f687b3',encrypt:'#68d391',clone:'#f6ad55',boost:'#ecc94b',ai:'#fc8181',mega:'#38b2ac',quantum:'#b794f4',sing:'#ffffff'};
+const COLORS = {source:'#4fd1c5',upload:'#f6c453',split:'#9f7aea',compress:'#63b3ed',merge:'#f687b3',encrypt:'#68d391',clone:'#f6ad55',boost:'#ecc94b',ai:'#fc8181',mega:'#38b2ac',lab:'#76e4f7',quantum:'#b794f4',sing:'#ffffff'};
 
 const GLOBALS = [
   {id:'rev',  name:'Marketing',          desc:'+25 % de revenus par upload',          base:100, grow:2.1, max:60},
@@ -33,6 +34,17 @@ const PU = [
   {id:'rev',   name:'Amplificateur quantique', desc:'+25 % de revenus permanents', base:3, grow:2, max:10, eff:l=>'+'+l*25+' %'},
   {id:'auto',  name:'Ingénieur automatique', desc:'Améliore automatiquement tes nœuds',      base:10,grow:1, max:1,  eff:l=>l?'Actif':'—'},
 ];
+const TECH = [
+  {id:'trev', name:'Algorithmes de revenu',   desc:'+15 % de revenus par niveau',               base:20, grow:1.9, max:20, eff:l=>'+'+l*15+' %'},
+  {id:'tspd', name:'Architecture parallèle',  desc:'+8 % de vitesse par niveau',                base:25, grow:1.9, max:20, eff:l=>'+'+l*8+' %'},
+  {id:'tseed',name:'Formats optimisés',       desc:'+1 valeur de départ des Sources par niveau', base:35, grow:1.8, max:20, eff:l=>'+'+l},
+  {id:'tcost',name:'Économies d\'échelle',    desc:'-3 % sur le prix des nœuds par niveau',     base:40, grow:2.0, max:10, eff:l=>'-'+l*3+' %'},
+  {id:'tup',  name:'Maintenance prédictive',  desc:'-4 % sur le prix des améliorations',        base:50, grow:2.1, max:10, eff:l=>'-'+l*4+' %'},
+  {id:'tcrit',name:'Compression adaptative',  desc:'+2 % de chance d\'upload critique',         base:60, grow:2.0, max:10, eff:l=>'+'+l*2+' %'},
+  {id:'toc',  name:'Refroidissement liquide', desc:'Overclock +1 s de durée et -6 s de recharge', base:80, grow:1.8, max:10, eff:l=>'+'+l+' s / -'+l*6+' s'},
+  {id:'tlab', name:'Instruments de mesure',   desc:'+20 % de points de recherche par niveau',   base:30, grow:1.8, max:10, eff:l=>'+'+l*20+' %'},
+];
+const techCost = d => Math.ceil(d.base * Math.pow(d.grow, G.tech[d.id]));
 const startCash = l => l ? 500 * Math.pow(4, l-1) : 60;
 
 const ACH = [
@@ -52,6 +64,7 @@ const ACH = [
   {id:'a14',name:'Renaissance',      desc:'Fais un Reboot quantique',    t:()=>G.resets>=1},
   {id:'a15',name:'Habitué',          desc:'Fais 5 Reboots',              t:()=>G.resets>=5},
   {id:'a16',name:'Chanceux',         desc:'Attrape un fichier doré',     t:()=>G.golds>=1},
+  {id:'a18',name:'Chercheur',        desc:'Produis 500 points de recherche', t:()=>G.rpTotal>=500},
   {id:'a17',name:'Ingénieur',        desc:'Un nœud au niveau 20',        t:()=>G.nodes.some(n=>n.level>=19)},
 ];
 
@@ -64,7 +77,8 @@ function blankRun(g){
   g.view = {x:0,y:0,k:1};
 }
 function newGame(){
-  G = {lifetime:0, files:0, qp:0, qpTotal:0, resets:0, golds:0, playtime:0, lastRate:0, ach:{}, pu:{start:0,spd:0,disc:0,off:0,auto:0,rev:0}, obj:0, daily:'', oc:{until:0,ready:0}, mute:false, savedAt:Date.now()};
+  G = {rp:0, rpTotal:0, tech:{}, lifetime:0, files:0, qp:0, qpTotal:0, resets:0, golds:0, playtime:0, lastRate:0, ach:{}, pu:{start:0,spd:0,disc:0,off:0,auto:0,rev:0}, obj:0, daily:'', oc:{until:0,ready:0}, mute:false, savedAt:Date.now()};
+  for(const t of TECH) G.tech[t.id]=0;
   blankRun(G);
   addNode('source', -280, -40, true);
   addNode('upload', 180, -40, true);
@@ -78,16 +92,18 @@ function addNode(type,x,y,free){
 }
 const nodeById = id => G.nodes.find(n=>n.id===id);
 const achCount = () => Object.keys(G.ach).length;
-const buyCost = type => Math.ceil(DEFS[type].cost * Math.pow(1.18, G.bought[type]||0) * (1 - 0.05*G.pu.disc));
-const upCost = (n, lvl) => Math.ceil(DEFS[n.type].cost * 0.8 * Math.pow(1.55, lvl===undefined?n.level:lvl) + 10);
+const buyCost = type => Math.ceil(DEFS[type].cost * Math.pow(1.18, G.bought[type]||0) * (1 - 0.05*G.pu.disc) * (1 - 0.03*G.tech.tcost));
+const upCost = (n, lvl) => Math.ceil(DEFS[n.type].cost * 0.8 * Math.pow(1.55, lvl===undefined?n.level:lvl) * (1 - 0.04*G.tech.tup) + 10);
 const gUpCost = d => Math.ceil(d.base * Math.pow(d.grow, G.glob[d.id]));
 const puCost = d => Math.ceil(d.base * Math.pow(d.grow, G.pu[d.id]) * (d.grow===1?1:1));
-const speedOf = n => (1 + 0.3*n.level) * (1 + 0.1*G.glob.spd) * (1 + 0.1*G.pu.spd) * (ocActive()?2:1);
+const speedOf = n => (1 + 0.3*n.level) * (1 + 0.1*G.glob.spd) * (1 + 0.1*G.pu.spd) * (ocActive()?2:1) * (1 + 0.08*G.tech.tspd);
 const timeOf = n => DEFS[n.type].t / speedOf(n);
 const ocActive = () => G.playtime < G.oc.until;
 const bufCap = () => 3 + G.glob.buf;
-const revMult = () => (1 + 0.25*G.glob.rev) * (1 + 0.1*G.qpTotal) * (1 + 0.02*achCount()) * (1 + 0.25*G.pu.rev);
-const critChance = () => 0.03*G.glob.crit;
+const revMult = () => (1 + 0.25*G.glob.rev) * (1 + 0.1*G.qpTotal) * (1 + 0.02*achCount()) * (1 + 0.25*G.pu.rev) * (1 + 0.15*G.tech.trev);
+const critChance = () => 0.03*G.glob.crit + 0.02*G.tech.tcrit;
+const seedV = def => def.val + (G.glob.seed + G.tech.tseed)*(def.val>1?5:1);
+const rpOf = v => Math.sqrt(v)*0.2*(1+0.2*G.tech.tlab);
 const qpGain = () => Math.floor(Math.sqrt(G.run/3e5));
 
 // Géométrie 
@@ -153,7 +169,13 @@ function updateNode(n,dt){
   if(def.val){                                   // sources
     if(n.outq.length<2){
       n.timer += dt;
-      if(n.timer>=t){ n.timer=0; n.outq.push({v:def.val + G.glob.seed*(def.val>1?5:1), o:-1}); }
+      if(n.timer>=t){ n.timer=0; n.outq.push({v:seedV(def), o:-1}); }
+    }
+  } else if(n.type==='lab'){
+    if(!n.work && n.inb[0].length) n.work = {v:n.inb[0].shift(), rem:t};
+    if(n.work){
+      n.work.rem -= dt;
+      if(n.work.rem<=0){ const r=rpOf(n.work.v); G.rp+=r; G.rpTotal+=r; floatText(n.x+NW/2, n.y-4, '+'+fmt(r)+' RP', '#76e4f7', 13); n.work=null; }
     }
   } else if(n.type==='upload'){
     if(!n.work && n.inb[0].length) n.work = {v:n.inb[0].shift(), rem:t};
@@ -401,6 +423,8 @@ cv.addEventListener('wheel', e=>{
 },{passive:false});
 addEventListener('keydown', e=>{
   if(e.target.tagName==='TEXTAREA') return;
+  if(e.key==='o'||e.key==='O') useOverclock();
+  if(e.key==='f'||e.key==='F') fitView();
   if((e.key==='Delete'||e.key==='Backspace') && sel){ const n=nodeById(sel); if(n) sell(n); }
 });
 
@@ -464,12 +488,12 @@ function showSel(){
   if(!n){ box.style.display='none'; return; }
   const d = DEFS[n.type], t = timeOf(n);
   let extra;
-  if(d.val) extra = `1 fichier de valeur ${d.val + G.glob.seed*(d.val>1?5:1)} toutes les ${t.toFixed(2)} s.`;
+  if(d.val) extra = `1 fichier de valeur ${seedV(d)} toutes les ${t.toFixed(2)} s.`;
   else if(n.type==='upload') extra = `1 fichier toutes les ${t.toFixed(2)} s (revenus ×${revMult().toFixed(2)}).`;
   else extra = `${t.toFixed(2)} s par fichier.`;
   box.innerHTML = `<h3>${d.name} — niveau ${n.level+1}</h3><p>${d.desc}</p><p>${extra}</p>
     <div class="row"><button id="bu1"></button><button id="bu10"></button><button id="buM"></button></div>
-    <div class="row"><button id="bDis">Déconnecter</button><button id="bSell">Vendre +${fmt(Math.floor(buyCost(n.type)*0.4))}</button></div>`;
+    <div class="row"><button id="bDis">Déconnecter</button><button id="bDup">Dupliquer</button><button id="bSell">Vendre +${fmt(Math.floor(buyCost(n.type)*0.4))}</button></div>`;
   box.style.display='block';
   refreshSelButtons();
   $('bu1').onclick = ()=>upgradeNode(n,1);
@@ -477,6 +501,13 @@ function showSel(){
   $('buM').onclick = ()=>upgradeNode(n,maxAffordable(n));
   $('bDis').onclick = ()=>{ G.links = G.links.filter(l=>l.a!==n.id && l.b!==n.id); };
   $('bSell').onclick = ()=>sell(n);
+  $('bDup').onclick = ()=>{
+    const c = buyCost(n.type);
+    if(!unlocked(n.type)) return;
+    if(G.money<c){ toast('Pas assez de crédits'); return; }
+    G.money -= c; const m = addNode(n.type, n.x+20, n.y+NH+20); m.level = Math.max(0,n.level-2);
+    sel = m.id; showSel(); blip(520,0.08,0.05);
+  };
 }
 function refreshSelButtons(){
   const n = sel ? nodeById(sel) : null; if(!n || !$('bu1')) return;
@@ -488,7 +519,8 @@ function refreshSelButtons(){
 
 // panneau latéral à onglets
 let tab = null, tabSig = '';
-const TABS = [['up','Améliorations'],['qp','Quantique'],['ach','Succès'],['opt','Options']];
+const TABS = [['up','Amélio.'],['res','Recherche'],['qp','Quantique'],['ach','Succès'],['stat','Stats'],['opt','Options']];
+const hist = [];
 function openTab(t){
   if(tab===t){ tab=null; $('side').style.display='none'; return; }
   tab=t; $('side').style.display='flex'; renderTab();
@@ -525,6 +557,27 @@ function renderTab(){
       const d=PU.find(x=>x.id===b.dataset.p), c=puCost(d);
       if(G.qp>=c && G.pu[d.id]<d.max){ G.qp-=c; G.pu[d.id]++; renderTab(); }
     });
+  } else if(tab==='res'){
+    body.innerHTML = `<p>Les points de recherche (RP) sont produits par les <b>Laboratoires</b> à partir des fichiers qu'ils reçoivent. Les technologies sont <b>permanentes</b>, même après un Reboot.</p>
+      <div class="item"><div><b style="color:#76e4f7">${fmt(G.rp)} RP</b><p>Total produit : ${fmt(G.rpTotal)}</p></div></div>` +
+      TECH.map(d=>{
+        const lv=G.tech[d.id], max=lv>=d.max, c=techCost(d);
+        return `<div class="item"><div><b>${d.name}</b> <small>(${lv}/${d.max})</small><p>${d.desc}<br><span style="color:#76e4f7">${d.eff(lv)}</span></p></div>
+          <button data-r="${d.id}" ${max||G.rp<c?'disabled':''}>${max?'MAX':fmt(c)+' RP'}</button></div>`;
+      }).join('');
+    body.querySelectorAll('button[data-r]').forEach(b=>b.onclick=()=>{
+      const d=TECH.find(x=>x.id===b.dataset.r), c=techCost(d);
+      if(G.rp>=c && G.tech[d.id]<d.max){ G.rp-=c; G.tech[d.id]++; blip(780,0.1,0.06,'triangle'); renderTab(); showSel(); }
+    });
+  } else if(tab==='stat'){
+    body.innerHTML = `<p>Crédits par seconde sur les dernières minutes :</p><canvas id="spark" width="600" height="220" style="position:static;width:100%;height:110px;background:#0a0e16;border-radius:8px"></canvas>
+      <div class="item"><div>Crédits gagnés au total<p>${fmt(G.lifetime)}</p></div></div>
+      <div class="item"><div>Crédits gagnés dans ce run<p>${fmt(G.run)}</p></div></div>
+      <div class="item"><div>Fichiers uploadés<p>${fmt(G.files)}</p></div></div>
+      <div class="item"><div>Multiplicateur de revenus<p>x${revMult().toFixed(2)}</p></div></div>
+      <div class="item"><div>Nœuds posés<p>${G.nodes.length}</p></div></div>
+      <div class="item"><div>Temps de jeu<p>${Math.floor(G.playtime/3600)} h ${Math.floor(G.playtime/60)%60} min</p></div></div>`;
+    drawSpark();
   } else if(tab==='ach'){
     body.innerHTML = `<p>${achCount()}/${ACH.length} succès · chaque succès donne +2 % de revenus (actuellement +${achCount()*2} %).</p>` +
       ACH.map(a=>`<div class="item ${G.ach[a.id]?'done':'lock'}"><div><b>${G.ach[a.id]?'[OK]':'[ ]'} ${a.name}</b><p>${a.desc}</p></div></div>`).join('');
@@ -589,6 +642,8 @@ const OBJ = [
   {d:'Gagne 25 000 crédits au total',     p:()=>[G.lifetime,25e3],      r:4000},
   {d:'Atteins 200 crédits par seconde',   p:()=>[G.lastRate,200],       r:12000},
   {d:'Pose 15 nœuds',                     p:()=>[G.nodes.length,15],    r:30000},
+  {d:'Construis un Laboratoire',       p:()=>[G.nodes.filter(n=>n.type==='lab').length,1], r:6000},
+  {d:'Achète une technologie',            p:()=>[Object.values(G.tech).reduce((a,b)=>a+b,0),1], r:10000},
   {d:'Gagne 300 000 crédits dans un run', p:()=>[G.run,3e5],            r:80000},
   {d:'Fais ton premier Reboot quantique', p:()=>[G.resets,1],           r:1000},
   {d:'Atteins 5 points quantiques au total', p:()=>[G.qpTotal,5],       r:20000},
@@ -611,10 +666,23 @@ function updateObjHud(){
   el.innerHTML = `<small>Objectif ${G.obj+1}/${OBJ.length}  -  récompense ${fmt(o.r)}</small><div>${o.d}  <span>${fmt(Math.min(c,t))} / ${fmt(t)}</span></div><i style="width:${f*100}%"></i>`;
 }
 
+function drawSpark(){
+  const c=$('spark'); if(!c) return; const x=c.getContext('2d'), w=c.width, h=c.height;
+  x.clearRect(0,0,w,h);
+  if(hist.length<2){ x.fillStyle='#8794b3'; x.font='20px system-ui'; x.fillText('Collecte des données...',20,h/2); return; }
+  const mx=Math.max(...hist,1);
+  x.strokeStyle='#1f2a42'; x.lineWidth=1; for(let i=1;i<4;i++){ x.beginPath(); x.moveTo(0,h*i/4); x.lineTo(w,h*i/4); x.stroke(); }
+  x.beginPath(); hist.forEach((v,i)=>{ const px=i/(hist.length-1)*w, py=h-8-(v/mx)*(h-24); i?x.lineTo(px,py):x.moveTo(px,py); });
+  x.strokeStyle='#4fd1c5'; x.lineWidth=3; x.stroke();
+  x.lineTo(w,h); x.lineTo(0,h); x.closePath(); x.fillStyle='#4fd1c533'; x.fill();
+  x.fillStyle='#8794b3'; x.font='18px system-ui'; x.fillText('max '+fmt(mx)+' / s',8,18);
+}
+setInterval(()=>{ if(!G) return; hist.push(G.lastRate); if(hist.length>150) hist.shift(); if(tab==='stat') drawSpark(); }, 2000);
+
 // Overclock, vue, minimap
 function useOverclock(){
   if(G.playtime < G.oc.ready) { toast('Overclock en recharge'); return; }
-  G.oc.until = G.playtime + 15; G.oc.ready = G.playtime + 90;
+  G.oc.until = G.playtime + 15 + G.tech.toc; G.oc.ready = G.playtime + Math.max(30, 90 - 6*G.tech.toc);
   blip(300,0.4,0.08,'sawtooth'); toast('Overclock : vitesse x2 pendant 15 s');
 }
 function fitView(){
@@ -653,8 +721,9 @@ $('bFit').onclick = fitView;
 const KEY = 'uploadlab2';
 function serialize(){ G.savedAt = Date.now(); return JSON.parse(JSON.stringify(G, (k,v)=> k==='packets' ? [] : v)); }
 function hydrate(d){
-  const g = Object.assign({obj:0,daily:'',oc:{until:0,ready:0},lifetime:0,files:0,qp:0,qpTotal:0,resets:0,golds:0,playtime:0,lastRate:0,mute:false,savedAt:Date.now()}, d);
-  g.ach = g.ach||{};
+  const g = Object.assign({rp:0,rpTotal:0,obj:0,daily:'',oc:{until:0,ready:0},lifetime:0,files:0,qp:0,qpTotal:0,resets:0,golds:0,playtime:0,lastRate:0,mute:false,savedAt:Date.now()}, d);
+  g.ach = g.ach||{}; g.tech = g.tech||{};
+  for(const t of TECH) g.tech[t.id] = g.tech[t.id]||0;
   g.pu = Object.assign({start:0,spd:0,disc:0,off:0,auto:0,rev:0}, g.pu);
   g.glob = Object.assign({rev:0,spd:0,seed:0,buf:0,crit:0}, g.glob);
   g.nodes = (g.nodes||[]).filter(n=>DEFS[n.type]);
@@ -734,8 +803,8 @@ function loop(now){
     else if(G.playtime<G.oc.ready) oc.textContent='Overclock : '+Math.ceil(G.oc.ready-G.playtime)+' s';
     else oc.textContent='Overclock';
     oc.disabled = !ocActive() && G.playtime<G.oc.ready; oc.classList.toggle('glow', !oc.disabled && !ocActive());
-    if(tab==='up' || tab==='qp'){
-      const sig = tab+GLOBALS.map(g=>G.money>=gUpCost(g)).join()+PU.map(d=>G.qp>=puCost(d)).join()+qpGain();
+    if(tab==='up' || tab==='qp' || tab==='res'){
+      const sig = tab+GLOBALS.map(g=>G.money>=gUpCost(g)).join()+PU.map(d=>G.qp>=puCost(d)).join()+qpGain()+TECH.map(d=>G.rp>=techCost(d)).join();
       if(sig!==tabSig){ tabSig=sig; renderTab(); }
     }
     const h=hintText(); $('hint').style.display=h?'block':'none'; $('hint').textContent=h;

@@ -54,3 +54,6 @@ textarea{width:100%;height:70px;background:#0a0e16;color:var(--txt);border:1px s
 #dlg{position:absolute;inset:0;background:#000a;display:none;align-items:center;justify-content:center;z-index:20}
 .box2{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;width:min(360px,90vw)}
 .box2 p{margin:0 0 10px;font-size:14px;line-height:1.4}
+
+#tabs{flex-wrap:wrap}
+#tabs button{flex:1 0 30%}
