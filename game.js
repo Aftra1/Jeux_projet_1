@@ -533,8 +533,8 @@ function endPointer(e){
 }
 cv.addEventListener('pointerup', endPointer);
 cv.addEventListener('pointercancel', endPointer);
-cv.addEventListener('dblclick', e=>{ const l=findLink(toWorld(e.clientX,e.clientY)); if(l) G.links=G.links.filter(x=>x!==l); });
-cv.addEventListener('contextmenu', e=>{ e.preventDefault(); const l=findLink(toWorld(e.clientX,e.clientY)); if(l) G.links=G.links.filter(x=>x!==l); });
+cv.addEventListener('dblclick', e=>{ const l=findLink(toWorld(e.clientX,e.clientY)); if(l) dropLink(l); });
+cv.addEventListener('contextmenu', e=>{ e.preventDefault(); const l=findLink(toWorld(e.clientX,e.clientY)); if(l) dropLink(l); });
 cv.addEventListener('wheel', e=>{
   e.preventDefault();
   const base = zoomT ? zoomT.k : G.view.k;
@@ -543,6 +543,7 @@ cv.addEventListener('wheel', e=>{
 },{passive:false});
 addEventListener('keydown', e=>{
   if(e.target.tagName==='TEXTAREA') return;
+  if((e.ctrlKey||e.metaKey) && (e.key==='z'||e.key==='Z')){ e.preventDefault(); undo(); return; }
   if(e.key==='o'||e.key==='O') useOverclock();
   if(e.key==='f'||e.key==='F') fitView();
   if((e.key==='u'||e.key==='U') && sel){ const n=nodeById(sel); if(n) upgradeNode(n, e.shiftKey?1000:1); }
@@ -595,9 +596,28 @@ function refreshShop(){
     }
   }
 }
+const undoStack = [];
+function pushUndo(u){ undoStack.push(u); if(undoStack.length>20) undoStack.shift(); }
 function sell(n){
-  G.money += Math.floor(buyCost(n.type)*0.4);
+  const refund = Math.floor(buyCost(n.type)*0.4);
+  pushUndo({node:n, links:G.links.filter(l=>l.a===n.id||l.b===n.id), refund});
+  G.money += refund;
   removeNode(n); sel=null; showSel();
+}
+function dropLink(l){ pushUndo({links:[l]}); G.links = G.links.filter(x=>x!==l); }
+function undo(){
+  const u = undoStack.pop();
+  if(!u){ toast('Rien à annuler'); return; }
+  if(u.node){
+    if(G.money<u.refund){ undoStack.push(u); toast('Pas assez de crédits pour annuler'); return; }
+    G.money -= u.refund; G.nodes.push(u.node);
+  }
+  for(const l of u.links){
+    if(!nodeById(l.a) || !nodeById(l.b)) continue;
+    G.links = G.links.filter(x=>!(x.a===l.a&&x.ao===l.ao) && !(x.b===l.b&&x.bi===l.bi));
+    G.links.push({a:l.a,ao:l.ao,b:l.b,bi:l.bi,packets:[]});
+  }
+  blip(500,0.08,0.05,'triangle'); toast('Action annulée');
 }
 function upgradeNode(n,count){
   let done=0;
@@ -721,7 +741,7 @@ function renderTab(){
       <div class="row"><button id="oReset" style="color:var(--bad)">Tout effacer</button></div>
       <p>Temps de jeu : ${Math.floor(G.playtime/3600)} h ${Math.floor(G.playtime/60)%60} min · Crédits gagnés au total : ${fmt(G.lifetime)}</p>
       <p>Astuces : double-clic / clic droit sur un lien pour le supprimer · molette ou pincement pour zoomer · Suppr pour vendre un nœud.</p>
-      <p>Raccourcis (nœud sélectionné) : D duplique · U améliore d'un niveau · Maj+U améliore au maximum · Suppr vend.</p>`;
+      <p>Raccourcis (nœud sélectionné) : D duplique · U améliore d'un niveau · Maj+U améliore au maximum · Suppr vend · Ctrl+Z annule une vente ou une suppression de lien.</p>`;
     $('oMute').onclick = ()=>{ G.mute=!G.mute; renderTab(); };
     $('oExp').onclick = ()=>{ save(); $('oTxt').value = btoa(unescape(encodeURIComponent(JSON.stringify(serialize())))); $('oTxt').select(); };
     $('oImp').onclick = ()=>{
