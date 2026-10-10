@@ -10,6 +10,7 @@ const DEFS = {
   encrypt: {name:'Chiffreur',     icon:'ENC', ins:1, outs:1, cost:300,   t:3.0,  mult:3,   unlock:200, desc:'Triple la valeur d\'un fichier.'},
   boost:   {name:'Amplificateur',  icon:'AMP', ins:1, outs:1, cost:500,   t:0.4,  mult:1.5, unlock:400, desc:'Valeur x1,5, très rapide. Idéal en fin de chaîne.'},
   clone:   {name:'Clonage',       icon:'CLN', ins:1, outs:2, cost:900,   t:1.2,  unlock:600,         desc:'Duplique un fichier sur les deux sorties.'},
+  sorter:  {name:'Trieur',        icon:'TRI', ins:1, outs:2, cost:1200,  t:0.15, unlock:800,         desc:'Envoie les gros fichiers (valeur au-dessus du seuil) vers la sortie du haut, les autres vers le bas.'},
   ai:      {name:'Analyseur IA',  icon:'IA', ins:1, outs:1, cost:2000,  t:6.0,  mult:5,   unlock:1500, desc:'Valeur ×5. Lent mais puissant.'},
   lab:     {name:'Laboratoire',   icon:'LAB', ins:3, outs:0, cost:2500,  t:1.5,  unlock:2000, desc:'Absorbe les fichiers et produit des points de recherche. 3 entrées.'},
   mega:    {name:'Super Source',  icon:'SRC+', ins:0, outs:1, cost:6000,  t:3.0,  val:10,   unlock:4000, desc:'Génère des fichiers de valeur 10.'},
@@ -20,7 +21,7 @@ const DEFS = {
   omega:   {name:'Oméga',         icon:'OMG', ins:1, outs:1, cost:3.5e11,t:360.0,mult:20,  unlock:1e11, needRs:11, desc:'Valeur ×20. Le sommet, après 11 Reboots.'},
 };
 const ORDER = Object.keys(DEFS);
-const COLORS = {source:'#4fd1c5',upload:'#f6c453',split:'#9f7aea',compress:'#63b3ed',merge:'#f687b3',encrypt:'#68d391',clone:'#f6ad55',boost:'#ecc94b',ai:'#fc8181',mega:'#38b2ac',lab:'#76e4f7',quantum:'#b794f4',sing:'#ffffff',neural:'#f56565',dim:'#ed64a6',omega:'#faf089'};
+const COLORS = {source:'#4fd1c5',upload:'#f6c453',split:'#9f7aea',compress:'#63b3ed',merge:'#f687b3',encrypt:'#68d391',clone:'#f6ad55',sorter:'#a3e635',boost:'#ecc94b',ai:'#fc8181',mega:'#38b2ac',lab:'#76e4f7',quantum:'#b794f4',sing:'#ffffff',neural:'#f56565',dim:'#ed64a6',omega:'#faf089'};
 
 const GLOBALS = [
   {id:'rev',  name:'Marketing',          desc:'+25 % de revenus par upload',          base:100, grow:2.1, max:40},
@@ -168,10 +169,11 @@ function trySend(n){
     const last = l.packets[l.packets.length-1];
     if(!last || last.t > 0.18){
       l.packets.push({v:q.v,t:0}); n.outq.shift();
-      if(q.o<0 && d.outs===2) n.rr = o+1;
+      if(q.o<0 && d.outs===2 && n.type!=='sorter') n.rr = o+1;
       return;
     }
   }
+  if(q.o>=0 && n.type==='sorter' && !linkFrom(n.id,q.o) && linkFrom(n.id,1-q.o)){ q.o = 1-q.o; return; }   // le trieur se rabat sur l'autre sortie
   if(q.o>=0 && !linkFrom(n.id,q.o)) n.outq.shift();   // sortie non branchée du clonage : le fichier est perdu
 }
 
@@ -218,6 +220,7 @@ function updateNode(n,dt){
       n.work.rem -= dt;
       if(n.work.rem<=0){
         if(n.type==='clone') n.outq.push({v:n.work.v,o:0},{v:n.work.v,o:1});
+        else if(n.type==='sorter') n.outq.push({v:n.work.v,o:n.work.v>=(n.thr||10)?0:1});
         else n.outq.push({v:n.work.v,o:-1});
         n.work=null;
       }
@@ -614,10 +617,12 @@ function showSel(){
   let extra;
   if(d.val) extra = `1 fichier de valeur ${seedV(d)} toutes les ${t.toFixed(2)} s.`;
   else if(n.type==='upload') extra = `1 fichier toutes les ${t.toFixed(2)} s (revenus ×${revMult().toFixed(2)}).`;
+  else if(n.type==='sorter') extra = `Seuil : valeur ≥ ${fmt(n.thr||10)} vers le haut, le reste vers le bas.`;
   else extra = `${t.toFixed(2)} s par fichier.`;
   box.innerHTML = `<h3>${d.name} — niveau ${n.level+1}</h3><p>${d.desc}</p><p>${extra}</p>
     <div class="row"><button id="bu1"></button><button id="bu10"></button><button id="buM"></button></div>
-    <div class="row"><button id="bDis">Déconnecter</button><button id="bDup">Dupliquer</button><button id="bSell">Vendre +${fmt(Math.floor(buyCost(n.type)*0.4))}</button></div>`;
+    <div class="row"><button id="bDis">Déconnecter</button><button id="bDup">Dupliquer</button><button id="bSell">Vendre +${fmt(Math.floor(buyCost(n.type)*0.4))}</button></div>
+    ${n.type==='sorter'?'<div class="row"><button id="bThrD">Seuil ÷2</button><button id="bThrU">Seuil ×2</button></div>':''}`;
   box.style.display='block';
   refreshSelButtons();
   $('bu1').onclick = ()=>upgradeNode(n,1);
@@ -625,6 +630,10 @@ function showSel(){
   $('buM').onclick = ()=>upgradeNode(n,maxAffordable(n));
   $('bDis').onclick = ()=>{ G.links = G.links.filter(l=>l.a!==n.id && l.b!==n.id); };
   $('bSell').onclick = ()=>sell(n);
+  if(n.type==='sorter'){
+    $('bThrD').onclick = ()=>{ n.thr = Math.max(1,(n.thr||10)/2); showSel(); };
+    $('bThrU').onclick = ()=>{ n.thr = (n.thr||10)*2; showSel(); };
+  }
   $('bDup').onclick = ()=>{
     const c = buyCost(n.type);
     if(!unlocked(n.type)) return;
