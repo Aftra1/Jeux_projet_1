@@ -541,6 +541,13 @@ cv.addEventListener('wheel', e=>{
   const step = Math.exp(-Math.max(-300,Math.min(300,e.deltaY))*0.0022);
   zoomAt(e.clientX, e.clientY, base*step);
 },{passive:false});
+const shopEl = document.getElementById('shop');
+shopEl.addEventListener('wheel', e=>{
+  if(shopEl.scrollWidth<=shopEl.clientWidth) return;
+  const d = Math.abs(e.deltaX)>Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+  e.preventDefault();
+  shopEl.scrollLeft += e.deltaMode===1 ? d*32 : d;
+},{passive:false});
 addEventListener('keydown', e=>{
   if(e.target.tagName==='TEXTAREA') return;
   if((e.ctrlKey||e.metaKey) && (e.key==='z'||e.key==='Z')){ e.preventDefault(); undo(); return; }
