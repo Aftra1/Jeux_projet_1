@@ -3,7 +3,7 @@
 const NW = 160, NH = 70;
 const DEFS = {
   source:  {name:'Source',        icon:'SRC', ins:0, outs:1, cost:15,    t:1.0,  val:1,    unlock:0,   desc:'Génère un fichier de valeur 1.'},
-  upload:  {name:'Upload',        icon:'UP', ins:1, outs:0, cost:20,    t:0.6,  unlock:0,           desc:'Envoie les fichiers vers le cloud et rapporte des crédits.'},
+  upload:  {name:'Upload',        icon:'UP', ins:3, outs:0, cost:20,    t:0.6,  unlock:0,           desc:'Envoie les fichiers vers le cloud et rapporte des crédits. 3 entrées.'},
   compress:{name:'Compresseur',   icon:'CMP', ins:1, outs:1, cost:40,    t:0.8,  mult:2,   unlock:0, desc:'Double la valeur d\'un fichier.'},
   split:   {name:'Diviseur',      icon:'DIV', ins:1, outs:2, cost:60,    t:0.2,  unlock:20,          desc:'Répartit les fichiers sur deux sorties, en alternance.'},
   merge:   {name:'Fusion',        icon:'FUS', ins:2, outs:1, cost:140,   t:1.0,  unlock:100,         desc:'Fusionne 2 fichiers : (a + b) × 1,3.'},
@@ -189,7 +189,12 @@ function updateNode(n,dt){
       if(n.work.rem<=0){ const r=rpOf(n.work.v); G.rp+=r; G.rpTotal+=r; floatText(n.x+NW/2, n.y-4, '+'+fmt(r)+' RP', '#76e4f7', 13); n.work=null; }
     }
   } else if(n.type==='upload'){
-    if(!n.work && n.inb[0].length) n.work = {v:n.inb[0].shift(), rem:t};
+    if(!n.work){
+      for(let k=0;k<n.inb.length;k++){
+        const i=(n.rr+k)%n.inb.length;
+        if(n.inb[i].length){ n.work = {v:n.inb[i].shift(), rem:t}; n.rr=i+1; break; }
+      }
+    }
     if(n.work){
       n.work.rem -= dt;
       if(n.work.rem<=0){
