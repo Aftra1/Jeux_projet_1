@@ -1,0 +1,86 @@
+// Bot d'équilibrage : joue le jeu en accéléré (appelé via Playwright, voir tools/balance.js)
+// Il choisit chaque achat au meilleur retour sur investissement estimé.
+window.runBot = function(hours, opt){
+  const unlockedB = unlocked;
+  opt = opt || {};
+  const log = [], lines = [];
+  let t = 0, lastRun = G.run, rebootAt = 0, labBuilt = false, lastBuild = -999;
+  const MULT = {}; for(const k in DEFS) if(DEFS[k].mult) MULT[k]=DEFS[k].mult; MULT.boost=1.5;
+  const spdM = (g) => (1+0.1*(g?g.spd:G.glob.spd))*(1+0.05*G.pu.spd)*(1+0.04*G.tech.tspd);
+  const revM = (g) => (1+0.25*(g?g.rev:G.glob.rev))*qpMult(G.qpTotal)*(1+0.02*achCount())*(1+0.1*G.pu.rev)*(1+0.08*G.tech.trev);
+  const critM = (g) => 1 + 4*(0.03*(g?g.crit:G.glob.crit)+0.02*G.tech.tcrit);
+  // revenu/s d'une ligne décrite par [{type, level}]
+  function inc(spec, g){
+    const sm = spdM(g); let thr = 1e9, val = 1;
+    for(const s of spec){
+      const d = DEFS[s.type]; thr = Math.min(thr, (1+0.3*s.level)*sm/d.t);
+      if(d.val) val = d.val*(1+0.2*(g?g.seed:G.glob.seed))*(1+0.08*G.tech.tseed);
+      else if(MULT[s.type]) val *= MULT[s.type];
+    }
+    return thr*val*revM(g)*critM(g);
+  }
+  const specOf = l => l.nodes.map(n=>({type:n.type, level:n.level}));
+  function newTypes(kind){
+    const ty = [unlockedB('mega')&&kind!=='lab' ? 'mega':'source','compress'];
+    for(const x of ['boost','encrypt','ai','quantum','sing','neural','dim','omega']) if(unlockedB(x)) ty.push(x);
+    ty.push(kind==='lab' ? 'lab' : 'upload'); return ty;
+  }
+  function lineCost(types){ let c=0; const cnt={}; for(const ty of types){ c+=Math.ceil(CS*DEFS[ty].cost*Math.pow(BG,(G.bought[ty]||0)+(cnt[ty]||0))*(1-0.05*G.pu.disc)*(1-0.02*G.tech.tcost)); cnt[ty]=(cnt[ty]||0)+1; } return c; }
+  function make(types){
+    const nodes=[]; let prev=null;
+    for(const ty of types){ const n=addNode(ty,0,0); if(prev) connect(prev.id,0,n.id,0); nodes.push(n); prev=n; }
+    lines.push({nodes});
+  }
+  function resetBoard(){ lines.length=0; labBuilt=false; if(G.nodes.length>=2){ connect(G.nodes[0].id,0,G.nodes[1].id,0); lines.push({nodes:[G.nodes[0],G.nodes[1]]}); } }
+  function doReboot(){
+    const g=qpGain(); G.qp+=g; G.qpTotal+=g; G.resets++; blankRun(G);
+    addNode('source',0,0,true); addNode('upload',0,0,true); resetBoard();
+    for(let k=0;k<60;k++){ const d=PU.filter(x=>G.pu[x.id]<x.max && puCost(x)<=G.qp).sort((a,b)=>puCost(a)-puCost(b))[0]; if(!d) break; G.qp-=puCost(d); G.pu[d.id]++; }
+    if(G.pu.start) G.money = startCash(G.pu.start);
+  }
+  resetBoard();
+  const dt=0.1, per=50, total=Math.floor(hours*3600/dt);
+  let acc=0;
+  for(let i=0;i<total;i++){
+    step(dt); t+=dt; acc++;
+    if(acc<per) continue;
+    acc=0;
+    G.lastRate=(G.run-lastRun)/(per*dt); lastRun=G.run;
+    checkObj(); checkAch(); lastRun=G.run;
+    const gn=qpGain();
+    if(gn>=Math.max(1,Math.ceil(G.qpTotal*(opt.rebootRatio||1))) && t-rebootAt>(opt.minRun||600)){
+      log.push({t:Math.round(t/60),ev:'reboot',rev:+revMult().toFixed(1),tech:Object.values(G.tech).join(','),pu:Object.values(G.pu).join(','),glob:Object.values(G.glob).join(','),types:G.nodes.map(n=>n.type[0]+n.type[1]+n.level).join(' ').slice(0,260),run:fmt(G.run),gain:gn,qpTotal:G.qpTotal+gn,nodes:G.nodes.length,rate:fmt(G.lastRate)});
+      doReboot(); rebootAt=t; continue;
+    }
+    for(let k=0;k<10;k++){
+      const total0 = lines.reduce((s,l)=>s+inc(specOf(l)),0);
+      const c=[];
+      for(const l of lines){ const sp=specOf(l), base=inc(sp);
+        l.nodes.forEach((n,idx)=>{ const s2=sp.map((x,j)=>j===idx?{type:x.type,level:x.level+1}:x); const gain=inc(s2)-base; if(gain>0) c.push({cost:upCost(n),gain,f:()=>{G.money-=upCost(n); n.level++;}}); });
+      }
+      for(const gl of GLOBALS){ if(G.glob[gl.id]>=gl.max) continue;
+        const g2=Object.assign({},G.glob); g2[gl.id]++;
+        const gain = gl.id==='buf' ? 0 : lines.reduce((s,l)=>s+inc(specOf(l),g2),0)-total0;
+        if(gain>0) c.push({cost:gUpCost(gl),gain,f:()=>{G.money-=gUpCost(gl); G.glob[gl.id]++;}});
+      }
+      if(lines.length<(opt.maxLines||12) && t-lastBuild>20){
+        const full=newTypes();
+        for(const head of (unlockedB('mega')?['source','mega']:['source'])) for(let k=2;k<full.length;k++){ const ty=[head].concat(full.slice(1,k),['upload']), lc=lineCost(ty); const gain=inc(ty.map(x=>({type:x,level:0}))); c.push({cost:lc,gain,f:()=>{G.money-=lc; make(ty); lastBuild=t;}}); }
+      }
+      if(unlockedB('lab') && !labBuilt && t-lastBuild>20){ const ty=newTypes('lab'), lc=lineCost(ty); c.push({cost:lc,gain:0.1*inc(ty.slice(0,-1).concat(['upload']).map(x=>({type:x,level:0}))),f:()=>{G.money-=lc; make(ty); labBuilt=true; lastBuild=t;}}); }
+      c.sort((a,b)=>a.cost/a.gain-b.cost/b.gain);
+      const best=c[0]; if(!best) break;
+      if(G.money<best.cost){
+        const wait=(best.cost-G.money)/Math.max(total0*1.0,1);
+        if(wait<(opt.patience||900) || !c.some(x=>x.cost<=G.money)) break;   // on économise pour le meilleur achat s'il est proche
+        const aff=c.find(x=>x.cost<=G.money); aff.f(); continue;
+      }
+      if(opt.trace && t>=opt.trace[0] && t<=opt.trace[1]) log.push({t:Math.round(t),money:fmt(G.money),run:fmt(G.run),buy:fmt(best.cost),gain:fmt(best.gain),rate:fmt(G.lastRate)});
+      best.f();
+    }
+    for(let k=0;k<50;k++){ const d=TECH.filter(x=>G.tech[x.id]<x.max && techCost(x)<=G.rp).sort((a,b)=>techCost(a)-techCost(b))[0]; if(!d) break; G.rp-=techCost(d); G.tech[d.id]++; }
+    if(opt.mark && opt.mark.includes(Math.round(t/60)) && Math.abs(t%60)<5) log.push({t:Math.round(t/60),run:fmt(G.run),life:fmt(G.lifetime),rate:fmt(G.lastRate),nodes:G.nodes.length,qpT:G.qpTotal,rp:fmt(G.rpTotal),obj:G.obj});
+  }
+  log.push({end:true,t:Math.round(t/60),run:fmt(G.run),life:fmt(G.lifetime),rate:fmt(G.lastRate),qpT:G.qpTotal,resets:G.resets,rp:fmt(G.rpTotal),obj:G.obj,nodes:G.nodes.length});
+  return log;
+};

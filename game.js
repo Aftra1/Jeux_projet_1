@@ -13,39 +13,42 @@ const DEFS = {
   ai:      {name:'Analyseur IA',  icon:'IA', ins:1, outs:1, cost:2000,  t:7.0,  mult:8,   unlock:1500, desc:'Valeur ×8. Lent mais puissant.'},
   lab:     {name:'Laboratoire',   icon:'LAB', ins:1, outs:0, cost:8000,  t:1.5,  unlock:5000, desc:'Absorbe les fichiers et produit des points de recherche.'},
   mega:    {name:'Super Source',  icon:'SRC+', ins:0, outs:1, cost:6000,  t:3.0,  val:25,   unlock:4000, desc:'Génère des fichiers de valeur 25.'},
-  quantum: {name:'Quantique',     icon:'QNT', ins:1, outs:1, cost:40000, t:14.0, mult:40,  unlock:25000, desc:'Valeur ×40. Très lent, très puissant.'},
-  sing:    {name:'Singularité',   icon:'SNG', ins:1, outs:1, cost:3e6,   t:40.0, mult:1000, unlock:2e6, needQp:1, desc:'Valeur ×1000. Réservé aux joueurs ayant fait un Reboot.'},
+  quantum: {name:'Quantique',     icon:'QNT', ins:1, outs:1, cost:40000, t:14.0, mult:18,  unlock:25000, desc:'Valeur ×18. Très lent, très puissant.'},
+  sing:    {name:'Singularité',   icon:'SNG', ins:1, outs:1, cost:4e6,   t:40.0, mult:100, unlock:2e6, needQp:1, desc:'Valeur ×100. Réservé aux joueurs ayant fait un Reboot.'},
+  neural:  {name:'Réseau neuronal',icon:'NET', ins:1, outs:1, cost:6e8,   t:90.0, mult:90,  unlock:5e9,   desc:'Valeur ×90. Extrêmement lent.'},
+  dim:     {name:'Dimension',     icon:'DIM', ins:1, outs:1, cost:1e12,  t:200.0,mult:900, unlock:2e13,  desc:'Valeur ×900. Pour les très gros réseaux.'},
+  omega:   {name:'Oméga',         icon:'OMG', ins:1, outs:1, cost:1e16,  t:400.0,mult:4000,  unlock:1e17,  desc:'Valeur ×4 000. Le sommet de la chaîne.'},
 };
 const ORDER = Object.keys(DEFS);
-const COLORS = {source:'#4fd1c5',upload:'#f6c453',split:'#9f7aea',compress:'#63b3ed',merge:'#f687b3',encrypt:'#68d391',clone:'#f6ad55',boost:'#ecc94b',ai:'#fc8181',mega:'#38b2ac',lab:'#76e4f7',quantum:'#b794f4',sing:'#ffffff'};
+const COLORS = {source:'#4fd1c5',upload:'#f6c453',split:'#9f7aea',compress:'#63b3ed',merge:'#f687b3',encrypt:'#68d391',clone:'#f6ad55',boost:'#ecc94b',ai:'#fc8181',mega:'#38b2ac',lab:'#76e4f7',quantum:'#b794f4',sing:'#ffffff',neural:'#f56565',dim:'#ed64a6',omega:'#faf089'};
 
 const GLOBALS = [
-  {id:'rev',  name:'Marketing',          desc:'+25 % de revenus par upload',          base:100, grow:2.1, max:60},
-  {id:'spd',  name:'Fibre optique',      desc:'+10 % de vitesse partout',             base:250, grow:2.4, max:40},
-  {id:'seed', name:'Meilleurs capteurs', desc:'+1 valeur de départ des Sources',      base:500, grow:2.8, max:40},
+  {id:'rev',  name:'Marketing',          desc:'+25 % de revenus par upload',          base:100, grow:2.1, max:40},
+  {id:'spd',  name:'Fibre optique',      desc:'+10 % de vitesse partout',             base:250, grow:2.4, max:30},
+  {id:'seed', name:'Meilleurs capteurs', desc:'+20 % de valeur des fichiers produits par les Sources',      base:500, grow:2.8, max:20},
   {id:'buf',  name:'Mémoire tampon',     desc:'+1 capacité des files d\'attente',     base:400, grow:2.4, max:6},
   {id:'crit', name:'Upload chanceux',    desc:'+3 % de chance d\'upload ×5',          base:1500,grow:2.6, max:15},
 ];
 const PU = [
   {id:'start', name:'Capital de départ',     desc:'Démarre chaque run avec plus de crédits', base:1, grow:2, max:8, eff:l=>'Crédits de départ : '+fmt(startCash(l))},
-  {id:'spd',   name:'Surcadençage',          desc:'+10 % de vitesse permanente',             base:1, grow:2, max:10, eff:l=>'+'+l*10+' %'},
+  {id:'spd',   name:'Surcadençage',          desc:'+5 % de vitesse permanente',             base:1, grow:2, max:10, eff:l=>'+'+l*5+' %'},
   {id:'disc',  name:'Négociation',           desc:'5 % sur le prix des nœuds',              base:2, grow:2, max:6,  eff:l=>''+l*5+' %'},
   {id:'off',   name:'Serveurs de nuit',      desc:'+10 % de gains hors-ligne (base 50 %)',   base:2, grow:2, max:5,  eff:l=>(50+l*10)+' %'},
-  {id:'rev',   name:'Amplificateur quantique', desc:'+25 % de revenus permanents', base:3, grow:2, max:10, eff:l=>'+'+l*25+' %'},
+  {id:'rev',   name:'Amplificateur quantique', desc:'+10 % de revenus permanents', base:3, grow:2, max:10, eff:l=>'+'+l*10+' %'},
   {id:'auto',  name:'Ingénieur automatique', desc:'Améliore automatiquement tes nœuds',      base:10,grow:1, max:1,  eff:l=>l?'Actif':'—'},
 ];
 const TECH = [
-  {id:'trev', name:'Algorithmes de revenu',   desc:'+15 % de revenus par niveau',               base:20, grow:1.9, max:20, eff:l=>'+'+l*15+' %'},
-  {id:'tspd', name:'Architecture parallèle',  desc:'+8 % de vitesse par niveau',                base:25, grow:1.9, max:20, eff:l=>'+'+l*8+' %'},
-  {id:'tseed',name:'Formats optimisés',       desc:'+1 valeur de départ des Sources par niveau', base:35, grow:1.8, max:20, eff:l=>'+'+l},
-  {id:'tcost',name:'Économies d\'échelle',    desc:'-3 % sur le prix des nœuds par niveau',     base:40, grow:2.0, max:10, eff:l=>'-'+l*3+' %'},
-  {id:'tup',  name:'Maintenance prédictive',  desc:'-4 % sur le prix des améliorations',        base:50, grow:2.1, max:10, eff:l=>'-'+l*4+' %'},
+  {id:'trev', name:'Algorithmes de revenu',   desc:'+8 % de revenus par niveau',                base:20, grow:1.9, max:15, eff:l=>'+'+l*8+' %'},
+  {id:'tspd', name:'Architecture parallèle',  desc:'+4 % de vitesse par niveau',                base:25, grow:1.9, max:15, eff:l=>'+'+l*4+' %'},
+  {id:'tseed',name:'Formats optimisés',       desc:'+8 % de valeur des fichiers des Sources par niveau', base:35, grow:1.8, max:15, eff:l=>'+'+l*8+' %'},
+  {id:'tcost',name:'Économies d\'échelle',    desc:'-2 % sur le prix des nœuds par niveau',     base:40, grow:2.0, max:10, eff:l=>'-'+l*2+' %'},
+  {id:'tup',  name:'Maintenance prédictive',  desc:'-3 % sur le prix des améliorations',        base:50, grow:2.1, max:10, eff:l=>'-'+l*3+' %'},
   {id:'tcrit',name:'Compression adaptative',  desc:'+2 % de chance d\'upload critique',         base:60, grow:2.0, max:10, eff:l=>'+'+l*2+' %'},
   {id:'toc',  name:'Refroidissement liquide', desc:'Overclock +1 s de durée et -6 s de recharge', base:80, grow:1.8, max:10, eff:l=>'+'+l+' s / -'+l*6+' s'},
   {id:'tlab', name:'Instruments de mesure',   desc:'+20 % de points de recherche par niveau',   base:30, grow:1.8, max:10, eff:l=>'+'+l*20+' %'},
 ];
 const techCost = d => Math.ceil(d.base * Math.pow(d.grow, G.tech[d.id]));
-const startCash = l => l ? 500 * Math.pow(4, l-1) : 60;
+const startCash = l => 100 + 150 * l * l;
 
 const ACH = [
   {id:'a1', name:'Premier upload',   desc:'Uploade 1 fichier',           t:()=>G.files>=1},
@@ -92,19 +95,22 @@ function addNode(type,x,y,free){
 }
 const nodeById = id => G.nodes.find(n=>n.id===id);
 const achCount = () => Object.keys(G.ach).length;
-const buyCost = type => Math.ceil(DEFS[type].cost * Math.pow(1.18, G.bought[type]||0) * (1 - 0.05*G.pu.disc) * (1 - 0.03*G.tech.tcost));
-const upCost = (n, lvl) => Math.ceil(DEFS[n.type].cost * 0.8 * Math.pow(1.55, lvl===undefined?n.level:lvl) * (1 - 0.04*G.tech.tup) + 10);
-const gUpCost = d => Math.ceil(d.base * Math.pow(d.grow, G.glob[d.id]));
+const qpMult = q => Math.pow(1 + q, 0.6);   // bonus de revenus des points quantiques (sous-linéaire)
+const BG = 1.25;   // croissance du prix par exemplaire déjà acheté
+const CS = 3;   // échelle globale des prix (équilibrage)
+const buyCost = type => Math.ceil(CS * DEFS[type].cost * Math.pow(BG, G.bought[type]||0) * (1 - 0.05*G.pu.disc) * (1 - 0.02*G.tech.tcost));
+const upCost = (n, lvl) => Math.ceil(CS * DEFS[n.type].cost * 0.8 * Math.pow(1.55, lvl===undefined?n.level:lvl) * (1 - 0.03*G.tech.tup) + 10);
+const gUpCost = d => Math.ceil(CS * d.base * Math.pow(d.grow, G.glob[d.id]));
 const puCost = d => Math.ceil(d.base * Math.pow(d.grow, G.pu[d.id]) * (d.grow===1?1:1));
-const speedOf = n => (1 + 0.3*n.level) * (1 + 0.1*G.glob.spd) * (1 + 0.1*G.pu.spd) * (ocActive()?2:1) * (1 + 0.08*G.tech.tspd);
+const speedOf = n => (1 + 0.3*n.level) * (1 + 0.1*G.glob.spd) * (1 + 0.05*G.pu.spd) * (ocActive()?2:1) * (1 + 0.04*G.tech.tspd);
 const timeOf = n => DEFS[n.type].t / speedOf(n);
 const ocActive = () => G.playtime < G.oc.until;
 const bufCap = () => 3 + G.glob.buf;
-const revMult = () => (1 + 0.25*G.glob.rev) * (1 + 0.1*G.qpTotal) * (1 + 0.02*achCount()) * (1 + 0.25*G.pu.rev) * (1 + 0.15*G.tech.trev);
+const revMult = () => (1 + 0.25*G.glob.rev) * qpMult(G.qpTotal) * (1 + 0.02*achCount()) * (1 + 0.1*G.pu.rev) * (1 + 0.08*G.tech.trev);
 const critChance = () => 0.03*G.glob.crit + 0.02*G.tech.tcrit;
-const seedV = def => def.val + (G.glob.seed + G.tech.tseed)*(def.val>1?5:1);
-const rpOf = v => Math.sqrt(v)*0.2*(1+0.2*G.tech.tlab);
-const qpGain = () => Math.floor(Math.sqrt(G.run/3e5));
+const seedV = def => def.val * (1 + 0.2*G.glob.seed) * (1 + 0.08*G.tech.tseed);
+const rpOf = v => 0.5*Math.pow(v,0.3)*(1+0.2*G.tech.tlab);
+const qpGain = () => Math.floor(Math.cbrt(G.run/1e5));
 
 // Géométrie 
 const inPort  = (n,i) => ({x:n.x,    y:n.y + NH*(i+1)/(DEFS[n.type].ins+1)});
@@ -226,7 +232,7 @@ function step(dt){
 // Prestige 
 function reboot(){
   const g = qpGain(); if(g<1) return;
-  ask(`Reboot quantique ? Tu gagnes ${g} point(s) quantique(s) (+${g*10} % de revenus permanents). Tes nœuds, crédits et améliorations de run sont remis à zéro.`, doReboot);
+  ask(`Reboot quantique ? Tu gagnes ${g} point(s) quantique(s) (revenus x${qpMult(G.qpTotal+g).toFixed(2)} au lieu de x${qpMult(G.qpTotal).toFixed(2)}). Tes nœuds, crédits et améliorations de run sont remis à zéro.`, doReboot);
 }
 function doReboot(){
   const g = qpGain(); if(g<1) return;
@@ -249,6 +255,7 @@ const toWorld = (sx,sy)=>({x:(sx-W/2-G.view.x)/G.view.k, y:(sy-H/2-G.view.y)/G.v
 const SUF = ['','K','M','B','T','Qa','Qi','Sx','Sp','Oc','No','Dc'];
 function fmt(v){
   if(!isFinite(v)) return 'Inf';
+  if(v>=1e39) return v.toExponential(2).replace('e+','e');
   if(v<1000) return v<10 ? (Math.round(v*10)/10).toString() : Math.floor(v).toString();
   let i=0; while(v>=1000 && i<SUF.length-1){ v/=1000; i++; }
   return v.toFixed(v<10?2:v<100?1:0)+SUF[i];
@@ -436,7 +443,7 @@ function ask(msg, yes){
   $('dlgNo').onclick=()=>{ d.style.display='none'; };
 }
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.style.opacity=1; clearTimeout(toast.h); toast.h=setTimeout(()=>t.style.opacity=0,2600); }
-const unlocked = type => G.lifetime >= DEFS[type].unlock && (!DEFS[type].needQp || G.qpTotal>=DEFS[type].needQp);
+const unlocked = type => G.run >= DEFS[type].unlock && (!DEFS[type].needQp || G.qpTotal>=DEFS[type].needQp);
 
 function buildShop(){
   $('shop').innerHTML = '';
@@ -462,7 +469,7 @@ function refreshShop(){
       b.innerHTML = `<b>${d.name}</b><small>${d.desc}</small><span class="c">Prix : ${fmt(buyCost(type))}</span>`;
       b.disabled = G.money < buyCost(type);
     } else {
-      const need = d.needQp && G.qpTotal<d.needQp ? 'Nécessite un Reboot' : 'Débloqué à '+fmt(d.unlock)+' crédits gagnés';
+      const need = d.needQp && G.qpTotal<d.needQp ? 'Nécessite un Reboot' : 'Débloqué à '+fmt(d.unlock)+' crédits gagnés dans ce run';
       b.innerHTML = `<b>???</b><small>${need}</small>`;
       b.disabled = true;
     }
@@ -542,11 +549,10 @@ function renderTab(){
     });
   } else if(tab==='qp'){
     const gain=qpGain();
-    body.innerHTML = `<p>Un <b class="qp">Reboot quantique</b> remet ta progression à zéro, mais te donne des <b class="qp">points quantiques</b> :
-      +10 % de revenus permanents par point obtenu, et ils se dépensent en bonus permanents.</p>
-      <div class="item"><div><b class="qp">${G.qp} point(s)</b> disponible(s)<p>Total : ${G.qpTotal} · Reboots : ${G.resets} · Bonus : ×${(1+0.1*G.qpTotal).toFixed(1)}</p></div></div>
+    body.innerHTML = `<p>Un <b class="qp">Reboot quantique</b> remet ta progression à zéro, mais te donne des <b class="qp">points quantiques</b>. Ils donnent un bonus de revenus permanent (×(1 + points)<sup>0,6</sup>) et se dépensent aussi en bonus permanents.</p>
+      <div class="item"><div><b class="qp">${G.qp} point(s)</b> disponible(s)<p>Total : ${G.qpTotal} · Reboots : ${G.resets} · Bonus : ×${qpMult(G.qpTotal).toFixed(2)}</p></div></div>
       <button id="bReboot" class="${gain>=1?'glow':''}" style="width:100%" ${gain<1?'disabled':''}>Reboot : +${gain} point(s)</button>
-      <p>${gain<1?'Il faut gagner 300 K crédits dans ce run pour obtenir le premier point. Le gain croît avec la racine carrée des crédits gagnés.':'Gagne plus de crédits avant de rebooter pour obtenir plus de points.'}</p>` +
+      <p>${gain<1?'Il faut gagner 100 K crédits dans ce run pour obtenir le premier point. Le gain croît avec la racine cubique des crédits gagnés.':'Gagne plus de crédits avant de rebooter pour obtenir plus de points.'}</p>` +
       PU.map(d=>{
         const lv=G.pu[d.id], max=lv>=d.max, c=puCost(d);
         return `<div class="item"><div><b>${d.name}</b> <small>(${lv}/${d.max})</small><p>${d.desc}<br><span class="qp">${d.eff(lv)}</span></p></div>
@@ -617,7 +623,7 @@ function updateGold(dt){
   }
 }
 $('gold').onclick = ()=>{
-  const r = Math.max(100, G.lastRate*60);
+  const r = Math.max(100, G.lastRate*20);
   G.money += r; G.run += r; G.lifetime += r; G.golds++;
   $('gold').style.display='none'; goldLife=0;
   blip(880,0.2,0.08,'triangle'); toast('Fichier doré ! +'+fmt(r)+' crédits');
@@ -644,7 +650,7 @@ const OBJ = [
   {d:'Pose 15 nœuds',                     p:()=>[G.nodes.length,15],    r:30000},
   {d:'Construis un Laboratoire',       p:()=>[G.nodes.filter(n=>n.type==='lab').length,1], r:6000},
   {d:'Achète une technologie',            p:()=>[Object.values(G.tech).reduce((a,b)=>a+b,0),1], r:10000},
-  {d:'Gagne 300 000 crédits dans un run', p:()=>[G.run,3e5],            r:80000},
+  {d:'Gagne 100 000 crédits dans un run', p:()=>[G.run,1e5],            r:80000},
   {d:'Fais ton premier Reboot quantique', p:()=>[G.resets,1],           r:1000},
   {d:'Atteins 5 points quantiques au total', p:()=>[G.qpTotal,5],       r:20000},
   {d:'Gagne 100 M de crédits au total',   p:()=>[G.lifetime,1e8],       r:5e6},
