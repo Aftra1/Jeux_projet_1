@@ -6,7 +6,7 @@ const fs = require('fs'), path = require('path');
   const b = await chromium.launch({executablePath: process.env.CHROMIUM||'/opt/pw-browsers/chromium'}).catch(()=>chromium.launch());
   const p = await b.newPage();
   const errs=[]; p.on('pageerror',e=>errs.push(e.message));
-  await p.goto('file://'+path.resolve(__dirname,'../index.html'));
+  await p.goto('file://'+path.resolve(process.env.GAMEDIR||path.resolve(__dirname,'..'),'index.html'));
   await p.evaluate(()=>{ localStorage.clear(); });
   await p.reload(); await p.waitForTimeout(300);
   await p.addScriptTag({content: fs.readFileSync(path.resolve(__dirname,'bot.js'),'utf8')});

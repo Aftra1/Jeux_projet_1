@@ -2,22 +2,22 @@
 // Définitions 
 const NW = 160, NH = 70;
 const DEFS = {
-  source:  {name:'Source',        icon:'SRC', ins:0, outs:1, cost:15,    t:2.0,  val:1,    unlock:0,   desc:'Génère un fichier de valeur 1.'},
+  source:  {name:'Source',        icon:'SRC', ins:0, outs:1, cost:15,    t:1.0,  val:1,    unlock:0,   desc:'Génère un fichier de valeur 1.'},
   upload:  {name:'Upload',        icon:'UP', ins:1, outs:0, cost:20,    t:0.6,  unlock:0,           desc:'Envoie les fichiers vers le cloud et rapporte des crédits.'},
-  compress:{name:'Compresseur',   icon:'CMP', ins:1, outs:1, cost:40,    t:1.5,  mult:2,   unlock:0, desc:'Double la valeur d\'un fichier.'},
+  compress:{name:'Compresseur',   icon:'CMP', ins:1, outs:1, cost:40,    t:0.8,  mult:2,   unlock:0, desc:'Double la valeur d\'un fichier.'},
   split:   {name:'Diviseur',      icon:'DIV', ins:1, outs:2, cost:60,    t:0.2,  unlock:20,          desc:'Répartit les fichiers sur deux sorties, en alternance.'},
   merge:   {name:'Fusion',        icon:'FUS', ins:2, outs:1, cost:140,   t:1.0,  unlock:100,         desc:'Fusionne 2 fichiers : (a + b) × 1,3.'},
   encrypt: {name:'Chiffreur',     icon:'ENC', ins:1, outs:1, cost:300,   t:3.0,  mult:3,   unlock:200, desc:'Triple la valeur d\'un fichier.'},
   boost:   {name:'Amplificateur',  icon:'AMP', ins:1, outs:1, cost:500,   t:0.4,  mult:1.5, unlock:400, desc:'Valeur x1,5, très rapide. Idéal en fin de chaîne.'},
   clone:   {name:'Clonage',       icon:'CLN', ins:1, outs:2, cost:900,   t:1.2,  unlock:600,         desc:'Duplique un fichier sur les deux sorties.'},
-  ai:      {name:'Analyseur IA',  icon:'IA', ins:1, outs:1, cost:2000,  t:7.0,  mult:8,   unlock:1500, desc:'Valeur ×8. Lent mais puissant.'},
-  lab:     {name:'Laboratoire',   icon:'LAB', ins:1, outs:0, cost:8000,  t:1.5,  unlock:5000, desc:'Absorbe les fichiers et produit des points de recherche.'},
-  mega:    {name:'Super Source',  icon:'SRC+', ins:0, outs:1, cost:6000,  t:3.0,  val:25,   unlock:4000, desc:'Génère des fichiers de valeur 25.'},
-  quantum: {name:'Quantique',     icon:'QNT', ins:1, outs:1, cost:40000, t:14.0, mult:18,  unlock:25000, desc:'Valeur ×18. Très lent, très puissant.'},
-  sing:    {name:'Singularité',   icon:'SNG', ins:1, outs:1, cost:4e6,   t:40.0, mult:100, unlock:2e6, needQp:1, desc:'Valeur ×100. Réservé aux joueurs ayant fait un Reboot.'},
-  neural:  {name:'Réseau neuronal',icon:'NET', ins:1, outs:1, cost:6e8,   t:90.0, mult:90,  unlock:5e9,   desc:'Valeur ×90. Extrêmement lent.'},
-  dim:     {name:'Dimension',     icon:'DIM', ins:1, outs:1, cost:1e12,  t:200.0,mult:900, unlock:2e13,  desc:'Valeur ×900. Pour les très gros réseaux.'},
-  omega:   {name:'Oméga',         icon:'OMG', ins:1, outs:1, cost:1e16,  t:400.0,mult:4000,  unlock:1e17,  desc:'Valeur ×4 000. Le sommet de la chaîne.'},
+  ai:      {name:'Analyseur IA',  icon:'IA', ins:1, outs:1, cost:2000,  t:6.0,  mult:5,   unlock:1500, desc:'Valeur ×5. Lent mais puissant.'},
+  lab:     {name:'Laboratoire',   icon:'LAB', ins:1, outs:0, cost:2500,  t:1.5,  unlock:2000, desc:'Absorbe les fichiers et produit des points de recherche.'},
+  mega:    {name:'Super Source',  icon:'SRC+', ins:0, outs:1, cost:6000,  t:3.0,  val:10,   unlock:4000, desc:'Génère des fichiers de valeur 10.'},
+  quantum: {name:'Quantique',     icon:'QNT', ins:1, outs:1, cost:40000, t:12.0, mult:10,  unlock:25000, desc:'Valeur ×10. Très lent, très puissant.'},
+  sing:    {name:'Singularité',   icon:'SNG', ins:1, outs:1, cost:2e6,   t:30.0, mult:22,  unlock:1e6, needRs:3, desc:'Valeur ×22. Réservé aux joueurs ayant fait 3 Reboots.'},
+  neural:  {name:'Réseau neuronal',icon:'NET', ins:1, outs:1, cost:1e8,   t:70.0, mult:21,  unlock:4e7, needRs:5, desc:'Valeur ×21. Réservé aux joueurs ayant fait 5 Reboots.'},
+  dim:     {name:'Dimension',     icon:'DIM', ins:1, outs:1, cost:6e9,   t:160.0,mult:20,  unlock:2e9, needRs:8, desc:'Valeur ×20. Réservé aux joueurs ayant fait 8 Reboots.'},
+  omega:   {name:'Oméga',         icon:'OMG', ins:1, outs:1, cost:3.5e11,t:360.0,mult:20,  unlock:1e11, needRs:11, desc:'Valeur ×20. Le sommet, après 11 Reboots.'},
 };
 const ORDER = Object.keys(DEFS);
 const COLORS = {source:'#4fd1c5',upload:'#f6c453',split:'#9f7aea',compress:'#63b3ed',merge:'#f687b3',encrypt:'#68d391',clone:'#f6ad55',boost:'#ecc94b',ai:'#fc8181',mega:'#38b2ac',lab:'#76e4f7',quantum:'#b794f4',sing:'#ffffff',neural:'#f56565',dim:'#ed64a6',omega:'#faf089'};
@@ -30,10 +30,10 @@ const GLOBALS = [
   {id:'crit', name:'Upload chanceux',    desc:'+3 % de chance d\'upload ×5',          base:1500,grow:2.6, max:15},
 ];
 const PU = [
-  {id:'start', name:'Capital de départ',     desc:'Démarre chaque run avec plus de crédits', base:1, grow:2, max:8, eff:l=>'Crédits de départ : '+fmt(startCash(l))},
+  {id:'start', name:'Capital de départ',     desc:'Démarre chaque run avec plus de crédits (proportionnel à la hausse des prix)', base:1, grow:2, max:8, eff:l=>'Crédits de départ : '+fmt(startCash(l))},
   {id:'spd',   name:'Surcadençage',          desc:'+5 % de vitesse permanente',             base:1, grow:2, max:10, eff:l=>'+'+l*5+' %'},
   {id:'disc',  name:'Négociation',           desc:'5 % sur le prix des nœuds',              base:2, grow:2, max:6,  eff:l=>''+l*5+' %'},
-  {id:'off',   name:'Serveurs de nuit',      desc:'+10 % de gains hors-ligne (base 50 %)',   base:2, grow:2, max:5,  eff:l=>(50+l*10)+' %'},
+  {id:'off',   name:'Serveurs de nuit',      desc:'+8 % de gains hors-ligne (base 40 %, 3 h max)',   base:2, grow:2, max:5,  eff:l=>(40+l*8)+' %'},
   {id:'rev',   name:'Amplificateur quantique', desc:'+10 % de revenus permanents', base:3, grow:2, max:10, eff:l=>'+'+l*10+' %'},
   {id:'auto',  name:'Ingénieur automatique', desc:'Améliore automatiquement tes nœuds',      base:10,grow:1, max:1,  eff:l=>l?'Actif':'—'},
 ];
@@ -48,7 +48,7 @@ const TECH = [
   {id:'tlab', name:'Instruments de mesure',   desc:'+20 % de points de recherche par niveau',   base:30, grow:1.8, max:10, eff:l=>'+'+l*20+' %'},
 ];
 const techCost = d => Math.ceil(d.base * Math.pow(d.grow, G.tech[d.id]));
-const startCash = l => 100 + 150 * l * l;
+const startCash = l => Math.floor((100 + 150 * l * l) * (G ? infl() : 1));   // suit l'inflation des prix
 
 const ACH = [
   {id:'a1', name:'Premier upload',   desc:'Uploade 1 fichier',           t:()=>G.files>=1},
@@ -97,10 +97,12 @@ const nodeById = id => G.nodes.find(n=>n.id===id);
 const achCount = () => Object.keys(G.ach).length;
 const qpMult = q => Math.pow(1 + q, 0.6);   // bonus de revenus des points quantiques (sous-linéaire)
 const BG = 1.25;   // croissance du prix par exemplaire déjà acheté
-const CS = 3;   // échelle globale des prix (équilibrage)
-const buyCost = type => Math.ceil(CS * DEFS[type].cost * Math.pow(BG, G.bought[type]||0) * (1 - 0.05*G.pu.disc) * (1 - 0.02*G.tech.tcost));
-const upCost = (n, lvl) => Math.ceil(CS * DEFS[n.type].cost * 0.8 * Math.pow(1.55, lvl===undefined?n.level:lvl) * (1 - 0.03*G.tech.tup) + 10);
-const gUpCost = d => Math.ceil(CS * d.base * Math.pow(d.grow, G.glob[d.id]));
+const CS = 1.5;   // échelle globale des prix (équilibrage)
+const INFL = 0.9, FREEQ = 2;   // inflation : part du bonus quantique (au-delà des FREEQ premiers points) répercutée sur les prix
+const infl = () => Math.pow(qpMult(Math.max(0, G.qpTotal - FREEQ)), INFL);
+const buyCost = type => Math.ceil(infl() * CS * DEFS[type].cost * Math.pow(BG, G.bought[type]||0) * (1 - 0.05*G.pu.disc) * (1 - 0.02*G.tech.tcost));
+const upCost = (n, lvl) => Math.ceil(infl() * CS * DEFS[n.type].cost * 0.8 * Math.pow(1.55, lvl===undefined?n.level:lvl) * (1 - 0.03*G.tech.tup) + 10);
+const gUpCost = d => Math.ceil(infl() * CS * d.base * Math.pow(d.grow, G.glob[d.id]));
 const puCost = d => Math.ceil(d.base * Math.pow(d.grow, G.pu[d.id]) * (d.grow===1?1:1));
 const speedOf = n => (1 + 0.3*n.level) * (1 + 0.1*G.glob.spd) * (1 + 0.05*G.pu.spd) * (ocActive()?2:1) * (1 + 0.04*G.tech.tspd);
 const timeOf = n => DEFS[n.type].t / speedOf(n);
@@ -110,7 +112,10 @@ const revMult = () => (1 + 0.25*G.glob.rev) * qpMult(G.qpTotal) * (1 + 0.02*achC
 const critChance = () => 0.03*G.glob.crit + 0.02*G.tech.tcrit;
 const seedV = def => def.val * (1 + 0.2*G.glob.seed) * (1 + 0.08*G.tech.tseed);
 const rpOf = v => 0.5*Math.pow(v,0.3)*(1+0.2*G.tech.tlab);
-const qpGain = () => Math.floor(Math.cbrt(G.run/1e5));
+// Crédits à gagner dans un run pour obtenir g points quantiques : de plus en plus durs à obtenir
+const QPB = 0.1;
+const qpNeed = g => 3e4*g*g*g*Math.exp(QPB*Math.min(48, Math.pow(Math.log(1+g),2)));
+const qpGain = () => { let lo=0, hi=1e7; while(hi-lo>1){ const m=Math.floor((lo+hi)/2); if(qpNeed(m)<=G.run) lo=m; else hi=m; } return lo; };
 
 // Géométrie 
 const inPort  = (n,i) => ({x:n.x,    y:n.y + NH*(i+1)/(DEFS[n.type].ins+1)});
@@ -443,7 +448,7 @@ function ask(msg, yes){
   $('dlgNo').onclick=()=>{ d.style.display='none'; };
 }
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.style.opacity=1; clearTimeout(toast.h); toast.h=setTimeout(()=>t.style.opacity=0,2600); }
-const unlocked = type => G.run >= DEFS[type].unlock && (!DEFS[type].needQp || G.qpTotal>=DEFS[type].needQp);
+const unlocked = type => G.run >= DEFS[type].unlock && (!DEFS[type].needRs || G.resets>=DEFS[type].needRs);
 
 function buildShop(){
   $('shop').innerHTML = '';
@@ -469,7 +474,7 @@ function refreshShop(){
       b.innerHTML = `<b>${d.name}</b><small>${d.desc}</small><span class="c">Prix : ${fmt(buyCost(type))}</span>`;
       b.disabled = G.money < buyCost(type);
     } else {
-      const need = d.needQp && G.qpTotal<d.needQp ? 'Nécessite un Reboot' : 'Débloqué à '+fmt(d.unlock)+' crédits gagnés dans ce run';
+      const need = d.needRs && G.resets<d.needRs ? 'Nécessite '+d.needRs+' Reboots' : 'Débloqué à '+fmt(d.unlock)+' crédits gagnés dans ce run';
       b.innerHTML = `<b>???</b><small>${need}</small>`;
       b.disabled = true;
     }
@@ -552,7 +557,7 @@ function renderTab(){
     body.innerHTML = `<p>Un <b class="qp">Reboot quantique</b> remet ta progression à zéro, mais te donne des <b class="qp">points quantiques</b>. Ils donnent un bonus de revenus permanent (×(1 + points)<sup>0,6</sup>) et se dépensent aussi en bonus permanents.</p>
       <div class="item"><div><b class="qp">${G.qp} point(s)</b> disponible(s)<p>Total : ${G.qpTotal} · Reboots : ${G.resets} · Bonus : ×${qpMult(G.qpTotal).toFixed(2)}</p></div></div>
       <button id="bReboot" class="${gain>=1?'glow':''}" style="width:100%" ${gain<1?'disabled':''}>Reboot : +${gain} point(s)</button>
-      <p>${gain<1?'Il faut gagner 100 K crédits dans ce run pour obtenir le premier point. Le gain croît avec la racine cubique des crédits gagnés.':'Gagne plus de crédits avant de rebooter pour obtenir plus de points.'}</p>` +
+      <p>${gain<1?'Il faut gagner '+fmt(qpNeed(1))+' crédits dans ce run pour obtenir le premier point.':'Prochain point à '+fmt(qpNeed(gain+1))+' crédits gagnés dans ce run (actuel : '+fmt(G.run)+').'} Les points deviennent de plus en plus difficiles à obtenir, et au-delà de ${FREEQ} points les prix des nœuds suivent en partie le bonus (inflation actuelle : ×${infl().toFixed(2)}).</p>` +
       PU.map(d=>{
         const lv=G.pu[d.id], max=lv>=d.max, c=puCost(d);
         return `<div class="item"><div><b>${d.name}</b> <small>(${lv}/${d.max})</small><p>${d.desc}<br><span class="qp">${d.eff(lv)}</span></p></div>
@@ -623,7 +628,7 @@ function updateGold(dt){
   }
 }
 $('gold').onclick = ()=>{
-  const r = Math.max(100, G.lastRate*20);
+  const r = Math.max(100, G.lastRate*15);
   G.money += r; G.run += r; G.lifetime += r; G.golds++;
   $('gold').style.display='none'; goldLife=0;
   blip(880,0.2,0.08,'triangle'); toast('Fichier doré ! +'+fmt(r)+' crédits');
@@ -634,34 +639,48 @@ function checkAch(){
   for(const a of ACH) if(!G.ach[a.id] && a.t()){ G.ach[a.id]=true; toast('Succès : '+a.name+' (+2 % de revenus)'); blip(990,0.25,0.07,'triangle'); if(tab==='ach') renderTab(); }
 }
 
-// Objectifs
+// Objectifs : r = récompense minimale, s = secondes de revenus actuels (la plus grande des deux est versée)
+const cnt = t => G.nodes.filter(n=>n.type===t).length;
 const OBJ = [
   {d:'Uploade 10 fichiers',               p:()=>[G.files,10],           r:30},
   {d:'Achète un Compresseur',             p:()=>[G.bought.compress||0,1], r:40},
   {d:'Gagne 300 crédits au total',        p:()=>[G.lifetime,300],       r:100},
-  {d:'Pose 6 nœuds',                      p:()=>[G.nodes.length,6],     r:200},
-  {d:'Monte un nœud au niveau 5',         p:()=>[Math.max(...G.nodes.map(n=>n.level+1)),5], r:300},
-  {d:'Gagne 2 000 crédits au total',      p:()=>[G.lifetime,2e3],       r:500},
-  {d:'Atteins 10 crédits par seconde',    p:()=>[G.lastRate,10],        r:800},
-  {d:'Utilise une Fusion',                p:()=>[G.nodes.filter(n=>n.type==='merge').length,1], r:1000},
-  {d:'Active un Overclock',               p:()=>[G.oc.until>0?1:0,1],   r:1500},
-  {d:'Gagne 25 000 crédits au total',     p:()=>[G.lifetime,25e3],      r:4000},
-  {d:'Atteins 200 crédits par seconde',   p:()=>[G.lastRate,200],       r:12000},
-  {d:'Pose 15 nœuds',                     p:()=>[G.nodes.length,15],    r:30000},
-  {d:'Construis un Laboratoire',       p:()=>[G.nodes.filter(n=>n.type==='lab').length,1], r:6000},
-  {d:'Achète une technologie',            p:()=>[Object.values(G.tech).reduce((a,b)=>a+b,0),1], r:10000},
-  {d:'Gagne 100 000 crédits dans un run', p:()=>[G.run,1e5],            r:80000},
-  {d:'Fais ton premier Reboot quantique', p:()=>[G.resets,1],           r:1000},
-  {d:'Atteins 5 points quantiques au total', p:()=>[G.qpTotal,5],       r:20000},
-  {d:'Gagne 100 M de crédits au total',   p:()=>[G.lifetime,1e8],       r:5e6},
-  {d:'Atteins 100 000 crédits par seconde', p:()=>[G.lastRate,1e5],     r:1e8},
+  {d:'Pose 6 nœuds',                      p:()=>[G.nodes.length,6],     r:150},
+  {d:'Monte un nœud au niveau 5',         p:()=>[Math.max(...G.nodes.map(n=>n.level+1)),5], r:250},
+  {d:'Atteins 10 crédits par seconde',    p:()=>[G.lastRate,10],        r:300, s:30},
+  {d:'Utilise une Fusion',                p:()=>[cnt('merge'),1],       r:400, s:30},
+  {d:'Gagne 5 000 crédits au total',      p:()=>[G.lifetime,5e3],       r:500, s:30},
+  {d:'Active un Overclock',               p:()=>[G.oc.until>0?1:0,1],   r:600, s:30},
+  {d:'Construis un Laboratoire',          p:()=>[cnt('lab'),1],         r:800, s:30},
+  {d:'Achète une technologie',            p:()=>[Object.values(G.tech).reduce((a,b)=>a+b,0),1], r:1000, s:30},
+  {d:'Atteins 200 crédits par seconde',   p:()=>[G.lastRate,200],       r:1500, s:45},
+  {d:'Pose 15 nœuds',                     p:()=>[G.nodes.length,15],    r:2000, s:45},
+  {d:'Fais ton premier Reboot quantique', p:()=>[G.resets,1],           r:2000, s:60},
+  {d:'Atteins 5 points quantiques au total', p:()=>[G.qpTotal,5],       r:3000, s:60},
+  {d:'Gagne 1 M de crédits au total',     p:()=>[G.lifetime,1e6],       r:3000, s:60},
+  {d:'Construis une Singularité',         p:()=>[cnt('sing'),1],        r:5000, s:60},
+  {d:'Atteins 100 000 crédits par seconde', p:()=>[G.lastRate,1e5],     r:1e5, s:60},
+  {d:'Atteins 25 points quantiques au total', p:()=>[G.qpTotal,25],     r:1e5, s:75},
+  {d:'Gagne 1 Md de crédits au total',    p:()=>[G.lifetime,1e9],       r:1e6, s:75},
+  {d:'Construis un Réseau neuronal',      p:()=>[cnt('neural'),1],      r:1e6, s:75},
+  {d:'Atteins 100 points quantiques au total', p:()=>[G.qpTotal,100],   r:1e6, s:90},
+  {d:'Atteins 1 Md de crédits par seconde', p:()=>[G.lastRate,1e9],     r:1e9, s:90},
+  {d:'Construis une Dimension',           p:()=>[cnt('dim'),1],         r:1e9, s:90},
+  {d:'Atteins 500 points quantiques au total', p:()=>[G.qpTotal,500],   r:1e9, s:90},
+  {d:'Gagne 1 T de crédits au total',     p:()=>[G.lifetime,1e12],      r:1e9, s:90},
+  {d:'Construis un nœud Oméga',           p:()=>[cnt('omega'),1],       r:1e10, s:120},
+  {d:'Atteins 2 000 points quantiques au total', p:()=>[G.qpTotal,2000], r:1e10, s:120},
+  {d:'Gagne 1 Qa de crédits au total',    p:()=>[G.lifetime,1e15],      r:1e12, s:120},
+  {d:'Atteins 10 000 points quantiques au total', p:()=>[G.qpTotal,1e4], r:1e12, s:150},
 ];
+const objReward = o => Math.max(o.r, (o.s||0)*G.lastRate);
 function checkObj(){
   const o = OBJ[G.obj]; if(!o) return;
   const [c,t] = o.p();
   if(c>=t){
-    G.money+=o.r; G.run+=o.r; G.lifetime+=o.r; G.obj++;
-    toast('Objectif accompli : '+o.d+' (+'+fmt(o.r)+' crédits)'); blip(700,0.2,0.07,'triangle');
+    const r = objReward(o);
+    G.money+=r; G.run+=r; G.lifetime+=r; G.obj++;
+    toast('Objectif accompli : '+o.d+' (+'+fmt(r)+' crédits)'); blip(700,0.2,0.07,'triangle');
   }
 }
 function updateObjHud(){
@@ -669,7 +688,7 @@ function updateObjHud(){
   if(!o){ el.style.display='none'; return; }
   const [c,t] = o.p(), f = Math.max(0,Math.min(1,c/t));
   el.style.display='block';
-  el.innerHTML = `<small>Objectif ${G.obj+1}/${OBJ.length}  -  récompense ${fmt(o.r)}</small><div>${o.d}  <span>${fmt(Math.min(c,t))} / ${fmt(t)}</span></div><i style="width:${f*100}%"></i>`;
+  el.innerHTML = `<small>Objectif ${G.obj+1}/${OBJ.length}  -  récompense ${fmt(objReward(o))}</small><div>${o.d}  <span>${fmt(Math.min(c,t))} / ${fmt(t)}</span></div><i style="width:${f*100}%"></i>`;
 }
 
 function drawSpark(){
@@ -747,16 +766,16 @@ function load(){
     const s = localStorage.getItem(KEY); if(!s) return false;
     const d = JSON.parse(s); if(!d.nodes || !d.nodes.length) return false;
     G = hydrate(d);
-    const secs = Math.min((Date.now()-G.savedAt)/1000, 8*3600);
+    const secs = Math.min((Date.now()-G.savedAt)/1000, 3*3600);
     if(secs>30 && G.lastRate>0){
-      const gain = G.lastRate*secs*(0.5+0.1*G.pu.off);
+      const gain = G.lastRate*secs*(0.4+0.08*G.pu.off);
       G.money+=gain; G.run+=gain; G.lifetime+=gain;
       setTimeout(()=>toast(`Pendant ton absence (${Math.floor(secs/60)} min) : +${fmt(gain)} crédits`),600);
     }
     const today = new Date().toISOString().slice(0,10);
     if(G.daily!==today){
       G.daily = today;
-      const r = Math.max(500, G.lastRate*900);
+      const r = Math.max(500, G.lastRate*600);
       G.money+=r; G.run+=r; G.lifetime+=r;
       setTimeout(()=>toast('Bonus quotidien : +'+fmt(r)+' crédits'),3500);
     }
