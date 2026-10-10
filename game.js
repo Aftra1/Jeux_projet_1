@@ -711,7 +711,8 @@ function renderTab(){
       <div class="row"><button id="oExp">Exporter</button><button id="oImp">Importer</button></div>
       <div class="row"><button id="oReset" style="color:var(--bad)">Tout effacer</button></div>
       <p>Temps de jeu : ${Math.floor(G.playtime/3600)} h ${Math.floor(G.playtime/60)%60} min · Crédits gagnés au total : ${fmt(G.lifetime)}</p>
-      <p>Astuces : double-clic / clic droit sur un lien pour le supprimer · molette ou pincement pour zoomer · Suppr pour vendre un nœud.</p>`;
+      <p>Astuces : double-clic / clic droit sur un lien pour le supprimer · molette ou pincement pour zoomer · Suppr pour vendre un nœud.</p>
+      <p>Raccourcis (nœud sélectionné) : D duplique · U améliore d'un niveau · Maj+U améliore au maximum · Suppr vend.</p>`;
     $('oMute').onclick = ()=>{ G.mute=!G.mute; renderTab(); };
     $('oExp').onclick = ()=>{ save(); $('oTxt').value = btoa(unescape(encodeURIComponent(JSON.stringify(serialize())))); $('oTxt').select(); };
     $('oImp').onclick = ()=>{
