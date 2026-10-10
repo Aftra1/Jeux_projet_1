@@ -41,3 +41,12 @@ textarea{width:100%;height:70px;background:#0a0e16;color:var(--txt);border:1px s
 #gold{position:absolute;display:none;font-size:34px;background:radial-gradient(#f6c45366,#0000 70%);border:none;border-radius:50%;padding:10px;animation:pulse 1s infinite alternate;z-index:5}
 @keyframes pulse{from{transform:scale(.9)}to{transform:scale(1.15)}}
 @media(max-width:700px){.hide-sm{display:none}#side{width:calc(100vw - 20px)}#sel{width:calc(100vw - 20px);top:auto;bottom:110px;right:10px}}
+
+#obj{position:absolute;left:50%;transform:translateX(-50%);top:58px;width:min(420px,92vw);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 12px 10px;overflow:hidden;font-size:13px;display:none;pointer-events:none}
+#obj small{color:var(--dim);font-size:11px}
+#obj div{display:flex;justify-content:space-between;gap:10px;margin-top:2px}
+#obj span{color:var(--gold);font-variant-numeric:tabular-nums}
+#obj i{position:absolute;left:0;bottom:0;height:4px;background:var(--acc);transition:width .3s}
+#hint{top:122px}
+#mini{position:absolute;inset:auto 10px 104px auto;width:150px;height:95px;border:1px solid var(--line);border-radius:8px;cursor:pointer}
+@media(max-width:700px){#mini{display:none}}

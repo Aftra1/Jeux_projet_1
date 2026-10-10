@@ -8,6 +8,7 @@ const DEFS = {
   split:   {name:'Diviseur',      icon:'DIV', ins:1, outs:2, cost:60,    t:0.2,  unlock:20,          desc:'Répartit les fichiers sur deux sorties, en alternance.'},
   merge:   {name:'Fusion',        icon:'FUS', ins:2, outs:1, cost:140,   t:1.0,  unlock:100,         desc:'Fusionne 2 fichiers : (a + b) × 1,3.'},
   encrypt: {name:'Chiffreur',     icon:'ENC', ins:1, outs:1, cost:300,   t:3.0,  mult:3,   unlock:200, desc:'Triple la valeur d\'un fichier.'},
+  boost:   {name:'Amplificateur',  icon:'AMP', ins:1, outs:1, cost:500,   t:0.4,  mult:1.5, unlock:400, desc:'Valeur x1,5, très rapide. Idéal en fin de chaîne.'},
   clone:   {name:'Clonage',       icon:'CLN', ins:1, outs:2, cost:900,   t:1.2,  unlock:600,         desc:'Duplique un fichier sur les deux sorties.'},
   ai:      {name:'Analyseur IA',  icon:'IA', ins:1, outs:1, cost:2000,  t:7.0,  mult:8,   unlock:1500, desc:'Valeur ×8. Lent mais puissant.'},
   mega:    {name:'Super Source',  icon:'SRC+', ins:0, outs:1, cost:6000,  t:3.0,  val:25,   unlock:4000, desc:'Génère des fichiers de valeur 25.'},
@@ -15,7 +16,7 @@ const DEFS = {
   sing:    {name:'Singularité',   icon:'SNG', ins:1, outs:1, cost:3e6,   t:40.0, mult:1000, unlock:2e6, needQp:1, desc:'Valeur ×1000. Réservé aux joueurs ayant fait un Reboot.'},
 };
 const ORDER = Object.keys(DEFS);
-const COLORS = {source:'#4fd1c5',upload:'#f6c453',split:'#9f7aea',compress:'#63b3ed',merge:'#f687b3',encrypt:'#68d391',clone:'#f6ad55',ai:'#fc8181',mega:'#38b2ac',quantum:'#b794f4',sing:'#ffffff'};
+const COLORS = {source:'#4fd1c5',upload:'#f6c453',split:'#9f7aea',compress:'#63b3ed',merge:'#f687b3',encrypt:'#68d391',clone:'#f6ad55',boost:'#ecc94b',ai:'#fc8181',mega:'#38b2ac',quantum:'#b794f4',sing:'#ffffff'};
 
 const GLOBALS = [
   {id:'rev',  name:'Marketing',          desc:'+25 % de revenus par upload',          base:100, grow:2.1, max:60},
@@ -29,6 +30,7 @@ const PU = [
   {id:'spd',   name:'Surcadençage',          desc:'+10 % de vitesse permanente',             base:1, grow:2, max:10, eff:l=>'+'+l*10+' %'},
   {id:'disc',  name:'Négociation',           desc:'5 % sur le prix des nœuds',              base:2, grow:2, max:6,  eff:l=>''+l*5+' %'},
   {id:'off',   name:'Serveurs de nuit',      desc:'+10 % de gains hors-ligne (base 50 %)',   base:2, grow:2, max:5,  eff:l=>(50+l*10)+' %'},
+  {id:'rev',   name:'Amplificateur quantique', desc:'+25 % de revenus permanents', base:3, grow:2, max:10, eff:l=>'+'+l*25+' %'},
   {id:'auto',  name:'Ingénieur automatique', desc:'Améliore automatiquement tes nœuds',      base:10,grow:1, max:1,  eff:l=>l?'Actif':'—'},
 ];
 const startCash = l => l ? 500 * Math.pow(4, l-1) : 60;
@@ -62,7 +64,7 @@ function blankRun(g){
   g.view = {x:0,y:0,k:1};
 }
 function newGame(){
-  G = {lifetime:0, files:0, qp:0, qpTotal:0, resets:0, golds:0, playtime:0, lastRate:0, ach:{}, pu:{start:0,spd:0,disc:0,off:0,auto:0}, mute:false, savedAt:Date.now()};
+  G = {lifetime:0, files:0, qp:0, qpTotal:0, resets:0, golds:0, playtime:0, lastRate:0, ach:{}, pu:{start:0,spd:0,disc:0,off:0,auto:0,rev:0}, obj:0, daily:'', oc:{until:0,ready:0}, mute:false, savedAt:Date.now()};
   blankRun(G);
   addNode('source', -280, -40, true);
   addNode('upload', 180, -40, true);
@@ -77,15 +79,16 @@ function addNode(type,x,y,free){
 const nodeById = id => G.nodes.find(n=>n.id===id);
 const achCount = () => Object.keys(G.ach).length;
 const buyCost = type => Math.ceil(DEFS[type].cost * Math.pow(1.18, G.bought[type]||0) * (1 - 0.05*G.pu.disc));
-const upCost = (n, lvl) => Math.ceil(DEFS[n.type].cost * 0.8 * Math.pow(1.6, lvl===undefined?n.level:lvl) + 10);
+const upCost = (n, lvl) => Math.ceil(DEFS[n.type].cost * 0.8 * Math.pow(1.55, lvl===undefined?n.level:lvl) + 10);
 const gUpCost = d => Math.ceil(d.base * Math.pow(d.grow, G.glob[d.id]));
 const puCost = d => Math.ceil(d.base * Math.pow(d.grow, G.pu[d.id]) * (d.grow===1?1:1));
-const speedOf = n => (1 + 0.3*n.level) * (1 + 0.1*G.glob.spd) * (1 + 0.1*G.pu.spd);
+const speedOf = n => (1 + 0.3*n.level) * (1 + 0.1*G.glob.spd) * (1 + 0.1*G.pu.spd) * (ocActive()?2:1);
 const timeOf = n => DEFS[n.type].t / speedOf(n);
+const ocActive = () => G.playtime < G.oc.until;
 const bufCap = () => 3 + G.glob.buf;
-const revMult = () => (1 + 0.25*G.glob.rev) * (1 + 0.1*G.qpTotal) * (1 + 0.02*achCount());
+const revMult = () => (1 + 0.25*G.glob.rev) * (1 + 0.1*G.qpTotal) * (1 + 0.02*achCount()) * (1 + 0.25*G.pu.rev);
 const critChance = () => 0.03*G.glob.crit;
-const qpGain = () => Math.floor(Math.sqrt(G.run/1e6));
+const qpGain = () => Math.floor(Math.sqrt(G.run/3e5));
 
 // Géométrie 
 const inPort  = (n,i) => ({x:n.x,    y:n.y + NH*(i+1)/(DEFS[n.type].ins+1)});
@@ -115,7 +118,7 @@ function upSound(big){
   const k = PENTA[Math.floor(Math.random()*5)] + (big?12:0);
   blip(440*Math.pow(2,k/12), 0.1, big?0.07:0.035);
 }
-const floats = [];
+const floats = [], parts = [];
 function floatText(x,y,text,col='#f6c453',size=15){ if(floats.length<60) floats.push({x,y,text,col,size,life:1}); }
 
 // Simulation 
@@ -125,6 +128,7 @@ function earn(v, n, crit){
   income.push({t:performance.now(), v});
   if(n) floatText(n.x+NW/2, n.y-4, '+'+fmt(v), crit?'#ff9f43':'#f6c453', crit?20:15);
   upSound(crit);
+  if(n) for(let i=0;i<(crit?10:4);i++) if(parts.length<250) parts.push({x:n.x+NW/2,y:n.y+NH/2,vx:(Math.random()-.5)*160,vy:-40-Math.random()*120,life:1,col:crit?'#ff9f43':'#f6c453'});
 }
 
 function trySend(n){
@@ -289,8 +293,10 @@ function draw(){
     cx.globalAlpha = Math.max(0,f.life); cx.fillStyle=f.col; cx.font=`700 ${f.size}px system-ui`; cx.textAlign='center';
     cx.fillText(f.text, f.x, f.y - (1-f.life)*40);
   }
+  for(const q of parts){ cx.globalAlpha=Math.max(0,q.life); cx.fillStyle=q.col; cx.fillRect(q.x-2,q.y-2,4,4); }
   cx.globalAlpha = 1;
   cx.restore();
+  drawMini();
 }
 function port(p,hot,out,col,linked){
   cx.beginPath(); cx.arc(p.x,p.y,hot?10:7,0,Math.PI*2);
@@ -500,7 +506,7 @@ function renderTab(){
       +10 % de revenus permanents par point obtenu, et ils se dépensent en bonus permanents.</p>
       <div class="item"><div><b class="qp">${G.qp} point(s)</b> disponible(s)<p>Total : ${G.qpTotal} · Reboots : ${G.resets} · Bonus : ×${(1+0.1*G.qpTotal).toFixed(1)}</p></div></div>
       <button id="bReboot" class="${gain>=1?'glow':''}" style="width:100%" ${gain<1?'disabled':''}>Reboot : +${gain} point(s)</button>
-      <p>${gain<1?'Il faut gagner 1 M de crédits dans ce run pour obtenir le premier point. Le gain croît avec la racine carrée des crédits gagnés.':'Gagne plus de crédits avant de rebooter pour obtenir plus de points.'}</p>` +
+      <p>${gain<1?'Il faut gagner 300 K crédits dans ce run pour obtenir le premier point. Le gain croît avec la racine carrée des crédits gagnés.':'Gagne plus de crédits avant de rebooter pour obtenir plus de points.'}</p>` +
       PU.map(d=>{
         const lv=G.pu[d.id], max=lv>=d.max, c=puCost(d);
         return `<div class="item"><div><b>${d.name}</b> <small>(${lv}/${d.max})</small><p>${d.desc}<br><span class="qp">${d.eff(lv)}</span></p></div>
@@ -561,13 +567,87 @@ function checkAch(){
   for(const a of ACH) if(!G.ach[a.id] && a.t()){ G.ach[a.id]=true; toast('Succès : '+a.name+' (+2 % de revenus)'); blip(990,0.25,0.07,'triangle'); if(tab==='ach') renderTab(); }
 }
 
+// Objectifs
+const OBJ = [
+  {d:'Uploade 10 fichiers',               p:()=>[G.files,10],           r:30},
+  {d:'Achète un Compresseur',             p:()=>[G.bought.compress||0,1], r:40},
+  {d:'Gagne 300 crédits au total',        p:()=>[G.lifetime,300],       r:100},
+  {d:'Pose 6 nœuds',                      p:()=>[G.nodes.length,6],     r:200},
+  {d:'Monte un nœud au niveau 5',         p:()=>[Math.max(...G.nodes.map(n=>n.level+1)),5], r:300},
+  {d:'Gagne 2 000 crédits au total',      p:()=>[G.lifetime,2e3],       r:500},
+  {d:'Atteins 10 crédits par seconde',    p:()=>[G.lastRate,10],        r:800},
+  {d:'Utilise une Fusion',                p:()=>[G.nodes.filter(n=>n.type==='merge').length,1], r:1000},
+  {d:'Active un Overclock',               p:()=>[G.oc.until>0?1:0,1],   r:1500},
+  {d:'Gagne 25 000 crédits au total',     p:()=>[G.lifetime,25e3],      r:4000},
+  {d:'Atteins 200 crédits par seconde',   p:()=>[G.lastRate,200],       r:12000},
+  {d:'Pose 15 nœuds',                     p:()=>[G.nodes.length,15],    r:30000},
+  {d:'Gagne 300 000 crédits dans un run', p:()=>[G.run,3e5],            r:80000},
+  {d:'Fais ton premier Reboot quantique', p:()=>[G.resets,1],           r:1000},
+  {d:'Atteins 5 points quantiques au total', p:()=>[G.qpTotal,5],       r:20000},
+  {d:'Gagne 100 M de crédits au total',   p:()=>[G.lifetime,1e8],       r:5e6},
+  {d:'Atteins 100 000 crédits par seconde', p:()=>[G.lastRate,1e5],     r:1e8},
+];
+function checkObj(){
+  const o = OBJ[G.obj]; if(!o) return;
+  const [c,t] = o.p();
+  if(c>=t){
+    G.money+=o.r; G.run+=o.r; G.lifetime+=o.r; G.obj++;
+    toast('Objectif accompli : '+o.d+' (+'+fmt(o.r)+' crédits)'); blip(700,0.2,0.07,'triangle');
+  }
+}
+function updateObjHud(){
+  const o = OBJ[G.obj], el = $('obj');
+  if(!o){ el.style.display='none'; return; }
+  const [c,t] = o.p(), f = Math.max(0,Math.min(1,c/t));
+  el.style.display='block';
+  el.innerHTML = `<small>Objectif ${G.obj+1}/${OBJ.length}  -  récompense ${fmt(o.r)}</small><div>${o.d}  <span>${fmt(Math.min(c,t))} / ${fmt(t)}</span></div><i style="width:${f*100}%"></i>`;
+}
+
+// Overclock, vue, minimap
+function useOverclock(){
+  if(G.playtime < G.oc.ready) { toast('Overclock en recharge'); return; }
+  G.oc.until = G.playtime + 15; G.oc.ready = G.playtime + 90;
+  blip(300,0.4,0.08,'sawtooth'); toast('Overclock : vitesse x2 pendant 15 s');
+}
+function fitView(){
+  if(!G.nodes.length) return;
+  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  for(const n of G.nodes){ x0=Math.min(x0,n.x); y0=Math.min(y0,n.y); x1=Math.max(x1,n.x+NW); y1=Math.max(y1,n.y+NH); }
+  const k = Math.max(0.3,Math.min(1.5, Math.min((W-120)/(x1-x0), (H-300)/(y1-y0))));
+  G.view.k = k; G.view.x = -((x0+x1)/2)*k; G.view.y = -((y0+y1)/2)*k - 20;
+}
+const mini = $('mini'), mx = mini.getContext('2d');
+let miniB = null;
+function drawMini(){
+  if(getComputedStyle(mini).display==='none') return;
+  const w=mini.width, h=mini.height;
+  mx.clearRect(0,0,w,h); mx.fillStyle='#0a0e16cc'; mx.fillRect(0,0,w,h);
+  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  for(const n of G.nodes){ x0=Math.min(x0,n.x); y0=Math.min(y0,n.y); x1=Math.max(x1,n.x+NW); y1=Math.max(y1,n.y+NH); }
+  const tl=toWorld(0,0), br=toWorld(W,H);
+  x0=Math.min(x0,tl.x); y0=Math.min(y0,tl.y); x1=Math.max(x1,br.x); y1=Math.max(y1,br.y);
+  const k=Math.min((w-8)/(x1-x0),(h-8)/(y1-y0)), ox=(w-(x1-x0)*k)/2, oy=(h-(y1-y0)*k)/2;
+  miniB = {x0,y0,k,ox,oy};
+  for(const n of G.nodes){ mx.fillStyle=COLORS[n.type]; mx.fillRect(ox+(n.x-x0)*k, oy+(n.y-y0)*k, Math.max(3,NW*k), Math.max(2,NH*k)); }
+  mx.strokeStyle='#ffffff99'; mx.lineWidth=1; mx.strokeRect(ox+(tl.x-x0)*k, oy+(tl.y-y0)*k, (br.x-tl.x)*k, (br.y-tl.y)*k);
+}
+mini.addEventListener('pointerdown', e=>{
+  if(!miniB) return;
+  const r = mini.getBoundingClientRect(), b = miniB;
+  const wx = b.x0 + ((e.clientX-r.left)*(mini.width/r.width) - b.ox)/b.k;
+  const wy = b.y0 + ((e.clientY-r.top)*(mini.height/r.height) - b.oy)/b.k;
+  G.view.x = -wx*G.view.k; G.view.y = -wy*G.view.k;
+});
+$('bOc').onclick = useOverclock;
+$('bFit').onclick = fitView;
+
 // Sauvegarde 
 const KEY = 'uploadlab2';
 function serialize(){ G.savedAt = Date.now(); return JSON.parse(JSON.stringify(G, (k,v)=> k==='packets' ? [] : v)); }
 function hydrate(d){
-  const g = Object.assign({lifetime:0,files:0,qp:0,qpTotal:0,resets:0,golds:0,playtime:0,lastRate:0,mute:false,savedAt:Date.now()}, d);
+  const g = Object.assign({obj:0,daily:'',oc:{until:0,ready:0},lifetime:0,files:0,qp:0,qpTotal:0,resets:0,golds:0,playtime:0,lastRate:0,mute:false,savedAt:Date.now()}, d);
   g.ach = g.ach||{};
-  g.pu = Object.assign({start:0,spd:0,disc:0,off:0,auto:0}, g.pu);
+  g.pu = Object.assign({start:0,spd:0,disc:0,off:0,auto:0,rev:0}, g.pu);
   g.glob = Object.assign({rev:0,spd:0,seed:0,buf:0,crit:0}, g.glob);
   g.nodes = (g.nodes||[]).filter(n=>DEFS[n.type]);
   for(const n of g.nodes){
@@ -590,6 +670,13 @@ function load(){
       G.money+=gain; G.run+=gain; G.lifetime+=gain;
       setTimeout(()=>toast(`Pendant ton absence (${Math.floor(secs/60)} min) : +${fmt(gain)} crédits`),600);
     }
+    const today = new Date().toISOString().slice(0,10);
+    if(G.daily!==today){
+      G.daily = today;
+      const r = Math.max(500, G.lastRate*900);
+      G.money+=r; G.run+=r; G.lifetime+=r;
+      setTimeout(()=>toast('Bonus quotidien : +'+fmt(r)+' crédits'),3500);
+    }
     return true;
   }catch(e){ return false; }
 }
@@ -601,6 +688,7 @@ if(!load()) newGame();
 buildShop();
 let last = performance.now(), uiT = 0, autoT = 0;
 function hintText(){
+  if(G.obj>=2) return '';
   if(G.files>=30 && G.resets===0 && G.lifetime>=100) return '';
   if(!G.links.length) return 'Glisse depuis le port rond de sortie d\'un nœud vers l\'entrée d\'un autre pour les relier. Relie la Source à l\'Upload !';
   if(!(G.bought.compress)) return 'Bien ! Achète un Compresseur (en bas) et place-le entre la Source et l\'Upload : ses fichiers valent le double.';
@@ -612,6 +700,7 @@ function loop(now){
   const n = Math.max(1,Math.ceil(dt/0.05));
   for(let i=0;i<n;i++) step(dt/n);
   for(let i=floats.length-1;i>=0;i--){ floats[i].life -= dt*0.9; if(floats[i].life<=0) floats.splice(i,1); }
+  for(let i=parts.length-1;i>=0;i--){ const q=parts[i]; q.life-=dt*1.6; q.x+=q.vx*dt; q.y+=q.vy*dt; q.vy+=300*dt; if(q.life<=0) parts.splice(i,1); }
   updateGold(dt);
   draw();
   autoT += dt;
@@ -631,7 +720,12 @@ function loop(now){
     $('mult').textContent = '×'+revMult().toFixed(2);
     $('bQp').classList.toggle('glow', qpGain()>=1);
     $('bQp').textContent = qpGain()>=1 ? `Quantique (+${qpGain()})` : 'Quantique';
-    refreshShop(); refreshSelButtons(); checkAch();
+    refreshShop(); refreshSelButtons(); checkAch(); checkObj(); updateObjHud();
+    const oc=$('bOc');
+    if(ocActive()) oc.textContent='Overclock actif : '+Math.ceil(G.oc.until-G.playtime)+' s';
+    else if(G.playtime<G.oc.ready) oc.textContent='Overclock : '+Math.ceil(G.oc.ready-G.playtime)+' s';
+    else oc.textContent='Overclock';
+    oc.disabled = !ocActive() && G.playtime<G.oc.ready; oc.classList.toggle('glow', !oc.disabled && !ocActive());
     if(tab==='up' || tab==='qp'){
       const sig = tab+GLOBALS.map(g=>G.money>=gUpCost(g)).join()+PU.map(d=>G.qp>=puCost(d)).join()+qpGain();
       if(sig!==tabSig){ tabSig=sig; renderTab(); }
