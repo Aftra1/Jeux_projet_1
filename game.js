@@ -204,7 +204,10 @@ function step(dt){
 // Prestige 
 function reboot(){
   const g = qpGain(); if(g<1) return;
-  if(!confirm(`Reboot quantique ?\nTu gagnes ${g} point(s) quantique(s) (+${g*10} % de revenus permanents).\nTes nœuds, crédits et améliorations de run sont remis à zéro.`)) return;
+  ask(`Reboot quantique ? Tu gagnes ${g} point(s) quantique(s) (+${g*10} % de revenus permanents). Tes nœuds, crédits et améliorations de run sont remis à zéro.`, doReboot);
+}
+function doReboot(){
+  const g = qpGain(); if(g<1) return;
   G.qp += g; G.qpTotal += g; G.resets++;
   blankRun(G);
   addNode('source', -280, -40, true);
@@ -403,6 +406,11 @@ addEventListener('keydown', e=>{
 
 // UI 
 const $ = id => document.getElementById(id);
+function ask(msg, yes){
+  const d=$('dlg'); $('dlgMsg').textContent=msg; d.style.display='flex';
+  $('dlgYes').onclick=()=>{ d.style.display='none'; yes(); };
+  $('dlgNo').onclick=()=>{ d.style.display='none'; };
+}
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.style.opacity=1; clearTimeout(toast.h); toast.h=setTimeout(()=>t.style.opacity=0,2600); }
 const unlocked = type => G.lifetime >= DEFS[type].unlock && (!DEFS[type].needQp || G.qpTotal>=DEFS[type].needQp);
 
@@ -536,7 +544,7 @@ function renderTab(){
         G = hydrate(d); buildShop(); sel=null; showSel(); toast('Sauvegarde importée'); save();
       }catch(e){ toast('Code invalide'); }
     };
-    $('oReset').onclick = ()=>{ if(confirm('Tout effacer, y compris les points quantiques ?')){ localStorage.removeItem(KEY); newGame(); income=[]; sel=null; showSel(); buildShop(); renderTab(); } };
+    $('oReset').onclick = ()=>ask('Tout effacer, y compris les points quantiques ?', ()=>{ try{ localStorage.removeItem(KEY); }catch(e){} newGame(); income=[]; sel=null; showSel(); buildShop(); renderTab(); });
   }
 }
 $('bUp').onclick = ()=>openTab('up');
