@@ -1,9 +1,9 @@
 # Upload Lab
 
-Petit jeu incrémental inspiré d'Upload Labs : construis un réseau de nœuds pour transformer des fichiers et les uploader.
+Jeu incrémental inspiré d'Upload Labs : construis un réseau de nœuds qui transforme des fichiers, puis uploade-les pour gagner des crédits. Ouvre `index.html` dans un navigateur.
 
-Ouvre `index.html` dans un navigateur.
-
-- Glisse d'un port de sortie (●) vers une entrée pour relier deux nœuds (double-clic / clic droit sur un lien pour le supprimer).
-- Achète des nœuds en bas, clique un nœud pour l'améliorer, le déconnecter ou le vendre (Suppr).
-- Améliorations globales via le bouton ⚙. Sauvegarde automatique (localStorage).
+- Relie les nœuds en glissant d'un port de sortie (●) vers une entrée. Double-clic / clic droit sur un lien pour le supprimer.
+- 11 types de nœuds débloqués progressivement, améliorations par nœud (×1 / ×10 / Max) et globales.
+- Reboot quantique (prestige) : points quantiques, bonus permanents, ingénieur automatique.
+- 17 succès, fichiers dorés aléatoires, upload critique, gains hors-ligne, sons, zoom/pincement tactile.
+- Sauvegarde automatique (localStorage) + export/import de code.
