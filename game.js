@@ -1,18 +1,18 @@
 'use strict';
-// ═════════════════════════ Définitions ═════════════════════════
+// Définitions 
 const NW = 160, NH = 70;
 const DEFS = {
-  source:  {name:'Source',        icon:'📁', ins:0, outs:1, cost:15,    t:2.0,  val:1,    unlock:0,   desc:'Génère un fichier de valeur 1.'},
-  upload:  {name:'Upload',        icon:'☁️', ins:1, outs:0, cost:20,    t:0.6,  unlock:0,           desc:'Envoie les fichiers vers le cloud et rapporte des crédits.'},
-  compress:{name:'Compresseur',   icon:'🗜️', ins:1, outs:1, cost:40,    t:1.5,  mult:2,   unlock:0, desc:'Double la valeur d\'un fichier.'},
-  split:   {name:'Diviseur',      icon:'🔀', ins:1, outs:2, cost:60,    t:0.2,  unlock:20,          desc:'Répartit les fichiers sur deux sorties, en alternance.'},
-  merge:   {name:'Fusion',        icon:'🧩', ins:2, outs:1, cost:140,   t:1.0,  unlock:100,         desc:'Fusionne 2 fichiers : (a + b) × 1,3.'},
-  encrypt: {name:'Chiffreur',     icon:'🔒', ins:1, outs:1, cost:300,   t:3.0,  mult:3,   unlock:200, desc:'Triple la valeur d\'un fichier.'},
-  clone:   {name:'Clonage',       icon:'🧬', ins:1, outs:2, cost:900,   t:1.2,  unlock:600,         desc:'Duplique un fichier sur les deux sorties.'},
-  ai:      {name:'Analyseur IA',  icon:'🧠', ins:1, outs:1, cost:2000,  t:7.0,  mult:8,   unlock:1500, desc:'Valeur ×8. Lent mais puissant.'},
-  mega:    {name:'Super Source',  icon:'🗄️', ins:0, outs:1, cost:6000,  t:3.0,  val:25,   unlock:4000, desc:'Génère des fichiers de valeur 25.'},
-  quantum: {name:'Quantique',     icon:'⚛️', ins:1, outs:1, cost:40000, t:14.0, mult:40,  unlock:25000, desc:'Valeur ×40. Très lent, très puissant.'},
-  sing:    {name:'Singularité',   icon:'🕳️', ins:1, outs:1, cost:3e6,   t:40.0, mult:1000, unlock:2e6, needQp:1, desc:'Valeur ×1000. Réservé aux joueurs ayant fait un Reboot.'},
+  source:  {name:'Source',        icon:'SRC', ins:0, outs:1, cost:15,    t:2.0,  val:1,    unlock:0,   desc:'Génère un fichier de valeur 1.'},
+  upload:  {name:'Upload',        icon:'UP', ins:1, outs:0, cost:20,    t:0.6,  unlock:0,           desc:'Envoie les fichiers vers le cloud et rapporte des crédits.'},
+  compress:{name:'Compresseur',   icon:'CMP', ins:1, outs:1, cost:40,    t:1.5,  mult:2,   unlock:0, desc:'Double la valeur d\'un fichier.'},
+  split:   {name:'Diviseur',      icon:'DIV', ins:1, outs:2, cost:60,    t:0.2,  unlock:20,          desc:'Répartit les fichiers sur deux sorties, en alternance.'},
+  merge:   {name:'Fusion',        icon:'FUS', ins:2, outs:1, cost:140,   t:1.0,  unlock:100,         desc:'Fusionne 2 fichiers : (a + b) × 1,3.'},
+  encrypt: {name:'Chiffreur',     icon:'ENC', ins:1, outs:1, cost:300,   t:3.0,  mult:3,   unlock:200, desc:'Triple la valeur d\'un fichier.'},
+  clone:   {name:'Clonage',       icon:'CLN', ins:1, outs:2, cost:900,   t:1.2,  unlock:600,         desc:'Duplique un fichier sur les deux sorties.'},
+  ai:      {name:'Analyseur IA',  icon:'IA', ins:1, outs:1, cost:2000,  t:7.0,  mult:8,   unlock:1500, desc:'Valeur ×8. Lent mais puissant.'},
+  mega:    {name:'Super Source',  icon:'SRC+', ins:0, outs:1, cost:6000,  t:3.0,  val:25,   unlock:4000, desc:'Génère des fichiers de valeur 25.'},
+  quantum: {name:'Quantique',     icon:'QNT', ins:1, outs:1, cost:40000, t:14.0, mult:40,  unlock:25000, desc:'Valeur ×40. Très lent, très puissant.'},
+  sing:    {name:'Singularité',   icon:'SNG', ins:1, outs:1, cost:3e6,   t:40.0, mult:1000, unlock:2e6, needQp:1, desc:'Valeur ×1000. Réservé aux joueurs ayant fait un Reboot.'},
 };
 const ORDER = Object.keys(DEFS);
 const COLORS = {source:'#4fd1c5',upload:'#f6c453',split:'#9f7aea',compress:'#63b3ed',merge:'#f687b3',encrypt:'#68d391',clone:'#f6ad55',ai:'#fc8181',mega:'#38b2ac',quantum:'#b794f4',sing:'#ffffff'};
@@ -27,7 +27,7 @@ const GLOBALS = [
 const PU = [
   {id:'start', name:'Capital de départ',     desc:'Démarre chaque run avec plus de crédits', base:1, grow:2, max:8, eff:l=>'Crédits de départ : '+fmt(startCash(l))},
   {id:'spd',   name:'Surcadençage',          desc:'+10 % de vitesse permanente',             base:1, grow:2, max:10, eff:l=>'+'+l*10+' %'},
-  {id:'disc',  name:'Négociation',           desc:'−5 % sur le prix des nœuds',              base:2, grow:2, max:6,  eff:l=>'−'+l*5+' %'},
+  {id:'disc',  name:'Négociation',           desc:'5 % sur le prix des nœuds',              base:2, grow:2, max:6,  eff:l=>''+l*5+' %'},
   {id:'off',   name:'Serveurs de nuit',      desc:'+10 % de gains hors-ligne (base 50 %)',   base:2, grow:2, max:5,  eff:l=>(50+l*10)+' %'},
   {id:'auto',  name:'Ingénieur automatique', desc:'Améliore automatiquement tes nœuds',      base:10,grow:1, max:1,  eff:l=>l?'Actif':'—'},
 ];
@@ -53,7 +53,7 @@ const ACH = [
   {id:'a17',name:'Ingénieur',        desc:'Un nœud au niveau 20',        t:()=>G.nodes.some(n=>n.level>=19)},
 ];
 
-// ═════════════════════════ État ═════════════════════════
+// État 
 let G = null;
 function blankRun(g){
   g.money = startCash(g.pu.start); g.run = 0; g.nextId = 1;
@@ -87,7 +87,7 @@ const revMult = () => (1 + 0.25*G.glob.rev) * (1 + 0.1*G.qpTotal) * (1 + 0.02*ac
 const critChance = () => 0.03*G.glob.crit;
 const qpGain = () => Math.floor(Math.sqrt(G.run/1e6));
 
-// ═════════════════════════ Géométrie ═════════════════════════
+// Géométrie 
 const inPort  = (n,i) => ({x:n.x,    y:n.y + NH*(i+1)/(DEFS[n.type].ins+1)});
 const outPort = (n,i) => ({x:n.x+NW, y:n.y + NH*(i+1)/(DEFS[n.type].outs+1)});
 function ctrl(a,b){ const d=Math.max(60,Math.abs(b.x-a.x)/2); return [a,{x:a.x+d,y:a.y},{x:b.x-d,y:b.y},b]; }
@@ -97,7 +97,7 @@ function bez(p,t){ const u=1-t; return {
 const linkPts = l => ctrl(outPort(nodeById(l.a),l.ao), inPort(nodeById(l.b),l.bi));
 const linkFrom = (id,o) => G.links.find(l=>l.a===id && l.ao===o);
 
-// ═════════════════════════ Effets (sons, textes) ═════════════════════════
+// Effets (sons, textes) 
 let AC = null, lastBlip = 0;
 function audio(){ if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return AC; }
 function blip(freq, dur=0.08, vol=0.05, type='sine'){
@@ -118,7 +118,7 @@ function upSound(big){
 const floats = [];
 function floatText(x,y,text,col='#f6c453',size=15){ if(floats.length<60) floats.push({x,y,text,col,size,life:1}); }
 
-// ═════════════════════════ Simulation ═════════════════════════
+// Simulation 
 let income = [];
 function earn(v, n, crit){
   G.money += v; G.run += v; G.lifetime += v;
@@ -197,7 +197,7 @@ function step(dt){
   for(const n of G.nodes) updateNode(n,dt);
 }
 
-// ═════════════════════════ Prestige ═════════════════════════
+// Prestige 
 function reboot(){
   const g = qpGain(); if(g<1) return;
   if(!confirm(`Reboot quantique ?\nTu gagnes ${g} point(s) quantique(s) (+${g*10} % de revenus permanents).\nTes nœuds, crédits et améliorations de run sont remis à zéro.`)) return;
@@ -206,11 +206,11 @@ function reboot(){
   addNode('source', -280, -40, true);
   addNode('upload', 180, -40, true);
   income = []; sel = null; showSel(); renderTab(); buildShop();
-  toast(`⚛ Reboot ! +${g} point(s) quantique(s)`);
+  toast(`Reboot ! +${g} point(s) quantique(s)`);
   save();
 }
 
-// ═════════════════════════ Rendu ═════════════════════════
+// Rendu 
 const cv = document.getElementById('c'), cx = cv.getContext('2d');
 let W=0,H=0,DPR=1;
 function resize(){ DPR=window.devicePixelRatio||1; W=innerWidth; H=innerHeight; cv.width=W*DPR; cv.height=H*DPR; }
@@ -219,7 +219,7 @@ const toWorld = (sx,sy)=>({x:(sx-W/2-G.view.x)/G.view.k, y:(sy-H/2-G.view.y)/G.v
 
 const SUF = ['','K','M','B','T','Qa','Qi','Sx','Sp','Oc','No','Dc'];
 function fmt(v){
-  if(!isFinite(v)) return '∞';
+  if(!isFinite(v)) return 'Inf';
   if(v<1000) return v<10 ? (Math.round(v*10)/10).toString() : Math.floor(v).toString();
   let i=0; while(v>=1000 && i<SUF.length-1){ v/=1000; i++; }
   return v.toFixed(v<10?2:v<100?1:0)+SUF[i];
@@ -277,7 +277,7 @@ function draw(){
     cx.fillStyle = col+'33'; rrect(n.x+8,n.y+NH-11,NW-16,5,2.5); cx.fill();
     cx.fillStyle = col; rrect(n.x+8,n.y+NH-11,Math.max(5,(NW-16)*Math.max(0,Math.min(1,pr))),5,2.5); if(pr>0) cx.fill();
     cx.textAlign='left'; cx.textBaseline='middle';
-    cx.font='22px system-ui'; cx.fillStyle='#fff'; cx.fillText(d.icon, n.x+12, n.y+24);
+    cx.fillStyle=col+'33'; rrect(n.x+8,n.y+8,30,30,8); cx.fill(); cx.fillStyle=col; cx.font='700 '+(d.icon.length>2?10:12)+'px system-ui'; cx.textAlign='center'; cx.fillText(d.icon, n.x+23, n.y+24); cx.textAlign='left';
     cx.font='600 13px system-ui'; cx.fillStyle='#e6ecf8'; cx.fillText(d.name, n.x+42, n.y+18);
     cx.font='11px system-ui'; cx.fillStyle='#8794b3';
     const buf = n.inb.reduce((s,q)=>s+q.length,0);
@@ -298,7 +298,7 @@ function port(p,hot,out,col,linked){
   cx.strokeStyle = hot ? '#fff' : (out ? '#0a0e16' : '#8794b3'); cx.lineWidth=2; cx.stroke();
 }
 
-// ═════════════════════════ Interactions ═════════════════════════
+// Interactions 
 function findPort(w){
   const r = 14/G.view.k;
   for(const n of G.nodes){
@@ -395,7 +395,7 @@ addEventListener('keydown', e=>{
   if((e.key==='Delete'||e.key==='Backspace') && sel){ const n=nodeById(sel); if(n) sell(n); }
 });
 
-// ═════════════════════════ UI ═════════════════════════
+// UI 
 const $ = id => document.getElementById(id);
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.style.opacity=1; clearTimeout(toast.h); toast.h=setTimeout(()=>t.style.opacity=0,2600); }
 const unlocked = type => G.lifetime >= DEFS[type].unlock && (!DEFS[type].needQp || G.qpTotal>=DEFS[type].needQp);
@@ -421,11 +421,11 @@ function refreshShop(){
   for(const b of $('shop').children){
     const type=b.dataset.type, d=DEFS[type];
     if(unlocked(type)){
-      b.innerHTML = `<b>${d.icon} ${d.name}</b><small>${d.desc}</small><span class="c">💰 ${fmt(buyCost(type))}</span>`;
+      b.innerHTML = `<b>${d.name}</b><small>${d.desc}</small><span class="c">Prix : ${fmt(buyCost(type))}</span>`;
       b.disabled = G.money < buyCost(type);
     } else {
       const need = d.needQp && G.qpTotal<d.needQp ? 'Nécessite un Reboot' : 'Débloqué à '+fmt(d.unlock)+' crédits gagnés';
-      b.innerHTML = `<b>🔒 ???</b><small>${need}</small>`;
+      b.innerHTML = `<b>???</b><small>${need}</small>`;
       b.disabled = true;
     }
   }
@@ -453,9 +453,9 @@ function showSel(){
   if(d.val) extra = `1 fichier de valeur ${d.val + G.glob.seed*(d.val>1?5:1)} toutes les ${t.toFixed(2)} s.`;
   else if(n.type==='upload') extra = `1 fichier toutes les ${t.toFixed(2)} s (revenus ×${revMult().toFixed(2)}).`;
   else extra = `${t.toFixed(2)} s par fichier.`;
-  box.innerHTML = `<h3>${d.icon} ${d.name} — niveau ${n.level+1}</h3><p>${d.desc}</p><p>${extra}</p>
+  box.innerHTML = `<h3>${d.name} — niveau ${n.level+1}</h3><p>${d.desc}</p><p>${extra}</p>
     <div class="row"><button id="bu1"></button><button id="bu10"></button><button id="buM"></button></div>
-    <div class="row"><button id="bDis">✂ Déconnecter</button><button id="bSell">🗑 Vendre +${fmt(Math.floor(buyCost(n.type)*0.4))}</button></div>`;
+    <div class="row"><button id="bDis">Déconnecter</button><button id="bSell">Vendre +${fmt(Math.floor(buyCost(n.type)*0.4))}</button></div>`;
   box.style.display='block';
   refreshSelButtons();
   $('bu1').onclick = ()=>upgradeNode(n,1);
@@ -467,9 +467,9 @@ function showSel(){
 function refreshSelButtons(){
   const n = sel ? nodeById(sel) : null; if(!n || !$('bu1')) return;
   const c1=upCost(n), c10=bulkCost(n,10), m=maxAffordable(n);
-  $('bu1').innerHTML = `⬆ ×1<br>💰 ${fmt(c1)}`;  $('bu1').disabled = G.money<c1;
-  $('bu10').innerHTML = `⬆ ×10<br>💰 ${fmt(c10)}`; $('bu10').disabled = G.money<c10;
-  $('buM').innerHTML = `⬆ Max (${m})<br>💰 ${fmt(bulkCost(n,m))}`; $('buM').disabled = m<1;
+  $('bu1').innerHTML = `×1<br>${fmt(c1)}`;  $('bu1').disabled = G.money<c1;
+  $('bu10').innerHTML = `×10<br>${fmt(c10)}`; $('bu10').disabled = G.money<c10;
+  $('buM').innerHTML = `Max (${m})<br>${fmt(bulkCost(n,m))}`; $('buM').disabled = m<1;
 }
 
 // panneau latéral à onglets
@@ -488,7 +488,7 @@ function renderTab(){
     body.innerHTML = GLOBALS.map(g=>{
       const lv=G.glob[g.id], max=lv>=g.max, c=gUpCost(g);
       return `<div class="item"><div><b>${g.name}</b> <small>(${lv}/${g.max})</small><p>${g.desc}</p></div>
-        <button data-g="${g.id}" ${max||G.money<c?'disabled':''}>${max?'MAX':'💰 '+fmt(c)}</button></div>`;
+        <button data-g="${g.id}" ${max||G.money<c?'disabled':''}>${max?'MAX':'Coût : '+fmt(c)}</button></div>`;
     }).join('');
     body.querySelectorAll('button[data-g]').forEach(b=>b.onclick=()=>{
       const g=GLOBALS.find(x=>x.id===b.dataset.g), c=gUpCost(g);
@@ -498,13 +498,13 @@ function renderTab(){
     const gain=qpGain();
     body.innerHTML = `<p>Un <b class="qp">Reboot quantique</b> remet ta progression à zéro, mais te donne des <b class="qp">points quantiques</b> :
       +10 % de revenus permanents par point obtenu, et ils se dépensent en bonus permanents.</p>
-      <div class="item"><div><b class="qp">⚛ ${G.qp} point(s)</b> disponible(s)<p>Total : ${G.qpTotal} · Reboots : ${G.resets} · Bonus : ×${(1+0.1*G.qpTotal).toFixed(1)}</p></div></div>
-      <button id="bReboot" class="${gain>=1?'glow':''}" style="width:100%" ${gain<1?'disabled':''}>⚛ Reboot : +${gain} point(s)</button>
+      <div class="item"><div><b class="qp">${G.qp} point(s)</b> disponible(s)<p>Total : ${G.qpTotal} · Reboots : ${G.resets} · Bonus : ×${(1+0.1*G.qpTotal).toFixed(1)}</p></div></div>
+      <button id="bReboot" class="${gain>=1?'glow':''}" style="width:100%" ${gain<1?'disabled':''}>Reboot : +${gain} point(s)</button>
       <p>${gain<1?'Il faut gagner 1 M de crédits dans ce run pour obtenir le premier point. Le gain croît avec la racine carrée des crédits gagnés.':'Gagne plus de crédits avant de rebooter pour obtenir plus de points.'}</p>` +
       PU.map(d=>{
         const lv=G.pu[d.id], max=lv>=d.max, c=puCost(d);
         return `<div class="item"><div><b>${d.name}</b> <small>(${lv}/${d.max})</small><p>${d.desc}<br><span class="qp">${d.eff(lv)}</span></p></div>
-          <button data-p="${d.id}" ${max||G.qp<c?'disabled':''}>${max?'MAX':'⚛ '+c}</button></div>`;
+          <button data-p="${d.id}" ${max||G.qp<c?'disabled':''}>${max?'MAX':''+c}</button></div>`;
       }).join('');
     $('bReboot').onclick = reboot;
     body.querySelectorAll('button[data-p]').forEach(b=>b.onclick=()=>{
@@ -513,13 +513,13 @@ function renderTab(){
     });
   } else if(tab==='ach'){
     body.innerHTML = `<p>${achCount()}/${ACH.length} succès · chaque succès donne +2 % de revenus (actuellement +${achCount()*2} %).</p>` +
-      ACH.map(a=>`<div class="item ${G.ach[a.id]?'done':'lock'}"><div><b>${G.ach[a.id]?'✅':'🔒'} ${a.name}</b><p>${a.desc}</p></div></div>`).join('');
+      ACH.map(a=>`<div class="item ${G.ach[a.id]?'done':'lock'}"><div><b>${G.ach[a.id]?'[OK]':'[ ]'} ${a.name}</b><p>${a.desc}</p></div></div>`).join('');
   } else if(tab==='opt'){
-    body.innerHTML = `<div class="item"><div><b>Son</b></div><button id="oMute">${G.mute?'🔇 Désactivé':'🔊 Activé'}</button></div>
+    body.innerHTML = `<div class="item"><div><b>Son</b></div><button id="oMute">${G.mute?'Désactivé':'Activé'}</button></div>
       <div class="item"><div><b>Sauvegarde</b><p>Exporter / importer ta partie (texte).</p></div></div>
       <textarea id="oTxt" placeholder="Code de sauvegarde…"></textarea>
       <div class="row"><button id="oExp">Exporter</button><button id="oImp">Importer</button></div>
-      <div class="row"><button id="oReset" style="color:var(--bad)">↺ Tout effacer</button></div>
+      <div class="row"><button id="oReset" style="color:var(--bad)">Tout effacer</button></div>
       <p>Temps de jeu : ${Math.floor(G.playtime/3600)} h ${Math.floor(G.playtime/60)%60} min · Crédits gagnés au total : ${fmt(G.lifetime)}</p>
       <p>Astuces : double-clic / clic droit sur un lien pour le supprimer · molette ou pincement pour zoomer · Suppr pour vendre un nœud.</p>`;
     $('oMute').onclick = ()=>{ G.mute=!G.mute; renderTab(); };
@@ -553,15 +553,15 @@ $('gold').onclick = ()=>{
   const r = Math.max(100, G.lastRate*60);
   G.money += r; G.run += r; G.lifetime += r; G.golds++;
   $('gold').style.display='none'; goldLife=0;
-  blip(880,0.2,0.08,'triangle'); toast('💎 Fichier doré ! +'+fmt(r)+' crédits');
+  blip(880,0.2,0.08,'triangle'); toast('Fichier doré ! +'+fmt(r)+' crédits');
 };
 
 // succès
 function checkAch(){
-  for(const a of ACH) if(!G.ach[a.id] && a.t()){ G.ach[a.id]=true; toast('🏆 Succès : '+a.name+' (+2 % de revenus)'); blip(990,0.25,0.07,'triangle'); if(tab==='ach') renderTab(); }
+  for(const a of ACH) if(!G.ach[a.id] && a.t()){ G.ach[a.id]=true; toast('Succès : '+a.name+' (+2 % de revenus)'); blip(990,0.25,0.07,'triangle'); if(tab==='ach') renderTab(); }
 }
 
-// ═════════════════════════ Sauvegarde ═════════════════════════
+// Sauvegarde 
 const KEY = 'uploadlab2';
 function serialize(){ G.savedAt = Date.now(); return JSON.parse(JSON.stringify(G, (k,v)=> k==='packets' ? [] : v)); }
 function hydrate(d){
@@ -596,13 +596,13 @@ function load(){
 setInterval(save, 5000);
 addEventListener('beforeunload', save);
 
-// ═════════════════════════ Boucle ═════════════════════════
+// Boucle 
 if(!load()) newGame();
 buildShop();
 let last = performance.now(), uiT = 0, autoT = 0;
 function hintText(){
   if(G.files>=30 && G.resets===0 && G.lifetime>=100) return '';
-  if(!G.links.length) return 'Glisse depuis le port ● de sortie d\'un nœud vers l\'entrée d\'un autre pour les relier. Relie la Source à l\'Upload !';
+  if(!G.links.length) return 'Glisse depuis le port rond de sortie d\'un nœud vers l\'entrée d\'un autre pour les relier. Relie la Source à l\'Upload !';
   if(!(G.bought.compress)) return 'Bien ! Achète un Compresseur (en bas) et place-le entre la Source et l\'Upload : ses fichiers valent le double.';
   if(G.lifetime<100) return 'Clique sur un nœud pour l\'améliorer. Plus de nœuds + plus de niveaux = plus de crédits !';
   return 'Astuce : plusieurs Sources, des Diviseurs et des Fusions te permettent de paralléliser. De nouveaux nœuds se débloquent en gagnant des crédits.';
@@ -630,7 +630,7 @@ function loop(now){
     $('files').textContent = fmt(G.files);
     $('mult').textContent = '×'+revMult().toFixed(2);
     $('bQp').classList.toggle('glow', qpGain()>=1);
-    $('bQp').textContent = qpGain()>=1 ? `⚛ Quantique (+${qpGain()})` : '⚛ Quantique';
+    $('bQp').textContent = qpGain()>=1 ? `Quantique (+${qpGain()})` : 'Quantique';
     refreshShop(); refreshSelButtons(); checkAch();
     if(tab==='up' || tab==='qp'){
       const sig = tab+GLOBALS.map(g=>G.money>=gUpCost(g)).join()+PU.map(d=>G.qp>=puCost(d)).join()+qpGain();
