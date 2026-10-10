@@ -542,6 +542,13 @@ addEventListener('keydown', e=>{
   if(e.target.tagName==='TEXTAREA') return;
   if(e.key==='o'||e.key==='O') useOverclock();
   if(e.key==='f'||e.key==='F') fitView();
+  if((e.key==='u'||e.key==='U') && sel){ const n=nodeById(sel); if(n) upgradeNode(n, e.shiftKey?1000:1); }
+  if((e.key==='d'||e.key==='D') && sel){
+    const n=nodeById(sel), c=n&&buyCost(n.type);
+    if(n && !DEFS[n.type].unique && unlocked(n.type) && G.money>=c){
+      G.money-=c; const m=addNode(n.type, n.x+30, n.y+NH+30); sel=m.id; showSel(); blip(600,0.08,0.05,'triangle');
+    } else if(n) toast('Pas assez de crédits pour dupliquer');
+  }
   if((e.key==='Delete'||e.key==='Backspace') && sel){ const n=nodeById(sel); if(n) sell(n); }
 });
 
