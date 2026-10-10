@@ -11,7 +11,7 @@ const DEFS = {
   boost:   {name:'Amplificateur',  icon:'AMP', ins:1, outs:1, cost:500,   t:0.4,  mult:1.5, unlock:400, desc:'Valeur x1,5, très rapide. Idéal en fin de chaîne.'},
   clone:   {name:'Clonage',       icon:'CLN', ins:1, outs:2, cost:900,   t:1.2,  unlock:600,         desc:'Duplique un fichier sur les deux sorties.'},
   ai:      {name:'Analyseur IA',  icon:'IA', ins:1, outs:1, cost:2000,  t:6.0,  mult:5,   unlock:1500, desc:'Valeur ×5. Lent mais puissant.'},
-  lab:     {name:'Laboratoire',   icon:'LAB', ins:1, outs:0, cost:2500,  t:1.5,  unlock:2000, desc:'Absorbe les fichiers et produit des points de recherche.'},
+  lab:     {name:'Laboratoire',   icon:'LAB', ins:3, outs:0, cost:2500,  t:1.5,  unlock:2000, desc:'Absorbe les fichiers et produit des points de recherche. 3 entrées.'},
   mega:    {name:'Super Source',  icon:'SRC+', ins:0, outs:1, cost:6000,  t:3.0,  val:10,   unlock:4000, desc:'Génère des fichiers de valeur 10.'},
   quantum: {name:'Quantique',     icon:'QNT', ins:1, outs:1, cost:40000, t:12.0, mult:10,  unlock:25000, desc:'Valeur ×10. Très lent, très puissant.'},
   sing:    {name:'Singularité',   icon:'SNG', ins:1, outs:1, cost:2e6,   t:30.0, mult:22,  unlock:1e6, needRs:3, desc:'Valeur ×22. Réservé aux joueurs ayant fait 3 Reboots.'},
@@ -183,7 +183,12 @@ function updateNode(n,dt){
       if(n.timer>=t){ n.timer=0; n.outq.push({v:seedV(def), o:-1}); }
     }
   } else if(n.type==='lab'){
-    if(!n.work && n.inb[0].length) n.work = {v:n.inb[0].shift(), rem:t};
+    if(!n.work){
+      for(let k=0;k<n.inb.length;k++){
+        const i=(n.rr+k)%n.inb.length;
+        if(n.inb[i].length){ n.work = {v:n.inb[i].shift(), rem:t}; n.rr=i+1; break; }
+      }
+    }
     if(n.work){
       n.work.rem -= dt;
       if(n.work.rem<=0){ const r=rpOf(n.work.v); G.rp+=r; G.rpTotal+=r; floatText(n.x+NW/2, n.y-4, '+'+fmt(r)+' RP', '#76e4f7', 13); n.work=null; }
