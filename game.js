@@ -271,30 +271,67 @@ function packetColor(v){
 }
 
 let sel = null, drag = null, hoverPort = null;
+// Zoom : cible lissée, vitesse de zoom pour les effets, niveaux de détail
+const ZMIN = 0.05, ZMAX = 3;
+let zoomT = null, zoomVel = 0, lastDraw = performance.now(), zoomShow = 0, lodPrev = 0, lodFlash = 0;
+const sstep = (a,b,x)=>{ const t=Math.max(0,Math.min(1,(x-a)/(b-a))); return t*t*(3-2*t); };
+function zoomAt(sx,sy,k){ zoomT = {k:Math.max(ZMIN,Math.min(ZMAX,k)), sx, sy}; zoomShow = 1.6; }
+function stepZoom(dt){
+  const v = G.view, k0 = v.k;
+  if(zoomT){
+    const w = toWorld(zoomT.sx,zoomT.sy), e = Math.log(zoomT.k/v.k);
+    if(Math.abs(e) < 0.002) v.k = zoomT.k; else v.k *= Math.exp(e*(1-Math.exp(-dt*11)));
+    v.x = zoomT.sx - W/2 - w.x*v.k; v.y = zoomT.sy - H/2 - w.y*v.k;
+    if(v.k === zoomT.k) zoomT = null;
+  }
+  const inst = dt>0 ? Math.log(v.k/k0)/dt : 0;
+  zoomVel += (inst - zoomVel)*Math.min(1,dt*10);
+  if(Math.abs(zoomVel) < 0.02) zoomVel = 0;
+  zoomShow = Math.max(0, zoomShow - dt);
+}
 function draw(){
-  const v = G.view, tm = performance.now()/1000;
+  const now = performance.now(), dt = Math.min(0.1,(now-lastDraw)/1000); lastDraw = now;
+  stepZoom(dt);
+  const v = G.view, tm = now/1000;
+  // niveau de détail : 0 = vue lointaine, 1 = vue détaillée
+  const det = sstep(0.28,0.52,v.k), far = 1-det;
+  const lod = v.k<0.28 ? 0 : v.k<0.52 ? 1 : 2;
+  if(lod!==lodPrev){ lodFlash = 1; lodPrev = lod; }
+  lodFlash = Math.max(0, lodFlash - dt*2.2);
   cx.setTransform(DPR,0,0,DPR,0,0);
   cx.clearRect(0,0,W,H);
-  const gs = 40*v.k;
-  cx.strokeStyle='#121a2a'; cx.lineWidth=1; cx.beginPath();
-  const ox = ((W/2+v.x)%gs+gs)%gs, oy = ((H/2+v.y)%gs+gs)%gs;
-  for(let x=ox;x<W;x+=gs){ cx.moveTo(x,0); cx.lineTo(x,H); }
-  for(let y=oy;y<H;y+=gs){ cx.moveTo(0,y); cx.lineTo(W,y); }
-  cx.stroke();
+  // grille à deux échelles, la plus fine s'estompe en dézoomant
+  let gs = 40*v.k, fine = 1;
+  if(gs<22){ fine = 0; let m = 1; while(gs*m<22) m*=5; gs *= m; }
+  const gridPass = (g,a)=>{
+    cx.strokeStyle='rgba(30,44,72,'+a+')'; cx.lineWidth=1; cx.beginPath();
+    const ox = ((W/2+v.x)%g+g)%g, oy = ((H/2+v.y)%g+g)%g;
+    for(let x=ox;x<W;x+=g){ cx.moveTo(x,0); cx.lineTo(x,H); }
+    for(let y=oy;y<H;y+=g){ cx.moveTo(0,y); cx.lineTo(W,y); }
+    cx.stroke();
+  };
+  if(fine) gridPass(gs, 0.5*Math.min(1,gs/40));
+  else { gridPass(gs, 0.55); gridPass(gs*5, 0.9); }
 
   cx.save();
   cx.translate(W/2+v.x, H/2+v.y); cx.scale(v.k,v.k);
 
   for(const l of G.links){
     const p = linkPts(l);
-    cx.lineWidth = 5; cx.strokeStyle = '#1f2a42';
+    const ml = Math.max(1, 2.2/v.k);   // épaisseur minimale visible à l'écran
+    cx.lineWidth = Math.max(5, ml*1.6); cx.strokeStyle = '#1f2a42';
     cx.beginPath(); cx.moveTo(p[0].x,p[0].y); cx.bezierCurveTo(p[1].x,p[1].y,p[2].x,p[2].y,p[3].x,p[3].y); cx.stroke();
-    cx.lineWidth = 2; cx.strokeStyle = '#3a4d78'; cx.setLineDash([8,10]); cx.lineDashOffset = -tm*30;
-    cx.stroke(); cx.setLineDash([]);
+    if(det>0.05){
+      cx.globalAlpha = det;
+      cx.lineWidth = 2; cx.strokeStyle = '#3a4d78'; cx.setLineDash([8,10]); cx.lineDashOffset = -tm*30;
+      cx.stroke(); cx.setLineDash([]); cx.globalAlpha = 1;
+    }
     for(const k of l.packets){
       const q = bez(p,k.t), c = packetColor(k.v);
-      cx.shadowColor=c; cx.shadowBlur=10; cx.fillStyle=c;
-      rrect(q.x-6,q.y-6,12,12,3); cx.fill();
+      if(v.k>0.4){ cx.shadowColor=c; cx.shadowBlur=10; }
+      cx.fillStyle=c;
+      const ps = Math.max(12, 3.5/v.k);
+      if(ps>12) cx.fillRect(q.x-ps/2,q.y-ps/2,ps,ps); else rrect(q.x-6,q.y-6,12,12,3), cx.fill();
     }
     cx.shadowBlur=0;
   }
@@ -307,6 +344,9 @@ function draw(){
   for(const n of G.nodes){
     const d = DEFS[n.type], col = COLORS[n.type];
     const busy = !!n.work || (d.val && n.timer>0);
+    if(far>0.02) drawNodeFar(n,d,col,busy,far,tm);
+    if(det<0.02) continue;
+    cx.globalAlpha = det;
     cx.shadowColor = col; cx.shadowBlur = busy ? 14 : 4;
     const gr = cx.createLinearGradient(0,n.y,0,n.y+NH); gr.addColorStop(0,'#1e2942'); gr.addColorStop(1,'#131b2e');
     cx.fillStyle = gr; rrect(n.x,n.y,NW,NH,12); cx.fill();
@@ -325,6 +365,7 @@ function draw(){
     cx.fillText('Niv. '+(n.level+1)+(d.ins?'  ·  file '+buf+'/'+bufCap():'  ·  '+(1/timeOf(n)).toFixed(2)+'/s'), n.x+42, n.y+35);
     for(let i=0;i<d.ins;i++) port(inPort(n,i), hoverPort&&hoverPort.in&&hoverPort.n===n.id&&hoverPort.i===i, false, col, G.links.some(l=>l.b===n.id&&l.bi===i));
     for(let i=0;i<d.outs;i++) port(outPort(n,i), hoverPort&&!hoverPort.in&&hoverPort.n===n.id&&hoverPort.i===i, true, col, !!linkFrom(n.id,i));
+    cx.globalAlpha = 1;
   }
   for(const f of floats){
     cx.globalAlpha = Math.max(0,f.life); cx.fillStyle=f.col; cx.font=`700 ${f.size}px system-ui`; cx.textAlign='center';
@@ -333,7 +374,61 @@ function draw(){
   for(const q of parts){ cx.globalAlpha=Math.max(0,q.life); cx.fillStyle=q.col; cx.fillRect(q.x-2,q.y-2,4,4); }
   cx.globalAlpha = 1;
   cx.restore();
+  drawZoomFx(det);
   drawMini();
+}
+// Vue lointaine : blocs colorés lumineux, icône à taille d'écran constante
+function drawNodeFar(n,d,col,busy,a,tm){
+  const k = G.view.k, cxn = n.x+NW/2, cyn = n.y+NH/2;
+  const pulse = busy ? 0.75+0.25*Math.sin(tm*5+n.id) : 0.55;
+  cx.globalAlpha = a;
+  const R = Math.max(NW*0.62, 20/k);
+  const g = cx.createRadialGradient(cxn,cyn,0,cxn,cyn,R*1.6);
+  g.addColorStop(0,col+(busy?'88':'44')); g.addColorStop(1,col+'00');
+  cx.fillStyle = g; cx.fillRect(cxn-R*1.6,cyn-R*1.6,R*3.2,R*3.2);
+  const bw = Math.max(NW, 26/k), bh = Math.max(NH, 18/k);
+  cx.fillStyle = col; cx.globalAlpha = a*pulse;
+  rrect(cxn-bw/2,cyn-bh/2,bw,bh,Math.min(12,bh*0.3)); cx.fill();
+  cx.globalAlpha = a; cx.strokeStyle = sel===n.id ? '#fff' : '#0a0e16'; cx.lineWidth = Math.max(2,1.5/k);
+  rrect(cxn-bw/2,cyn-bh/2,bw,bh,Math.min(12,bh*0.3)); cx.stroke();
+  if(k>0.09){
+    cx.fillStyle = '#0a0e16'; cx.textAlign='center'; cx.textBaseline='middle';
+    cx.font = '700 '+Math.round(12/k)+'px system-ui'; cx.fillText(d.icon, cxn, cyn+0.5/k);
+    cx.textAlign='left';
+  }
+  cx.globalAlpha = 1;
+}
+// Effets de zoom : stries radiales, vignette de vitesse, anneau de changement de niveau, indicateur
+function drawZoomFx(det){
+  cx.setTransform(DPR,0,0,DPR,0,0);
+  const sp = Math.min(1, Math.abs(zoomVel)/3.2), mxr = Math.hypot(W,H)/2;
+  if(sp>0.03){
+    const out = zoomVel<0;   // dézoom : les stries convergent vers le centre
+    const g = cx.createRadialGradient(W/2,H/2,mxr*0.35,W/2,H/2,mxr);
+    g.addColorStop(0,'rgba(79,209,197,0)'); g.addColorStop(1,'rgba(79,209,197,'+(0.22*sp)+')');
+    cx.fillStyle = g; cx.fillRect(0,0,W,H);
+    cx.strokeStyle = 'rgba(160,230,255,'+(0.5*sp)+')'; cx.lineWidth = 1.5; cx.beginPath();
+    const t = performance.now()/1000;
+    for(let i=0;i<46;i++){
+      const ang = i*2.399+Math.floor(i/7)*0.3, ph = (i*0.37+t*(out?-1:1)*2.2)%1, f = ph<0?ph+1:ph;
+      const r0 = mxr*(0.25+0.65*f), r1 = r0 + mxr*0.18*sp;
+      cx.moveTo(W/2+Math.cos(ang)*r0, H/2+Math.sin(ang)*r0);
+      cx.lineTo(W/2+Math.cos(ang)*r1, H/2+Math.sin(ang)*r1);
+    }
+    cx.stroke();
+  }
+  if(lodFlash>0){
+    const r = mxr*(1-lodFlash)*1.1;
+    cx.strokeStyle = 'rgba(255,255,255,'+(0.35*lodFlash)+')'; cx.lineWidth = 3+10*lodFlash;
+    cx.beginPath(); cx.arc(W/2,H/2,r,0,Math.PI*2); cx.stroke();
+  }
+  if(zoomShow>0){
+    const a = Math.min(1,zoomShow), lab = G.view.k<0.28?'Vue globale':G.view.k<0.52?'Vue réseau':'Vue détaillée';
+    cx.globalAlpha = a; cx.textAlign='center'; cx.textBaseline='middle';
+    cx.fillStyle='#0a0e16cc'; rrect(W/2-90,H-150,180,34,10); cx.fill();
+    cx.fillStyle='#e6ecf8'; cx.font='700 13px system-ui'; cx.fillText(Math.round(G.view.k*100)+' %  -  '+lab, W/2, H-133);
+    cx.globalAlpha = 1; cx.textAlign='left';
+  }
 }
 function port(p,hot,out,col,linked){
   cx.beginPath(); cx.arc(p.x,p.y,hot?10:7,0,Math.PI*2);
@@ -374,7 +469,7 @@ cv.addEventListener('pointerdown', e=>{
   pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(pointers.size===2){
     const [a,b]=[...pointers.values()];
-    pinch={d:Math.hypot(a.x-b.x,a.y-b.y), k:G.view.k}; drag=null; return;
+    pinch={d:Math.hypot(a.x-b.x,a.y-b.y), k:G.view.k}; zoomT=null; drag=null; return;
   }
   const w = toWorld(e.clientX,e.clientY);
   const pt = findPort(w);
@@ -396,7 +491,7 @@ cv.addEventListener('pointermove', e=>{
   if(pinch && pointers.size===2){
     const [a,b]=[...pointers.values()], mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
     const w = toWorld(mx,my), v=G.view;
-    v.k = Math.max(0.3, Math.min(2.5, pinch.k*Math.hypot(a.x-b.x,a.y-b.y)/pinch.d));
+    v.k = Math.max(ZMIN, Math.min(ZMAX, pinch.k*Math.hypot(a.x-b.x,a.y-b.y)/pinch.d)); zoomShow = 1.2;
     v.x = mx - W/2 - w.x*v.k; v.y = my - H/2 - w.y*v.k; return;
   }
   const w = toWorld(e.clientX,e.clientY);
@@ -429,9 +524,9 @@ cv.addEventListener('dblclick', e=>{ const l=findLink(toWorld(e.clientX,e.client
 cv.addEventListener('contextmenu', e=>{ e.preventDefault(); const l=findLink(toWorld(e.clientX,e.clientY)); if(l) G.links=G.links.filter(x=>x!==l); });
 cv.addEventListener('wheel', e=>{
   e.preventDefault();
-  const v=G.view, w=toWorld(e.clientX,e.clientY);
-  v.k = Math.max(0.3, Math.min(2.5, v.k*(e.deltaY<0?1.1:1/1.1)));
-  v.x = e.clientX - W/2 - w.x*v.k; v.y = e.clientY - H/2 - w.y*v.k;
+  const base = zoomT ? zoomT.k : G.view.k;
+  const step = Math.exp(-Math.max(-300,Math.min(300,e.deltaY))*0.0022);
+  zoomAt(e.clientX, e.clientY, base*step);
 },{passive:false});
 addEventListener('keydown', e=>{
   if(e.target.tagName==='TEXTAREA') return;
@@ -714,7 +809,7 @@ function fitView(){
   if(!G.nodes.length) return;
   let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
   for(const n of G.nodes){ x0=Math.min(x0,n.x); y0=Math.min(y0,n.y); x1=Math.max(x1,n.x+NW); y1=Math.max(y1,n.y+NH); }
-  const k = Math.max(0.3,Math.min(1.5, Math.min((W-120)/(x1-x0), (H-300)/(y1-y0))));
+  const k = Math.max(ZMIN,Math.min(1.5, Math.min((W-120)/(x1-x0), (H-300)/(y1-y0)))); zoomT = null;
   G.view.k = k; G.view.x = -((x0+x1)/2)*k; G.view.y = -((y0+y1)/2)*k - 20;
 }
 const mini = $('mini'), mx = mini.getContext('2d');
