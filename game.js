@@ -258,7 +258,7 @@ function reboot(){
   const g = qpGain(); if(g<1) return;
   ask(`Reboot quantique ? Tu gagnes ${g} point(s) quantique(s) (revenus x${qpMult(G.qpTotal+g).toFixed(2)} au lieu de x${qpMult(G.qpTotal).toFixed(2)}). Tes nœuds, crédits et améliorations de run sont remis à zéro.`, doReboot);
 }
-function doReboot(){ msel.clear();
+function doReboot(){ msel.clear(); if(G.auto) G.auto.built = {};
   const g = qpGain(); if(g<1) return;
   G.qp += g; G.qpTotal += g; G.resets++;
   blankRun(G);
@@ -1221,13 +1221,23 @@ function autoPlay(dt){
     if(A.nodes) for(const n of G.nodes){ const u=upCost(n); if(u<=G.money) c.push({cost:u, w:1, f:()=>{ G.money-=u; n.level++; }}); }
     if(A.glob) for(const d of GLOBALS){ if(G.glob[d.id]>=d.max) continue; const u=gUpCost(d); if(u<=G.money) c.push({cost:u, w:d.id==='buf'?3:0.8, f:()=>{ G.money-=u; G.glob[d.id]++; }}); }
     if(A.bp && G.nodes.length<80){
-      const ok = BPS.filter(b=>bpUnlocked(b)).map(b=>({b,c:bpCost(b)}));
-      const hasLab = G.nodes.some(n=>n.type==='lab');
-      const pick = (isLab)=>ok.filter(x=>bpIsLab(x.b)===isLab && x.c<=G.money*0.5).sort((a,b)=>b.c-a.c)[0];
+      A.built = A.built || {};
+      const times = b => A.built[b.name]||0;
+      const all = BPS.filter(b=>bpUnlocked(b)).map(b=>({b,c:bpCost(b)}));
+      const ok = all.filter(x=>x.c<=G.money*0.5 || (bpIsLab(x.b) && !G.nodes.some(n=>n.type==='lab') && x.c<=G.money));
+      // on varie les usines : d'abord les schémas jamais construits dans ce run (les plus chers d'abord), puis les moins répétés
+      const pick = isLab=>ok.filter(x=>bpIsLab(x.b)===isLab).sort((x,y)=>times(x.b)-times(y.b) || y.c-x.c)[0];
       const cheapUp = Math.min(Infinity, ...G.nodes.map(upCost));
+      const labCount = G.nodes.filter(n=>n.type==='lab').length;
       const p = pick(false);
-      if(p && p.c < cheapUp*14) c.push({cost:p.c, w:1.5, f:()=>buildBp(p.b,true)});
-      if(!hasLab){ const l = pick(true); if(l) c.push({cost:l.c, w:1.2, f:()=>buildBp(l.b,true)}); }
+      if(p && (times(p.b)===0 ? p.c < cheapUp*60 : p.c < cheapUp*8)) c.push({cost:p.c, w:times(p.b)===0?3:1.2, f:()=>{ buildBp(p.b,true); A.built[p.b.name]=times(p.b)+1; }});
+      const l = pick(true);
+      if(l && (labCount===0 || (labCount<4 && times(l.b)===0 && l.c<cheapUp*40))) c.push({cost:l.c, lab:true, w:labCount===0?20:1, f:()=>{ buildBp(l.b,true); A.built[l.b.name]=times(l.b)+1; }});
+    }
+    // premier Laboratoire : on met de côté de quoi le payer au lieu de tout dépenser en niveaux
+    if(A.bp && !G.nodes.some(n=>n.type==='lab')){
+      const lc = BPS.filter(b=>bpIsLab(b)&&bpUnlocked(b)).map(bpCost).sort((x,y)=>x-y)[0];
+      if(lc!==undefined && lc<G.run*0.5+1e3) for(let i=c.length-1;i>=0;i--) if(!c[i].lab && G.money-c[i].cost<lc) c.splice(i,1);
     }
     if(!c.length) break;
     c.sort((a,b)=>a.cost/a.w-b.cost/b.w);
