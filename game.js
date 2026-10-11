@@ -625,10 +625,28 @@ function buildBp(b,quiet){
     if(free(px,py)){ ox=px; oy=py; found=true; }
   }
   G.money -= c;
-  const made = b.nodes.map(([t,cx_,cy_])=>addNode(t, ox+cx_*SX, oy+Math.round(cy_*SY/10)*10));
+  const made = b.nodes.map(([t,cx_,cy_,th_])=>{ const m = addNode(t, ox+cx_*SX, oy+Math.round(cy_*SY/10)*10); if(th_) m.thr = th_; return m; });
   for(const [a,ao,z,zi] of b.links) connect(made[a].id,ao,made[z].id,zi);
   if(!quiet){ sel = null; showSel(); blip(520,0.1,0.06); toast('Schéma posé : '+b.name); }
   if(tab) renderTab();
+}
+function selBp(){
+  const ns = G.nodes.filter(n=>msel.has(n.id));
+  const SX = NW+60, SY = NH+40, mx = Math.min(...ns.map(n=>n.x)), my = Math.min(...ns.map(n=>n.y));
+  const idx = new Map(ns.map((n,i)=>[n.id,i]));
+  const links = G.links.filter(l=>idx.has(l.a) && idx.has(l.b)).map(l=>[idx.get(l.a),l.ao,idx.get(l.b),l.bi]);
+  return {name:'Copie', nodes:ns.map(n=>{ const r=[n.type, Math.round((n.x-mx)/SX*100)/100, Math.round((n.y-my)/SY*100)/100]; if(n.type==='sorter' && n.thr) r.push(n.thr); return r; }), links};
+}
+function dupSel(){
+  if(msel.size<1) return;
+  const b = selBp(), c = bpCost(b);
+  if(!bpUnlocked(b)){ toast('Pas encore débloqué : '+bpLocked(b)); return; }
+  if(G.money<c){ toast('Pas assez de crédits (copie : '+fmt(c)+')'); return; }
+  const before = new Set(G.nodes.map(n=>n.id));
+  buildBp(b,true);
+  const added = G.nodes.filter(n=>!before.has(n.id));
+  if(!added.length) return;
+  msel.clear(); for(const n of added) msel.add(n.id); showSel(); blip(520,0.1,0.06); toast('Copie posée ('+added.length+' nœuds)');
 }
 function saveBp(){
   const ns = G.nodes.filter(n=>msel.has(n.id));
@@ -639,7 +657,7 @@ function saveBp(){
   const links = G.links.filter(l=>idx.has(l.a) && idx.has(l.b)).map(l=>[idx.get(l.a),l.ao,idx.get(l.b),l.bi]);
   const k = (G.mine.length?Math.max(...G.mine.map(b=>b.k||0)):0)+1;
   G.mine.push({k, mine:true, name:'Mon schéma '+k, desc:'Schéma personnel : '+ns.length+' nœuds, '+links.length+' liens.',
-    nodes:ns.map(n=>[n.type, Math.round((n.x-mx)/SX*100)/100, Math.round((n.y-my)/SY*100)/100]), links});
+    nodes:ns.map(n=>{ const r=[n.type, Math.round((n.x-mx)/SX*100)/100, Math.round((n.y-my)/SY*100)/100]; if(n.type==='sorter' && n.thr) r.push(n.thr); return r; }), links});
   toast('Schéma enregistré : Mon schéma '+k+' (onglet Schémas)'); blip(700,0.1,0.06); if(tab) renderTab();
 }
 function removeNode(n){ G.links = G.links.filter(l=>l.a!==n.id && l.b!==n.id); G.nodes = G.nodes.filter(x=>x!==n); }
@@ -677,7 +695,7 @@ cv.addEventListener('pointerdown', e=>{
   if(n && v_badge(n,w)){ upgradeNode(n,1); sel = n.id; showSel(); return; }
   if(n){
     sel = n.id; G.nodes.splice(G.nodes.indexOf(n),1); G.nodes.push(n);
-    drag={kind:'node',n:n.id,dx:w.x-n.x,dy:w.y-n.y}; showSel(); return;
+    drag={kind:'node',n:n.id,dx:w.x-n.x,dy:w.y-n.y,x0:n.x,y0:n.y,moved:false}; showSel(); return;
   }
   sel=null; showSel();
   drag={kind:'pan',sx:e.clientX,sy:e.clientY,vx:G.view.x,vy:G.view.y};
@@ -694,7 +712,7 @@ cv.addEventListener('pointermove', e=>{
   hoverPort = findPort(w);
   if(!drag) return;
   if(drag.kind==='link') drag.pos = w;
-  else if(drag.kind==='node'){ const n=nodeById(drag.n); n.x=Math.round((w.x-drag.dx)/10)*10; n.y=Math.round((w.y-drag.dy)/10)*10; }
+  else if(drag.kind==='node'){ const n=nodeById(drag.n); n.x=Math.round((w.x-drag.dx)/10)*10; n.y=Math.round((w.y-drag.dy)/10)*10; if(n.x!==drag.x0||n.y!==drag.y0) drag.moved=true; }
   else if(drag.kind==='box') drag.b = w;
   else if(drag.kind==='group'){
     const dx = Math.round((w.x-drag.a.x)/10)*10, dy = Math.round((w.y-drag.a.y)/10)*10;
@@ -718,6 +736,8 @@ function endPointer(e){
     }
     if(pt && pt.in) connect(drag.n,drag.o,pt.n,pt.i);
   }
+  if(drag && drag.kind==='group' && drag.moved) pushUndo({move:drag.orig});
+  if(drag && drag.kind==='node' && drag.moved) pushUndo({move:[{n:nodeById(drag.n),x:drag.x0,y:drag.y0}]});
   if(drag && drag.kind==='group' && !drag.moved && drag.tap){ msel.delete(drag.tap); showSel(); }
   if(drag && drag.kind==='box'){
     const x0=Math.min(drag.a.x,drag.b.x), x1=Math.max(drag.a.x,drag.b.x), y0=Math.min(drag.a.y,drag.b.y), y1=Math.max(drag.a.y,drag.b.y);
@@ -754,6 +774,7 @@ addEventListener('keydown', e=>{
   if((e.key==='a'||e.key==='A') && !e.ctrlKey && !e.metaKey) upgradeAll();
   if(e.key==='f'||e.key==='F') fitView();
   if((e.key==='u'||e.key==='U') && sel){ const n=nodeById(sel); if(n) upgradeNode(n, e.shiftKey?1000:1); }
+  if((e.key==='d'||e.key==='D') && msel.size && !e.ctrlKey && !e.metaKey){ dupSel(); return; }
   if((e.key==='d'||e.key==='D') && sel){
     const n=nodeById(sel), c=n&&buyCost(n.type);
     if(n && !DEFS[n.type].unique && unlocked(n.type) && G.money>=c){
@@ -836,6 +857,7 @@ function dropLink(l){ pushUndo({links:[l]}); G.links = G.links.filter(x=>x!==l);
 function undo(){
   const u = undoStack.pop();
   if(!u){ toast('Rien à annuler'); return; }
+  if(u.move){ for(const o of u.move){ o.n.x=o.x; o.n.y=o.y; } blip(500,0.08,0.05,'triangle'); toast('Déplacement annulé'); return; }
   if(u.node || u.multi){
     if(G.money<u.refund){ undoStack.push(u); toast('Pas assez de crédits pour annuler'); return; }
     G.money -= u.refund;
@@ -871,8 +893,9 @@ function showMulti(){
   box.innerHTML = `<h3>${ns.length} nœud${ns.length>1?'s':''} sélectionné${ns.length>1?'s':''}</h3>
     <p>${selMode ? 'Mode sélection : trace un cadre ou touche des nœuds. Glisse un nœud sélectionné pour déplacer le groupe.' : 'Glisse un nœud sélectionné pour déplacer tout le groupe. Maj + glisser trace un cadre, Maj + clic ajoute ou retire un nœud.'}</p>
     <div class="row"><button id="mAll">Tout</button><button id="mType">Même type</button><button id="mNone">Aucun</button></div>
-    <div class="row"><button id="mSave" ${ns.length>1?'':'disabled'}>Enregistrer schéma</button><button id="mSell" ${ns.length?'':'disabled'}>Vendre tout${ns.length?' +'+fmt(total):''}</button></div>`;
-  $('mSave').onclick = saveBp;
+    <div class="row"><button id="mDup" ${ns.length?'':'disabled'}>Dupliquer</button><button id="mSave" ${ns.length>1?'':'disabled'}>Enregistrer schéma</button></div>
+    <div class="row"><button id="mSell" ${ns.length?'':'disabled'}>Vendre tout${ns.length?' +'+fmt(total):''}</button></div>`;
+  $('mSave').onclick = saveBp; $('mDup').onclick = dupSel;
   box.style.display = 'block';
   $('mAll').onclick = ()=>{ for(const n of G.nodes) msel.add(n.id); showSel(); };
   $('mNone').onclick = ()=>{ msel.clear(); showSel(); };
@@ -1061,7 +1084,7 @@ function renderTab(){
       <div class="row"><button id="oReset" style="color:var(--bad)">Tout effacer</button></div>
       <p>Temps de jeu : ${Math.floor(G.playtime/3600)} h ${Math.floor(G.playtime/60)%60} min · Crédits gagnés au total : ${fmt(G.lifetime)}</p>
       <div class="item"><div><b>Raccourcis</b></div></div>
-      <div class="kb">${[['Molette','Zoom'],['F','Centrer la vue'],['O','Overclock'],['M','Menu'],['B','Schémas'],['D','Dupliquer le nœud'],['U','Améliorer (Maj : au max)'],['A','Tout améliorer'],['Suppr','Vendre'],['Ctrl+Z','Annuler'],['Ctrl+A','Tout sélectionner'],['Maj+glisser','Sélection en zone'],['Echap','Fermer / désélectionner']].map(([k,t])=>`<kbd>${k}</kbd><span>${t}</span>`).join('')}</div>
+      <div class="kb">${[['Molette','Zoom'],['F','Centrer la vue'],['O','Overclock'],['M','Menu'],['B','Schémas'],['D','Dupliquer nœud ou sélection'],['U','Améliorer (Maj : au max)'],['A','Tout améliorer'],['Suppr','Vendre'],['Ctrl+Z','Annuler (vente, lien, déplacement)'],['Ctrl+A','Tout sélectionner'],['Maj+glisser','Sélection en zone'],['Echap','Fermer / désélectionner']].map(([k,t])=>`<kbd>${k}</kbd><span>${t}</span>`).join('')}</div>
       <p>Double-clic ou clic droit sur un lien pour le supprimer.</p>`;
     $('oMute').onclick = ()=>{ G.mute=!G.mute; renderTab(); };
     $('oSci').onclick = ()=>{ G.sci=!G.sci; renderTab(); };

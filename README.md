@@ -43,3 +43,8 @@ Touche A : tout ameliorer. Onglet Quantique : duree du run et rendement en PQ/mi
 
 ## Schemas personnels (v30)
 Selectionne au moins 2 noeuds puis "Enregistrer schema" : le groupe (noeuds et liens) est ajoute a l'onglet Schemas (jusqu'a 20), posable en un clic et supprimable. Sauvegarde incluse.
+
+## Edition (v31)
+- Dupliquer une selection (bouton ou touche D) : copie le groupe et ses liens, paye le prix des noeuds.
+- Ctrl+Z annule aussi les deplacements (noeud seul ou groupe).
+- Les schemas personnels conservent le seuil des Trieurs.
