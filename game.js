@@ -721,7 +721,6 @@ addEventListener('keydown', e=>{
   if((e.ctrlKey||e.metaKey) && (e.key==='z'||e.key==='Z')){ e.preventDefault(); undo(); return; }
   if(e.key==='Escape'){ if(tab) openTab(tab); sel=null; msel.clear(); selMode=false; $('bSel').classList.remove('glow'); showSel(); }
   if(e.key==='m'||e.key==='M') $('bMenu').click();
-  if(e.key==='p'||e.key==='P') $('bAuto').click();
   if(e.key==='b'||e.key==='B') $('bBp').click();
   if(e.key==='o'||e.key==='O') useOverclock();
   if(e.key==='f'||e.key==='F') fitView();
@@ -897,7 +896,7 @@ function parseAmt(s){
   return parseFloat(m[1])*mul;
 }
 const TOP = [['bp','Schémas'],['up','Amélio.'],['qp','Quantique'],['ach','Succès'],['more','Plus']];
-const SUBS = {bp:[['bp','Crédits'],['bpr','Recherche']], up:[['up','Crédits'],['res','Recherche']], more:[['auto','Auto'],['stat','Stats'],['opt','Options'],['dev','Dév.']]};
+const SUBS = {bp:[['bp','Crédits'],['bpr','Recherche']], up:[['up','Crédits'],['res','Recherche']], more:[['stat','Stats'],['opt','Options'],['dev','Dév.']]};
 const groupOf = t => t==='bpr' ? 'bp' : t==='res' ? 'up' : (t==='auto'||t==='stat'||t==='opt'||t==='dev') ? 'more' : t;
 const lastSub = {bp:'bp', up:'up', more:'stat'};
 const hist = [];
@@ -959,11 +958,16 @@ function renderTab(){
       }).join('')).join('');
     body.querySelectorAll('button[data-bp]').forEach(b=>b.onclick=()=>buildBp(BPS[+b.dataset.bp]));
   } else if(tab==='up'){
-    body.innerHTML = GLOBALS.map(g=>{
+    body.innerHTML = `<div class="item"><div><b>Tout améliorer</b><p>Améliore tous les nœuds, du moins cher au plus cher, tant que tu as les crédits.</p></div><button id="upAll" ${G.nodes.length&&G.money>=Math.min(...G.nodes.map(n=>upCost(n)))?'':'disabled'}>Go</button></div>` + GLOBALS.map(g=>{
       const lv=G.glob[g.id], max=lv>=g.max, c=gUpCost(g);
       return `<div class="item${!max&&G.money>=c?' can':''}"><div><b>${g.name}</b> <small>${lv}/${g.max}</small><p>${g.desc}</p>${bar(lv,g.max)}</div>
         <button data-g="${g.id}" ${max||G.money<c?'disabled':''}>${max?'MAX':fmt(c)}</button></div>`;
     }).join('');
+    $('upAll').onclick = ()=>{
+      let k=0;
+      for(let i=0;i<500;i++){ const n=G.nodes.reduce((a,b)=>!a||upCost(b)<upCost(a)?b:a,null); if(!n||G.money<upCost(n)) break; G.money-=upCost(n); n.level++; k++; }
+      if(k){ toast(k+' amélioration(s) achetée(s)'); blip(780,0.1,0.06,'triangle'); renderTab(); showSel(); }
+    };
     body.querySelectorAll('button[data-g]').forEach(b=>b.onclick=()=>{
       const g=GLOBALS.find(x=>x.id===b.dataset.g), c=gUpCost(g);
       if(G.money>=c && G.glob[g.id]<g.max){ G.money-=c; G.glob[g.id]++; blip(780,0.1,0.06,'triangle'); renderTab(); showSel(); }
@@ -1034,7 +1038,6 @@ function renderTab(){
 $('bMenu').onclick = ()=>openTab(tab?tab:'up');
 $('bBp').onclick = ()=>openTab('bp');
 $('sideX').onclick = ()=>{ if(tab) openTab(tab); };
-$('bAuto').onclick = ()=>{ G.auto.on=!G.auto.on; toast(G.auto.on?'Pilote automatique activé':'Pilote automatique arrêté'); if(tab==='auto') renderTab(); };
 $('bSel').onclick = ()=>{ selMode=!selMode; if(!selMode) msel.clear(); sel=null; $('bSel').classList.toggle('glow',selMode); showSel(); };
 
 // fichier doré
@@ -1224,7 +1227,7 @@ function hintText(){
 // Pilote automatique : joue a la place du joueur (achats du moins cher au plus utile, overclock, recherche, reboot)
 let autoTick = 0;
 function autoPlay(dt){
-  const A = G.auto; if(!A || !A.on) return;
+  const A = G.auto; if(!A || !A.on) return;   // pilote desactive (bouton retire)
   autoTick += dt; if(autoTick<0.5) return; autoTick = 0;
   if(!G.links.length){ const s=G.nodes.find(n=>n.type==='source'), u=G.nodes.find(n=>n.type==='upload'); if(s&&u) connect(s.id,0,u.id,0); }
   if(A.oc && G.playtime>=G.oc.ready && G.nodes.length>=3) useOverclock();
@@ -1296,7 +1299,7 @@ function loop(now){
   for(let i=floats.length-1;i>=0;i--){ floats[i].life -= dt*0.9; if(floats[i].life<=0) floats.splice(i,1); }
   for(let i=parts.length-1;i>=0;i--){ const q=parts[i]; q.life-=dt*1.6; q.x+=q.vx*dt; q.y+=q.vy*dt; q.vy+=300*dt; if(q.life<=0) parts.splice(i,1); }
   updateGold(dt);
-  autoPlay(dt);
+  G.auto.on=false;
   draw();
   autoT += dt;
   if(G.pu.auto && autoT>6){
@@ -1311,7 +1314,7 @@ function loop(now){
     G.lastRate = income.reduce((s,e)=>s+e.v,0)/10;
     $('money').textContent = fmt(G.money);
     $('rate').textContent = fmt(G.lastRate);
-    $('bAuto').classList.toggle('glow', !!G.auto.on); $('bAuto').textContent = G.auto.on ? (innerWidth<=700?'Auto ON':'Auto : actif') : 'Auto';
+
     const qg = qpGain();
     $('bMenu').classList.toggle('glow', qg>=1);
     $('bMenu').textContent = qg>=1 ? (innerWidth<=700 ? `Menu +${qg}` : `Menu  (+${qg} PQ)`) : "Menu";
