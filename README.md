@@ -90,3 +90,4 @@ Reserve aux ecrans etroits ou tactiles, l'interface PC est inchangee.
 - Double tape : meme type de noeud (ou tout voir sur le vide). Appui long sur un noeud : mode selection ; sur une liaison : suppression.
 - Boutons flottants : zoom +, zoom -, vue d'ensemble, annuler, pause. Boutons et boutique plus gros, marges pour les encoches, vibrations legeres.
 - Definition de rendu plafonnee a x2 pour economiser la batterie.
+- Au doigt (v39) : glisser sur une case deplace la vue ; un appui prolonge (0,4 s) souleve la case, masque le menu d'amelioration et permet de la deplacer (vibration, contour blanc). Un simple toucher ouvre toujours le menu. L'appui prolonge sur une liaison la supprime ; le mode selection reste accessible par le bouton Selection.

@@ -486,7 +486,7 @@ function draw(){
     cx.globalAlpha = det;
     cx.fillStyle = '#141a2a'; rrect(n.x,n.y,NW,NH,5); cx.fill();
     cx.fillStyle = col; cx.fillRect(n.x,n.y+6,3,NH-12);
-    cx.strokeStyle = sel===n.id ? '#fff' : (busy ? col+'cc' : '#3a4560'); cx.lineWidth = sel===n.id?2:1; rrect(n.x,n.y,NW,NH,5); cx.stroke();
+    const lift = drag && drag.kind==='node' && drag.n===n.id; cx.strokeStyle = (sel===n.id||lift) ? '#fff' : (busy ? col+'cc' : '#3a4560'); cx.lineWidth = (sel===n.id||lift)?2:1; rrect(n.x,n.y,NW,NH,5); cx.stroke();
     if(msel.has(n.id)){
       cx.fillStyle = '#f6c45322'; rrect(n.x,n.y,NW,NH,5); cx.fill();
       cx.strokeStyle = '#f6c453'; cx.lineWidth = 2; cx.setLineDash([8,6]); rrect(n.x-4,n.y-4,NW+8,NH+8,7); cx.stroke(); cx.setLineDash([]);
@@ -753,7 +753,7 @@ cv.addEventListener('pointerdown', e=>{
     const now = performance.now();
     if(now-lastTap.t<320 && Math.hypot(e.clientX-lastTap.x,e.clientY-lastTap.y)<28){ lastTap.t = 0; pointers.set(e.pointerId,{x:e.clientX,y:e.clientY}); doubleTap(e.clientX,e.clientY); return; }
     lastTap = {t:now,x:e.clientX,y:e.clientY};
-    lpTimer = setTimeout(()=>{ if(pointers.size===1 && (!drag || (drag.kind==='node'&&!drag.moved) || drag.kind==='pan' && Math.hypot(drag.vx-G.view.x,drag.vy-G.view.y)<6)) longPress(e.clientX,e.clientY); }, 520);
+    lpTimer = setTimeout(()=>{ if(pointers.size===1 && (!drag || drag.kind==='pan' && Math.hypot(drag.vx-G.view.x,drag.vy-G.view.y)<6) && !findNode(toWorld(e.clientX,e.clientY))) longPress(e.clientX,e.clientY); }, 520);
   }
   pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(pointers.size===2){
@@ -788,7 +788,13 @@ cv.addEventListener('pointerdown', e=>{
   if(n && v_badge(n,w)){ upgradeNode(n,1); sel = n.id; showSel(); return; }
   if(n){
     sel = n.id; G.nodes.splice(G.nodes.indexOf(n),1); G.nodes.push(n);
-    drag={kind:'node',n:n.id,dx:w.x-n.x,dy:w.y-n.y,x0:n.x,y0:n.y,moved:false}; showSel(); return;
+    drag={kind:'node',n:n.id,dx:w.x-n.x,dy:w.y-n.y,x0:n.x,y0:n.y,moved:false}; showSel();
+    if(touchMode){
+      // au doigt : glisser deplace la vue ; un appui prolonge souleve la case (menu masque) pour la deplacer
+      const d0 = drag; d0.kind = 'nodeWait'; d0.sx = e.clientX; d0.sy = e.clientY; d0.vx = G.view.x; d0.vy = G.view.y;
+      lpTimer = setTimeout(()=>{ if(drag===d0 && d0.kind==='nodeWait'){ d0.kind = 'node'; sel = null; showSel(); vib(40); toast('Déplace la case'); } }, 420);
+    }
+    return;
   }
   sel=null; showSel();
   if(e.pointerType==='mouse'){ drag={kind:'box',a:w,b:w,add:e.shiftKey}; return; }
@@ -807,6 +813,7 @@ cv.addEventListener('pointermove', e=>{
   if(!drag) return;
   if(drag.kind==='link') drag.pos = w;
   else if(drag.kind==='node'){ const n=nodeById(drag.n); n.x=Math.round((w.x-drag.dx)/10)*10; n.y=Math.round((w.y-drag.dy)/10)*10; if(n.x!==drag.x0||n.y!==drag.y0) drag.moved=true; }
+  else if(drag.kind==='nodeWait'){ if(Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)>9){ clearTimeout(lpTimer); drag.kind='pan'; } }
   else if(drag.kind==='box') drag.b = w;
   else if(drag.kind==='group'){
     const dx = Math.round((w.x-drag.a.x)/10)*10, dy = Math.round((w.y-drag.a.y)/10)*10;
