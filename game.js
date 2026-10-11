@@ -110,7 +110,8 @@ const buyCost = type => Math.ceil(infl() * CS * DEFS[type].cost * Math.pow(BG, G
 const upCost = (n, lvl) => Math.ceil(infl() * CS * DEFS[n.type].cost * 0.8 * Math.pow(1.6, lvl===undefined?n.level:lvl) * (1 - 0.03*G.tech.tup) + 10);
 const gUpCost = d => Math.ceil(infl() * CS * d.base * Math.pow(d.grow, G.glob[d.id]));
 const puCost = d => Math.ceil(d.base * Math.pow(d.grow, G.pu[d.id]) * (d.grow===1?1:1));
-const speedOf = n => (1 + 0.3*n.level) * (1 + 0.1*G.glob.spd) * (1 + 0.05*G.pu.spd) * (ocActive()?2:1) * (1 + 0.04*G.tech.tspd);
+const lvlMult = lv => Math.pow(1.5, Math.floor(lv/10));   // palier : x1,5 de vitesse tous les 10 niveaux
+const speedOf = n => (1 + 0.3*n.level) * lvlMult(n.level) * (1 + 0.1*G.glob.spd) * (1 + 0.05*G.pu.spd) * (ocActive()?2:1) * (1 + 0.04*G.tech.tspd);
 const timeOf = n => DEFS[n.type].t / speedOf(n);
 const ocActive = () => G.playtime < G.oc.until;
 const bufCap = () => 3 + G.glob.buf;
@@ -392,6 +393,12 @@ function draw(){
     cx.font='11px system-ui'; cx.fillStyle='#8794b3';
     const buf = n.inb.reduce((s,q)=>s+q.length,0);
     cx.fillText('Niv. '+(n.level+1)+(d.ins?'  ·  file '+buf+'/'+bufCap():'  ·  '+(1/timeOf(n)).toFixed(2)+'/s'), n.x+42, n.y+35);
+    if(G.money>=upCost(n)){
+      const bx = n.x+NW-2, by = n.y+2, pu = 1+0.08*Math.sin(tm*4+n.id);
+      cx.shadowColor = '#68d391'; cx.shadowBlur = 12; cx.fillStyle = '#68d391';
+      cx.beginPath(); cx.arc(bx,by,10*pu,0,Math.PI*2); cx.fill(); cx.shadowBlur = 0;
+      cx.strokeStyle = '#0a0e16'; cx.lineWidth = 2.2; cx.beginPath(); cx.moveTo(bx-4,by); cx.lineTo(bx+4,by); cx.moveTo(bx,by-4); cx.lineTo(bx,by+4); cx.stroke();
+    }
     for(let i=0;i<d.ins;i++) port(inPort(n,i), hoverPort&&hoverPort.in&&hoverPort.n===n.id&&hoverPort.i===i, false, col, G.links.some(l=>l.b===n.id&&l.bi===i));
     for(let i=0;i<d.outs;i++) port(outPort(n,i), hoverPort&&!hoverPort.in&&hoverPort.n===n.id&&hoverPort.i===i, true, col, !!linkFrom(n.id,i));
     cx.globalAlpha = 1;
@@ -493,8 +500,22 @@ function connect(a,ao,b,bi){
   G.links.push({a,ao,b,bi,packets:[]});
   blip(660,0.07,0.05);
 }
+function freeSpot(x,y){
+  const gap = 24;
+  const ok = (px,py)=>!G.nodes.some(m=>px<m.x+NW+gap && px+NW+gap>m.x && py<m.y+NH+gap && py+NH+gap>m.y);
+  x = Math.round(x/10)*10; y = Math.round(y/10)*10;
+  if(ok(x,y)) return {x,y};
+  for(let r=1;r<40;r++){
+    for(let i=0;i<r*8;i++){
+      const a = i/(r*8)*Math.PI*2, px = Math.round((x+Math.cos(a)*r*(NW+gap)*0.6)/10)*10, py = Math.round((y+Math.sin(a)*r*(NH+gap)*0.9)/10)*10;
+      if(ok(px,py)) return {x:px,y:py};
+    }
+  }
+  return {x,y};
+}
 function removeNode(n){ G.links = G.links.filter(l=>l.a!==n.id && l.b!==n.id); G.nodes = G.nodes.filter(x=>x!==n); }
 
+const v_badge = (n,w) => G.view.k>=0.52 && G.money>=upCost(n) && Math.hypot(w.x-(n.x+NW-2), w.y-(n.y+2))<=14;
 const pointers = new Map(); let pinch = null;
 cv.addEventListener('pointerdown', e=>{
   audio(); cv.setPointerCapture(e.pointerId);
@@ -511,6 +532,7 @@ cv.addEventListener('pointerdown', e=>{
     if(l){ G.links = G.links.filter(x=>x!==l); drag={kind:'link',n:l.a,o:l.ao,pos:w}; return; }
   }
   const n = findNode(w);
+  if(n && v_badge(n,w)){ upgradeNode(n,1); sel = n.id; showSel(); return; }
   if(n){
     sel = n.id; G.nodes.splice(G.nodes.indexOf(n),1); G.nodes.push(n);
     drag={kind:'node',n:n.id,dx:w.x-n.x,dy:w.y-n.y}; showSel(); return;
@@ -604,8 +626,9 @@ function buildShop(){
       const c = buyCost(type);
       if(G.money<c){ toast('Pas assez de crédits'); return; }
       G.money -= c;
-      const w = toWorld(W/2 + (Math.random()-.5)*160, H/2 - 40 + (Math.random()-.5)*120);
-      const n = addNode(type, Math.round((w.x-NW/2)/10)*10, Math.round((w.y-NH/2)/10)*10);
+      const w = toWorld(W/2, H/2 - 40);
+      const sp = freeSpot(w.x-NW/2, w.y-NH/2);
+      const n = addNode(type, sp.x, sp.y);
       sel = n.id; showSel(); blip(520,0.08,0.05);
     };
     $('shop').appendChild(b);
@@ -672,6 +695,8 @@ function showSel(){
   else if(n.type==='upload') extra = `1 fichier toutes les ${t.toFixed(2)} s (revenus ×${revMult().toFixed(2)}).`;
   else if(n.type==='sorter') extra = `Seuil : valeur ≥ ${fmt(n.thr||10)} vers le haut, le reste vers le bas.`;
   else extra = `${t.toFixed(2)} s par fichier.`;
+  const nm = (Math.floor(n.level/10)+1)*10;
+  extra += ` Palier : niveau ${nm+1} (vitesse ×1,5), encore ${nm-n.level} niveaux.`;
   box.innerHTML = `<h3>${d.name} — niveau ${n.level+1}</h3><p>${d.desc}</p><p>${extra}</p>
     <div class="row"><button id="bu1"></button><button id="bu10"></button><button id="buM"></button></div>
     <div class="row"><button id="bDis">Déconnecter</button><button id="bDup">Dupliquer</button><button id="bSell">Vendre +${fmt(Math.floor(buyCost(n.type)*0.4))}</button></div>
@@ -691,7 +716,7 @@ function showSel(){
     const c = buyCost(n.type);
     if(!unlocked(n.type)) return;
     if(G.money<c){ toast('Pas assez de crédits'); return; }
-    G.money -= c; const m = addNode(n.type, n.x+20, n.y+NH+20); m.level = Math.max(0,n.level-2);
+    G.money -= c; const sp = freeSpot(n.x, n.y+NH+30); const m = addNode(n.type, sp.x, sp.y); m.level = Math.max(0,n.level-2);
     sel = m.id; showSel(); blip(520,0.08,0.05);
   };
 }

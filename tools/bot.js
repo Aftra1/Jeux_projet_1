@@ -13,7 +13,7 @@ window.runBot = function(hours, opt){
   function inc(spec, g){
     const sm = spdM(g); let thr = 1e9, val = 1;
     for(const s of spec){
-      const d = DEFS[s.type]; thr = Math.min(thr, (1+0.3*s.level)*sm/d.t);
+      const d = DEFS[s.type]; thr = Math.min(thr, (1+0.3*s.level)*Math.pow(1.5,Math.floor(s.level/10))*sm/d.t);
       if(d.val) val = d.val*(1+0.2*(g?g.seed:G.glob.seed))*(1+0.08*G.tech.tseed);
       else if(MULT[s.type]) val *= MULT[s.type];
     }
