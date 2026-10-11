@@ -57,3 +57,29 @@ textarea{width:100%;height:70px;background:#0a0e16;color:var(--txt);border:1px s
 
 #tabs{flex-wrap:wrap}
 #tabs button{flex:1 0 30%}
+
+/* ---- Interface epuree et visuels ---- */
+:root{--glass:rgba(16,23,38,.72);--edge:rgba(255,255,255,.09)}
+#top{padding:12px 16px;background:none;gap:12px}
+#top .stat{background:none;border:none;padding:0;min-width:0}
+#top .stat b{font-size:30px;font-weight:700;letter-spacing:-.5px;text-shadow:0 0 18px #f6c45355}
+#top .stat.sm b{font-size:17px;color:var(--acc);text-shadow:none}
+#top .stat small{font-size:11px;letter-spacing:.6px;text-transform:uppercase}
+button{background:var(--glass);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--edge);border-radius:999px;padding:9px 18px}
+#top button{font-weight:600}
+.box,.box2,#hint,#obj,#toast{background:var(--glass);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--edge)}
+.box{border-radius:16px;box-shadow:0 12px 40px #000b}
+.item{background:rgba(255,255,255,.04)}
+#tabs button{border-radius:999px}
+#mini{display:none}
+#shop{justify-content:safe center;gap:10px;padding:34px 14px 14px;background:linear-gradient(#05070d00,#05070dd0 60%);scrollbar-width:none}
+#shop::-webkit-scrollbar{display:none}
+#shop button{min-width:104px;border-radius:14px;padding:9px 14px;border:1px solid var(--edge);border-bottom:3px solid var(--c,#2a3550);text-align:center}
+#shop button:hover:not(:disabled){box-shadow:0 0 16px color-mix(in srgb,var(--c) 45%,transparent);transform:translateY(-2px)}
+#shop button b{font-size:13px}
+#shop button small{font-size:10.5px;max-width:110px;margin-top:2px}
+#shop button .c{display:block;margin-top:2px;font-size:12.5px}
+#obj{top:62px;border-radius:12px}
+#hint{top:124px;border-color:#4fd1c555}
+#toast{bottom:110px}
+.hide-sm{display:none}

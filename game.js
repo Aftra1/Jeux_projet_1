@@ -69,6 +69,11 @@ const ACH = [
   {id:'a15',name:'Habitué',          desc:'Fais 5 Reboots',              t:()=>G.resets>=5},
   {id:'a16',name:'Chanceux',         desc:'Attrape un fichier doré',     t:()=>G.golds>=1},
   {id:'a18',name:'Chercheur',        desc:'Produis 500 points de recherche', t:()=>G.rpTotal>=500},
+  {id:'a19',name:'Millions de fichiers', desc:'Uploade 1 000 000 de fichiers', t:()=>G.files>=1e6},
+  {id:'a20',name:'Centaine',         desc:'Pose 50 nœuds en même temps', t:()=>G.nodes.length>=50},
+  {id:'a21',name:'Vétéran',          desc:'Fais 15 Reboots',             t:()=>G.resets>=15},
+  {id:'a22',name:'Maître ingénieur', desc:'Un nœud au niveau 50',        t:()=>G.nodes.some(n=>n.level>=49)},
+  {id:'a23',name:'Légende',          desc:'Gagne 1 Qa de crédits',       t:()=>G.lifetime>=1e15},
   {id:'a17',name:'Ingénieur',        desc:'Un nœud au niveau 20',        t:()=>G.nodes.some(n=>n.level>=19)},
 ];
 
@@ -97,12 +102,12 @@ function addNode(type,x,y,free){
 const nodeById = id => G.nodes.find(n=>n.id===id);
 const achCount = () => Object.keys(G.ach).length;
 const qpMult = q => Math.pow(1 + q, 0.6);   // bonus de revenus des points quantiques (sous-linéaire)
-const BG = 1.25;   // croissance du prix par exemplaire déjà acheté
+const BG = 1.28;   // croissance du prix par exemplaire déjà acheté
 const CS = 1.5;   // échelle globale des prix (équilibrage)
 const INFL = 0.9, FREEQ = 2;   // inflation : part du bonus quantique (au-delà des FREEQ premiers points) répercutée sur les prix
 const infl = () => Math.pow(qpMult(Math.max(0, G.qpTotal - FREEQ)), INFL);
 const buyCost = type => Math.ceil(infl() * CS * DEFS[type].cost * Math.pow(BG, G.bought[type]||0) * (1 - 0.05*G.pu.disc) * (1 - 0.02*G.tech.tcost));
-const upCost = (n, lvl) => Math.ceil(infl() * CS * DEFS[n.type].cost * 0.8 * Math.pow(1.55, lvl===undefined?n.level:lvl) * (1 - 0.03*G.tech.tup) + 10);
+const upCost = (n, lvl) => Math.ceil(infl() * CS * DEFS[n.type].cost * 0.8 * Math.pow(1.6, lvl===undefined?n.level:lvl) * (1 - 0.03*G.tech.tup) + 10);
 const gUpCost = d => Math.ceil(infl() * CS * d.base * Math.pow(d.grow, G.glob[d.id]));
 const puCost = d => Math.ceil(d.base * Math.pow(d.grow, G.pu[d.id]) * (d.grow===1?1:1));
 const speedOf = n => (1 + 0.3*n.level) * (1 + 0.1*G.glob.spd) * (1 + 0.05*G.pu.spd) * (ocActive()?2:1) * (1 + 0.04*G.tech.tspd);
@@ -115,7 +120,7 @@ const seedV = def => def.val * (1 + 0.2*G.glob.seed) * (1 + 0.08*G.tech.tseed);
 const rpOf = v => 0.5*Math.pow(v,0.3)*(1+0.2*G.tech.tlab);
 // Crédits à gagner dans un run pour obtenir g points quantiques : de plus en plus durs à obtenir
 const QPB = 0.1;
-const qpNeed = g => 3e4*g*g*g*Math.exp(QPB*Math.min(48, Math.pow(Math.log(1+g),2)));
+const qpNeed = g => 1e5*g*g*g*Math.exp(QPB*Math.min(48, Math.pow(Math.log(1+g),2)));
 const qpGain = () => { let lo=0, hi=1e7; while(hi-lo>1){ const m=Math.floor((lo+hi)/2); if(qpNeed(m)<=G.run) lo=m; else hi=m; } return lo; };
 
 // Géométrie 
@@ -313,38 +318,41 @@ function draw(){
   lodFlash = Math.max(0, lodFlash - dt*2.2);
   cx.setTransform(DPR,0,0,DPR,0,0);
   cx.clearRect(0,0,W,H);
-  // grille à deux échelles, la plus fine s'estompe en dézoomant
+  const bgG = cx.createRadialGradient(W/2,H*0.45,0,W/2,H*0.45,Math.hypot(W,H)*0.65);
+  bgG.addColorStop(0,'#121c33'); bgG.addColorStop(0.6,'#0a1020'); bgG.addColorStop(1,'#05070d');
+  cx.fillStyle = bgG; cx.fillRect(0,0,W,H);
+  // grille de points a deux echelles, la plus fine s'estompe en dezoomant
   let gs = 40*v.k, fine = 1;
   if(gs<22){ fine = 0; let m = 1; while(gs*m<22) m*=5; gs *= m; }
-  const gridPass = (g,a)=>{
-    cx.strokeStyle='rgba(30,44,72,'+a+')'; cx.lineWidth=1; cx.beginPath();
+  const dotPass = (g,a,s)=>{
+    cx.fillStyle='rgba(120,160,230,'+a+')';
     const ox = ((W/2+v.x)%g+g)%g, oy = ((H/2+v.y)%g+g)%g;
-    for(let x=ox;x<W;x+=g){ cx.moveTo(x,0); cx.lineTo(x,H); }
-    for(let y=oy;y<H;y+=g){ cx.moveTo(0,y); cx.lineTo(W,y); }
-    cx.stroke();
+    for(let x=ox;x<W;x+=g) for(let y=oy;y<H;y+=g) cx.fillRect(x-s/2,y-s/2,s,s);
   };
-  if(fine) gridPass(gs, 0.5*Math.min(1,gs/40));
-  else { gridPass(gs, 0.55); gridPass(gs*5, 0.9); }
+  if(fine) dotPass(gs, 0.22*Math.min(1,gs/40), 2);
+  else { dotPass(gs, 0.2, 2); dotPass(gs*5, 0.4, 3); }
 
   cx.save();
   cx.translate(W/2+v.x, H/2+v.y); cx.scale(v.k,v.k);
 
   for(const l of G.links){
-    const p = linkPts(l);
-    const ml = Math.max(1, 2.2/v.k);   // épaisseur minimale visible à l'écran
-    cx.lineWidth = Math.max(5, ml*1.6); cx.strokeStyle = '#1f2a42';
-    cx.beginPath(); cx.moveTo(p[0].x,p[0].y); cx.bezierCurveTo(p[1].x,p[1].y,p[2].x,p[2].y,p[3].x,p[3].y); cx.stroke();
-    if(det>0.05){
-      cx.globalAlpha = det;
-      cx.lineWidth = 2; cx.strokeStyle = '#3a4d78'; cx.setLineDash([8,10]); cx.lineDashOffset = -tm*30;
-      cx.stroke(); cx.setLineDash([]); cx.globalAlpha = 1;
-    }
+    const p = linkPts(l), na = nodeById(l.a), nb = nodeById(l.b);
+    const ca = COLORS[na.type], cb = COLORS[nb.type];
+    const ml = Math.max(1, 2.2/v.k);   // epaisseur minimale visible a l'ecran
+    const path = ()=>{ cx.beginPath(); cx.moveTo(p[0].x,p[0].y); cx.bezierCurveTo(p[1].x,p[1].y,p[2].x,p[2].y,p[3].x,p[3].y); };
+    cx.lineCap = 'round';
+    cx.lineWidth = Math.max(7, ml*1.8); cx.strokeStyle = '#0b1120'; path(); cx.stroke();
+    const lg = cx.createLinearGradient(p[0].x,p[0].y,p[3].x,p[3].y);
+    lg.addColorStop(0,ca+'aa'); lg.addColorStop(1,cb+'aa');
+    cx.lineWidth = Math.max(3, ml); cx.strokeStyle = lg;
+    if(G.links.length<80 && v.k>0.4){ cx.shadowColor = ca; cx.shadowBlur = 8; }
+    path(); cx.stroke(); cx.shadowBlur = 0;
     for(const k of l.packets){
       const q = bez(p,k.t), c = packetColor(k.v);
-      if(v.k>0.4){ cx.shadowColor=c; cx.shadowBlur=10; }
-      cx.fillStyle=c;
-      const ps = Math.max(12, 3.5/v.k);
-      if(ps>12) cx.fillRect(q.x-ps/2,q.y-ps/2,ps,ps); else rrect(q.x-6,q.y-6,12,12,3), cx.fill();
+      const r = Math.max(6, 2.4/v.k);
+      if(v.k>0.4){ cx.shadowColor=c; cx.shadowBlur=14; }
+      cx.fillStyle=c; cx.beginPath(); cx.arc(q.x,q.y,r,0,Math.PI*2); cx.fill();
+      cx.shadowBlur=0; cx.fillStyle='#ffffffcc'; cx.beginPath(); cx.arc(q.x,q.y,r*0.4,0,Math.PI*2); cx.fill();
     }
     cx.shadowBlur=0;
   }
@@ -360,18 +368,26 @@ function draw(){
     if(far>0.02) drawNodeFar(n,d,col,busy,far,tm);
     if(det<0.02) continue;
     cx.globalAlpha = det;
-    cx.shadowColor = col; cx.shadowBlur = busy ? 14 : 4;
-    const gr = cx.createLinearGradient(0,n.y,0,n.y+NH); gr.addColorStop(0,'#1e2942'); gr.addColorStop(1,'#131b2e');
-    cx.fillStyle = gr; rrect(n.x,n.y,NW,NH,12); cx.fill();
+    cx.shadowColor = col; cx.shadowBlur = busy ? 26 : 10;
+    const gr = cx.createLinearGradient(0,n.y,0,n.y+NH); gr.addColorStop(0,'#22304f'); gr.addColorStop(1,'#101728');
+    cx.fillStyle = gr; rrect(n.x,n.y,NW,NH,14); cx.fill();
     cx.shadowBlur = 0;
-    cx.strokeStyle = sel===n.id ? '#fff' : col; cx.lineWidth = sel===n.id?3:2; rrect(n.x,n.y,NW,NH,12); cx.stroke();
+    // lueur de couleur en haut a gauche + reflet
+    const gl = cx.createLinearGradient(n.x,n.y,n.x+NW,n.y+NH); gl.addColorStop(0,col+'30'); gl.addColorStop(0.55,col+'00');
+    cx.fillStyle = gl; rrect(n.x,n.y,NW,NH,14); cx.fill();
+    cx.strokeStyle = 'rgba(255,255,255,0.10)'; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(n.x+14,n.y+1.5); cx.lineTo(n.x+NW-14,n.y+1.5); cx.stroke();
+    cx.strokeStyle = sel===n.id ? '#fff' : col+(busy?'ff':'aa'); cx.lineWidth = sel===n.id?3:1.8; rrect(n.x,n.y,NW,NH,14); cx.stroke();
     // progression
     let pr = 0;
     if(n.work) pr = 1 - n.work.rem/timeOf(n); else if(d.val) pr = n.timer/timeOf(n);
-    cx.fillStyle = col+'33'; rrect(n.x+8,n.y+NH-11,NW-16,5,2.5); cx.fill();
-    cx.fillStyle = col; rrect(n.x+8,n.y+NH-11,Math.max(5,(NW-16)*Math.max(0,Math.min(1,pr))),5,2.5); if(pr>0) cx.fill();
+    cx.fillStyle = '#00000055'; rrect(n.x+10,n.y+NH-12,NW-20,5,2.5); cx.fill();
+    const pw = Math.max(5,(NW-20)*Math.max(0,Math.min(1,pr)));
+    if(pr>0){
+      const pg = cx.createLinearGradient(n.x+10,0,n.x+10+pw,0); pg.addColorStop(0,col+'88'); pg.addColorStop(1,col);
+      cx.fillStyle = pg; rrect(n.x+10,n.y+NH-12,pw,5,2.5); cx.fill();
+    }
     cx.textAlign='left'; cx.textBaseline='middle';
-    cx.fillStyle=col+'33'; rrect(n.x+8,n.y+8,30,30,8); cx.fill(); cx.fillStyle=col; cx.font='700 '+(d.icon.length>2?10:12)+'px system-ui'; cx.textAlign='center'; cx.fillText(d.icon, n.x+23, n.y+24); cx.textAlign='left';
+    cx.fillStyle=col+'26'; rrect(n.x+9,n.y+9,30,30,9); cx.fill(); cx.strokeStyle=col+'55'; cx.lineWidth=1; rrect(n.x+9,n.y+9,30,30,9); cx.stroke(); cx.fillStyle=col; cx.font='700 '+(d.icon.length>2?10:12)+'px system-ui'; cx.textAlign='center'; cx.fillText(d.icon, n.x+23, n.y+24); cx.textAlign='left';
     cx.font='600 13px system-ui'; cx.fillStyle='#e6ecf8'; cx.fillText(d.name, n.x+42, n.y+18);
     cx.font='11px system-ui'; cx.fillStyle='#8794b3';
     const buf = n.inb.reduce((s,q)=>s+q.length,0);
@@ -384,7 +400,7 @@ function draw(){
     cx.globalAlpha = Math.max(0,f.life); cx.fillStyle=f.col; cx.font=`700 ${f.size}px system-ui`; cx.textAlign='center';
     cx.fillText(f.text, f.x, f.y - (1-f.life)*40);
   }
-  for(const q of parts){ cx.globalAlpha=Math.max(0,q.life); cx.fillStyle=q.col; cx.fillRect(q.x-2,q.y-2,4,4); }
+  for(const q of parts){ cx.globalAlpha=Math.max(0,q.life); cx.fillStyle=q.col; cx.beginPath(); cx.arc(q.x,q.y,2.5,0,Math.PI*2); cx.fill(); }
   cx.globalAlpha = 1;
   cx.restore();
   drawZoomFx(det);
@@ -444,9 +460,12 @@ function drawZoomFx(det){
   }
 }
 function port(p,hot,out,col,linked){
-  cx.beginPath(); cx.arc(p.x,p.y,hot?10:7,0,Math.PI*2);
-  cx.fillStyle = out ? col : (linked ? col : '#0a0e16'); cx.fill();
-  cx.strokeStyle = hot ? '#fff' : (out ? '#0a0e16' : '#8794b3'); cx.lineWidth=2; cx.stroke();
+  const r = hot?10:7;
+  if(linked || hot){ cx.shadowColor = col; cx.shadowBlur = hot?16:8; }
+  cx.beginPath(); cx.arc(p.x,p.y,r,0,Math.PI*2);
+  cx.fillStyle = (out||linked) ? col : '#0a0e16'; cx.fill(); cx.shadowBlur = 0;
+  cx.strokeStyle = hot ? '#fff' : (out||linked ? '#0a0e16' : col+'bb'); cx.lineWidth=2; cx.stroke();
+  if(out||linked){ cx.fillStyle='#ffffff88'; cx.beginPath(); cx.arc(p.x-r*0.25,p.y-r*0.3,r*0.28,0,Math.PI*2); cx.fill(); }
 }
 
 // Interactions 
@@ -551,6 +570,8 @@ shopEl.addEventListener('wheel', e=>{
 addEventListener('keydown', e=>{
   if(e.target.tagName==='TEXTAREA') return;
   if((e.ctrlKey||e.metaKey) && (e.key==='z'||e.key==='Z')){ e.preventDefault(); undo(); return; }
+  if(e.key==='Escape'){ if(tab) openTab(tab); sel=null; showSel(); }
+  if(e.key==='m'||e.key==='M') $('bMenu').click();
   if(e.key==='o'||e.key==='O') useOverclock();
   if(e.key==='f'||e.key==='F') fitView();
   if((e.key==='u'||e.key==='U') && sel){ const n=nodeById(sel); if(n) upgradeNode(n, e.shiftKey?1000:1); }
@@ -591,16 +612,21 @@ function buildShop(){
   }
 }
 function refreshShop(){
+  let shownLock = false;
   for(const b of $('shop').children){
     const type=b.dataset.type, d=DEFS[type];
     if(unlocked(type)){
-      b.innerHTML = `<b>${d.name}</b><small>${d.desc}</small><span class="c">Prix : ${fmt(buyCost(type))}</span>`;
+      b.style.display = '';
+      const h = `<b>${d.name}</b><span class="c">${fmt(buyCost(type))}</span>`;
+      if(b._h!==h){ b.innerHTML = h; b._h = h; }
       b.disabled = G.money < buyCost(type);
-    } else {
-      const need = d.needRs && G.resets<d.needRs ? 'Nécessite '+d.needRs+' Reboots' : 'Débloqué à '+fmt(d.unlock)+' crédits gagnés dans ce run';
-      b.innerHTML = `<b>???</b><small>${need}</small>`;
+    } else if(!shownLock){
+      shownLock = true; b.style.display = '';
+      const need = d.needRs && G.resets<d.needRs ? d.needRs+' Reboots' : fmt(d.unlock)+' gagnés';
+      const h = `<b>???</b><small>${need}</small>`;
+      if(b._h!==h){ b.innerHTML = h; b._h = h; }
       b.disabled = true;
-    }
+    } else b.style.display = 'none';
   }
 }
 const undoStack = [];
@@ -748,7 +774,7 @@ function renderTab(){
       <div class="row"><button id="oReset" style="color:var(--bad)">Tout effacer</button></div>
       <p>Temps de jeu : ${Math.floor(G.playtime/3600)} h ${Math.floor(G.playtime/60)%60} min · Crédits gagnés au total : ${fmt(G.lifetime)}</p>
       <p>Astuces : double-clic / clic droit sur un lien pour le supprimer · molette ou pincement pour zoomer · Suppr pour vendre un nœud.</p>
-      <p>Raccourcis (nœud sélectionné) : D duplique · U améliore d'un niveau · Maj+U améliore au maximum · Suppr vend · Ctrl+Z annule une vente ou une suppression de lien.</p>`;
+      <p>Raccourcis (nœud sélectionné) : D duplique · U améliore d'un niveau · Maj+U améliore au maximum · Suppr vend · Ctrl+Z annule · M menu · Echap ferme · O overclock · F ou double-clic sur le vide : centrer.</p>`;
     $('oMute').onclick = ()=>{ G.mute=!G.mute; renderTab(); };
     $('oExp').onclick = ()=>{ save(); $('oTxt').value = btoa(unescape(encodeURIComponent(JSON.stringify(serialize())))); $('oTxt').select(); };
     $('oImp').onclick = ()=>{
@@ -760,10 +786,7 @@ function renderTab(){
     $('oReset').onclick = ()=>ask('Tout effacer, y compris les points quantiques ?', ()=>{ try{ localStorage.removeItem(KEY); }catch(e){} newGame(); income=[]; sel=null; showSel(); buildShop(); renderTab(); });
   }
 }
-$('bUp').onclick = ()=>openTab('up');
-$('bQp').onclick = ()=>openTab('qp');
-$('bAch').onclick = ()=>openTab('ach');
-$('bOpt').onclick = ()=>openTab('opt');
+$('bMenu').onclick = ()=>openTab(tab||'up');
 
 // fichier doré
 let goldTimer = 0, goldNext = 60 + Math.random()*60, goldLife = 0;
@@ -889,7 +912,7 @@ mini.addEventListener('pointerdown', e=>{
   G.view.x = -wx*G.view.k; G.view.y = -wy*G.view.k;
 });
 $('bOc').onclick = useOverclock;
-$('bFit').onclick = fitView;
+cv.addEventListener('dblclick', e=>{ if(!findNode(toWorld(e.clientX,e.clientY)) && !findLink(toWorld(e.clientX,e.clientY))) fitView(); });
 
 // Sauvegarde 
 const KEY = 'uploadlab2';
@@ -967,10 +990,9 @@ function loop(now){
     G.lastRate = income.reduce((s,e)=>s+e.v,0)/10;
     $('money').textContent = fmt(G.money);
     $('rate').textContent = fmt(G.lastRate);
-    $('files').textContent = fmt(G.files);
-    $('mult').textContent = '×'+revMult().toFixed(2);
-    $('bQp').classList.toggle('glow', qpGain()>=1);
-    $('bQp').textContent = qpGain()>=1 ? `Quantique (+${qpGain()})` : 'Quantique';
+    const qg = qpGain();
+    $('bMenu').classList.toggle('glow', qg>=1);
+    $('bMenu').textContent = qg>=1 ? `Menu  (+${qg} PQ)` : 'Menu';
     refreshShop(); refreshSelButtons(); checkAch(); checkObj(); updateObjHud();
     const oc=$('bOc');
     if(ocActive()) oc.textContent='Overclock actif : '+Math.ceil(G.oc.until-G.playtime)+' s';
