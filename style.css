@@ -83,3 +83,4 @@ button{background:var(--glass);backdrop-filter:blur(10px);-webkit-backdrop-filte
 #hint{top:124px;border-color:#4fd1c555}
 #toast{bottom:110px}
 .hide-sm{display:none}
+.row button{white-space:nowrap}

@@ -863,8 +863,14 @@ function refreshSelButtons(){
 }
 
 // panneau latéral à onglets
-let tab = null, tabSig = '';
-const TABS = [['bp','Schémas'],['up','Amélio.'],['res','Recherche'],['qp','Quantique'],['ach','Succès'],['stat','Stats'],['opt','Options']];
+let tab = null, tabSig = '', devSpeed = 1;
+function parseAmt(s){
+  const m = String(s).trim().replace(',','.').match(/^([0-9.]+(?:e[0-9]+)?)\s*(k|m|md|b|t|qa|qi)?$/i);
+  if(!m) return NaN;
+  const mul = {k:1e3,m:1e6,md:1e9,b:1e9,t:1e12,qa:1e15,qi:1e18}[(m[2]||'').toLowerCase()] || 1;
+  return parseFloat(m[1])*mul;
+}
+const TABS = [['bp','Schémas'],['up','Amélio.'],['res','Recherche'],['qp','Quantique'],['ach','Succès'],['stat','Stats'],['opt','Options'],['dev','Dév.']];
 const hist = [];
 function openTab(t){
   if(tab===t){ tab=null; $('side').style.display='none'; return; }
@@ -875,7 +881,28 @@ function renderTab(){
   $('tabs').innerHTML = TABS.map(([id,l])=>`<button data-t="${id}" class="${id===tab?'on':''}">${l}</button>`).join('');
   $('tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{ tab=b.dataset.t; renderTab(); });
   const body = $('tabBody');
-  if(tab==='bp'){
+  if(tab==='dev'){
+    const amts = [['1 K',1e3],['1 M',1e6],['1 Md',1e9],['1 T',1e12],['1 Qa',1e15],['1 Qi',1e18]];
+    body.innerHTML = `<p>Menu développeur : outils de test. Les crédits donnés ne comptent pas dans les gains du run ni dans les objectifs.</p>
+      <div class="item"><div><b>Crédits</b><p>Ajouter au solde</p></div></div>
+      <div class="row" style="flex-wrap:wrap">${amts.map(([l,v])=>`<button data-dm="${v}">+${l}</button>`).join('')}</div>
+      <div class="row"><button id="dX10">Solde ×10</button><button id="dX1k">Solde ×1000</button></div>
+      <div class="row"><input id="dAmt" placeholder="ex. 5M, 2.5e12" style="flex:1;min-width:0;background:#0a0e16;color:var(--txt);border:1px solid var(--line);border-radius:999px;padding:7px 12px;font:inherit;font-size:13px"><button id="dGive">Ajouter</button></div>
+      <div class="item"><div><b>Autres ressources</b></div></div>
+      <div class="row"><button id="dRp">+1000 recherche</button><button id="dQp">+10 points quantiques</button></div>
+      <div class="item"><div><b>Vitesse du temps</b><p>Actuelle : ×${devSpeed}</p></div></div>
+      <div class="row">${[1,5,20,100].map(s=>`<button data-ds="${s}" class="${s===devSpeed?'glow':''}">×${s}</button>`).join('')}</div>
+      <div class="item"><div><b>Progression</b><p>Débloque tous les nœuds (crédits du run et Reboots comptés au minimum nécessaire).</p></div></div>
+      <div class="row"><button id="dUnl">Tout débloquer</button></div>`;
+    body.querySelectorAll('button[data-dm]').forEach(b=>b.onclick=()=>{ G.money += +b.dataset.dm; toast('+'+fmt(+b.dataset.dm)+' crédits'); });
+    body.querySelectorAll('button[data-ds]').forEach(b=>b.onclick=()=>{ devSpeed = +b.dataset.ds; renderTab(); });
+    $('dX10').onclick = ()=>{ G.money *= 10; };
+    $('dX1k').onclick = ()=>{ G.money *= 1000; };
+    $('dGive').onclick = ()=>{ const v = parseAmt($('dAmt').value); if(!(v>0)){ toast('Montant invalide'); return; } G.money += v; toast('+'+fmt(v)+' crédits'); };
+    $('dRp').onclick = ()=>{ G.rp += 1000; G.rpTotal += 1000; };
+    $('dQp').onclick = ()=>{ G.qp += 10; G.qpTotal += 10; };
+    $('dUnl').onclick = ()=>{ G.run = Math.max(G.run, 1e12); G.resets = Math.max(G.resets, 11); buildShop(); toast('Tout est débloqué'); };
+  } else if(tab==='bp'){
     body.innerHTML = '<p>Un schéma pose et relie plusieurs nœuds d\'un coup, au centre de l\'écran.</p>' + BPS.map(b=>[b,bpCost(b)]).sort((x,y)=>x[1]-y[1]).map(([b,c])=>{
       const lock = !bpUnlocked(b), i = BPS.indexOf(b);
       return `<div class="item${lock?' lock':''}"><div><b>${b.name}</b> <small>(${b.nodes.length} nœuds)</small><p>${lock?'Nécessite : '+bpLocked(b):b.desc}</p></div>
@@ -1138,7 +1165,7 @@ function hintText(){
   return 'Astuce : plusieurs Sources, des Diviseurs et des Fusions te permettent de paralléliser. De nouveaux nœuds se débloquent en gagnant des crédits.';
 }
 function loop(now){
-  const dt = Math.min(0.25,(now-last)/1000); last = now;
+  const dt = Math.min(0.25,(now-last)/1000)*devSpeed; last = now;
   const n = Math.max(1,Math.ceil(dt/0.05));
   for(let i=0;i<n;i++) step(dt/n);
   for(let i=floats.length-1;i>=0;i--){ floats[i].life -= dt*0.9; if(floats[i].life<=0) floats.splice(i,1); }
