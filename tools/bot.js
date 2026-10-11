@@ -4,7 +4,7 @@ window.runBot = function(hours, opt){
   const unlockedB = unlocked;
   opt = opt || {};
   const log = [], lines = [];
-  let t = 0, lastRun = G.run, rebootAt = 0, labBuilt = false, lastBuild = -999;
+  let t = 0, buyT = [], mileT = [], mile = 0, mileFrom = 0, lastRun = G.run, rebootAt = 0, labBuilt = false, lastBuild = -999;
   const MULT = {}; for(const k in DEFS) if(DEFS[k].mult) MULT[k]=DEFS[k].mult; MULT.boost=1.5;
   const spdM = (g) => (1+0.1*(g?g.spd:G.glob.spd))*(1+0.05*G.pu.spd)*(1+0.04*G.tech.tspd);
   const revM = (g) => (1+0.25*(g?g.rev:G.glob.rev))*qpMult(G.qpTotal)*(1+0.02*achCount())*(1+0.1*G.pu.rev)*(1+0.08*G.tech.trev);
@@ -13,7 +13,7 @@ window.runBot = function(hours, opt){
   function inc(spec, g){
     const sm = spdM(g); let thr = 1e9, val = 1;
     for(const s of spec){
-      const d = DEFS[s.type]; thr = Math.min(thr, (1+0.3*s.level)*Math.pow(1.5,Math.floor(s.level/10))*sm/d.t);
+      const d = DEFS[s.type]; thr = Math.min(thr, (s.level>=9?1.25:1)*(1+0.3*s.level)*lvlMult(s.level)*sm/d.t);
       if(d.val) val = d.val*(1+0.2*(g?g.seed:G.glob.seed))*(1+0.08*G.tech.tseed);
       else if(MULT[s.type]) val *= MULT[s.type];
     }
@@ -38,6 +38,8 @@ window.runBot = function(hours, opt){
     for(let k=0;k<60;k++){ const d=PU.filter(x=>G.pu[x.id]<x.max && puCost(x)<=G.qp).sort((a,b)=>puCost(a)-puCost(b))[0]; if(!d) break; G.qp-=puCost(d); G.pu[d.id]++; }
     if(G.pu.start) G.money = startCash(G.pu.start);
   }
+  const mileStats = (from)=>{ const a=mileT.filter(x=>x>=from); const g=[]; for(let i=1;i<a.length;i++) g.push(a[i]-a[i-1]); if(!g.length) return {n:a.length}; g.sort((x,y)=>x-y); return {n:a.length, med:Math.round(g[g.length>>1]), p90:Math.round(g[Math.floor(g.length*0.9)]), max:Math.round(g[g.length-1])}; };
+  const gapStats = (from)=>{ const a=buyT.filter(x=>x>=from); const g=[]; for(let i=1;i<a.length;i++) g.push(a[i]-a[i-1]); if(!g.length) return {buys:a.length}; g.sort((x,y)=>x-y); return {buys:a.length, med:Math.round(g[g.length>>1]), p90:Math.round(g[Math.floor(g.length*0.9)]), max:Math.round(g[g.length-1])}; };
   resetBoard();
   const dt=0.1, per=50, total=Math.floor(hours*3600/dt);
   let acc=0;
@@ -49,15 +51,15 @@ window.runBot = function(hours, opt){
     checkObj(); checkAch(); lastRun=G.run;
     const gn=qpGain();
     if(gn>=Math.max(1,Math.ceil(G.qpTotal*(opt.rebootRatio||1))) && t-rebootAt>(opt.minRun||600)){
-      log.push({t:Math.round(t/60),ev:'reboot',rev:+revMult().toFixed(1),tech:Object.values(G.tech).join(','),pu:Object.values(G.pu).join(','),glob:Object.values(G.glob).join(','),types:G.nodes.map(n=>n.type[0]+n.type[1]+n.level).join(' ').slice(0,260),run:fmt(G.run),gain:gn,qpTotal:G.qpTotal+gn,nodes:G.nodes.length,rate:fmt(G.lastRate)});
-      doReboot(); rebootAt=t; continue;
+      log.push({t:Math.round(t/60),ev:'reboot',gaps:mileStats(rebootAt),rev:+revMult().toFixed(1),tech:Object.values(G.tech).join(','),pu:Object.values(G.pu).join(','),glob:Object.values(G.glob).join(','),types:G.nodes.map(n=>n.type[0]+n.type[1]+n.level).join(' ').slice(0,260),run:fmt(G.run),gain:gn,qpTotal:G.qpTotal+gn,nodes:G.nodes.length,rate:fmt(G.lastRate)});
+      doReboot(); rebootAt=t; mile=0; continue;
     }
     if(unlockedB('lab') && !labBuilt){ const ty=newTypes('lab'), lc=lineCost(ty); if(G.money>=lc*(opt.labMoney||1.5)){ G.money-=lc; make(ty); lines[lines.length-1].lab=true; labBuilt=true; lastBuild=t; } }
     for(let k=0;k<10;k++){
       const total0 = lines.reduce((s,l)=>s+inc(specOf(l)),0);
       const c=[];
       for(const l of lines){ const sp=specOf(l), base=inc(sp);
-        l.nodes.forEach((n,idx)=>{ const s2=sp.map((x,j)=>j===idx?{type:x.type,level:x.level+1}:x); const gain=inc(s2)-base; if(gain>0) c.push({lb:'up '+n.type+n.level,cost:upCost(n),gain,f:()=>{G.money-=upCost(n); n.level++;}}); });
+        l.nodes.forEach((n,idx)=>{ const s2=sp.map((x,j)=>j===idx?{type:x.type,level:x.level+1}:x); const gain=inc(s2)-base; if(gain>0) c.push({lb:'up '+n.type+n.level,cost:upCost(n),gain,f:()=>{G.money-=upCost(n); n.level++; if(n.level>=9) n.spec='spd';}}); });
       }
       // extension d'une ligne existante : insertion d'un palier ou remplacement de la Source par une Super Source
       for(const l of lines){ if(l.lab) continue;
@@ -92,14 +94,15 @@ window.runBot = function(hours, opt){
         const wait=(best.cost-G.money)/Math.max(total0*1.0,1);
         // on achète en attendant tout ce qui se rembourse avant que le meilleur achat soit abordable
         const aff=c.find(x=>x.cost<=G.money && (x.cost/x.gain<wait*(opt.fill||1) || wait>=(opt.patience||900)));
-        if(!aff) break; aff.f(); continue;
+        if(!aff) break; aff.f(); buyT.push(t); continue;
       }
       if(opt.trace && t>=opt.trace[0] && t<=opt.trace[1]) log.push({t:Math.round(t),lb:best.lb,money:fmt(G.money),run:fmt(G.run),buy:fmt(best.cost),pb:Math.round(best.cost/best.gain),rate:fmt(G.lastRate)});
-      best.f();
+      best.f(); buyT.push(t);
     }
+    { const cur = lines.reduce((a,l)=>a+inc(specOf(l)),0); if(cur>=mile*1.1 || mile===0){ mileT.push(t); mile = cur; } }
     for(let k=0;k<50;k++){ const d=TECH.filter(x=>G.tech[x.id]<x.max && techCost(x)<=G.rp).sort((a,b)=>techCost(a)-techCost(b))[0]; if(!d) break; G.rp-=techCost(d); G.tech[d.id]++; }
     if(opt.mark && opt.mark.includes(Math.round(t/60)) && Math.abs(t%60)<5) log.push({t:Math.round(t/60),run:fmt(G.run),life:fmt(G.lifetime),rate:fmt(G.lastRate),nodes:G.nodes.length,qpT:G.qpTotal,rp:fmt(G.rpTotal),obj:G.obj});
   }
-  log.push({end:true,t:Math.round(t/60),run:fmt(G.run),life:fmt(G.lifetime),rate:fmt(G.lastRate),qpT:G.qpTotal,resets:G.resets,rp:fmt(G.rpTotal),obj:G.obj,nodes:G.nodes.length});
+  log.push({end:true,gaps:mileStats(rebootAt),t:Math.round(t/60),run:fmt(G.run),life:fmt(G.lifetime),rate:fmt(G.lastRate),qpT:G.qpTotal,resets:G.resets,rp:fmt(G.rpTotal),obj:G.obj,nodes:G.nodes.length});
   return log;
 };

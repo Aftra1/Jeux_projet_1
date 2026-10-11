@@ -128,11 +128,12 @@ const EVT = [
 const evActive = id => !!G.ev && G.ev.id===id && G.playtime<G.ev.until;
 const saleMult = () => evActive('sale') ? 0.7 : 1;
 const buyCost = (type,extra=0) => Math.ceil(saleMult() * infl() * CS * DEFS[type].cost * Math.pow(BG, (G.bought[type]||0)+extra) * (1 - 0.05*G.pu.disc) * (1 - 0.02*G.tech.tcost));
-const SPECS = {spd:{name:'Turbo',desc:'Vitesse ×1,35'}, val:{name:'Rendement',desc:'Valeur produite ×1,3'}, eco:{name:'Économe',desc:'Améliorations de ce nœud -35 %'}};
+const SPECS = {spd:{name:'Turbo',desc:'Vitesse ×1,25'}, val:{name:'Rendement',desc:'Valeur ×1,25 (sources, Upload)'}, eco:{name:'Économe',desc:'Améliorations de ce nœud -30 %'}};
+const specsFor = n => ('val' in DEFS[n.type] || n.type==='upload') ? ['spd','val','eco'] : ['spd','eco'];
 const TIERS = [['Brut','#8794b3'],['Bronze','#d69e6b'],['Argent','#cbd5e0'],['Or','#f6c453'],['Platine','#76e4f7'],['Diamant','#b794f4'],['Mythique','#f687b3'],['Légende','#ffffff']];
 const tierOf = lv => Math.min(TIERS.length-1, Math.floor(lv/10));
-const vmult = n => n.spec==='val' ? 1.3 : 1;
-const upCost = (n, lvl) => Math.ceil(saleMult() * infl() * CS * DEFS[n.type].cost * 0.8 * Math.pow(1.6, lvl===undefined?n.level:lvl) * (1 - 0.03*G.tech.tup) * (n.spec==='eco'?0.65:1) + 10);
+const vmult = n => n.spec==='val' && ('val' in DEFS[n.type] || n.type==='upload') ? 1.25 : 1;
+const upCost = (n, lvl) => Math.ceil(saleMult() * infl() * CS * DEFS[n.type].cost * 0.8 * Math.pow(1.6, lvl===undefined?n.level:lvl) * (1 - 0.03*G.tech.tup) * (n.spec==='eco'?0.7:1) + 10);
 const gUpCost = d => Math.ceil(saleMult() * infl() * CS * d.base * Math.pow(d.grow, G.glob[d.id]));
 const puCost = d => Math.ceil(d.base * Math.pow(d.grow, G.pu[d.id]) * (d.grow===1?1:1));
 // Maitrise : chaque type de noeud gagne des rangs avec le nombre de fichiers traites (permanent, +4 % de vitesse par rang)
@@ -145,7 +146,7 @@ function mastTick(n){
 }
 const rankOf = t => RKC[t]===undefined ? (RKC[t]=mastRank(t)) : RKC[t];
 const lvlMult = lv => Math.pow(1.5, Math.floor(lv/10));   // palier : x1,5 de vitesse tous les 10 niveaux
-const speedOf = (n,lv=n.level) => (n.spec==='spd'?1.35:1) * (1 + 0.3*lv) * lvlMult(lv) * (1 + 0.04*rankOf(n.type)) * (1 + 0.1*G.glob.spd) * (1 + 0.05*G.pu.spd) * (ocActive()?2:1) * (1 + 0.04*G.tech.tspd) * (evActive('surge')?1.5:1);
+const speedOf = (n,lv=n.level) => (n.spec==='spd'?1.25:1) * (1 + 0.3*lv) * lvlMult(lv) * (1 + 0.04*rankOf(n.type)) * (1 + 0.1*G.glob.spd) * (1 + 0.05*G.pu.spd) * (ocActive()?2:1) * (1 + 0.04*G.tech.tspd) * (evActive('surge')?1.5:1);
 const timeOf = n => DEFS[n.type].t / speedOf(n);
 const ocActive = () => G.playtime < G.oc.until;
 const bufCap = () => 3 + G.glob.buf;
@@ -263,8 +264,8 @@ function updateNode(n,dt){
   } else {
     if(!n.work && n.outq.length===0){
       if(n.type==='merge'){
-        if(n.inb[0].length && n.inb[1].length) n.work = {v:(n.inb[0].shift()+n.inb[1].shift())*1.3*vmult(n), rem:t};
-      } else if(n.inb[0].length) n.work = {v:n.inb[0].shift()*(def.mult||1)*vmult(n), rem:t};
+        if(n.inb[0].length && n.inb[1].length) n.work = {v:(n.inb[0].shift()+n.inb[1].shift())*1.3, rem:t};
+      } else if(n.inb[0].length) n.work = {v:n.inb[0].shift()*(def.mult||1), rem:t};
     }
     if(n.work){
       n.work.rem -= dt;
@@ -964,8 +965,8 @@ function showSel(){
   let spec = '';
   if(n.level>=9){
     spec = `<div class="up-spec"><small>Spécialisation${n.spec?' (changer : '+fmt(upCost(n)*4)+')':' (gratuite, une fois)'}</small><div class="row">`+
-      Object.keys(SPECS).map(k=>`<button data-spec="${k}" class="${n.spec===k?'on':''}" title="${SPECS[k].desc}">${SPECS[k].name}<br><small>${SPECS[k].desc}</small></button>`).join('')+`</div></div>`;
-  } else spec = `<p class="up-hint">Niveau 10 : spécialisation (Turbo, Rendement ou Économe).</p>`;
+      specsFor(n).map(k=>`<button data-spec="${k}" class="${n.spec===k?'on':''}" title="${SPECS[k].desc}">${SPECS[k].name}<br><small>${SPECS[k].desc}</small></button>`).join('')+`</div></div>`;
+  } else spec = `<p class="up-hint">Niveau 10 : spécialisation (Turbo ou Économe ; Rendement pour les sources et l'Upload).</p>`;
   box.innerHTML = `<h3>${d.name} — niveau ${n.level+1}</h3><p>${d.desc}</p><p>${extra}</p>${prev}
     <div class="row"><button id="bu1"></button><button id="bu10"></button><button id="buP"></button><button id="buM"></button></div>
     ${spec}

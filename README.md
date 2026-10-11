@@ -71,3 +71,10 @@ Selectionne au moins 2 noeuds puis "Enregistrer schema" : le groupe (noeuds et l
 - Paliers nommes (Brut, Bronze, Argent, Or, Platine, Diamant, Mythique, Legende) tous les 10 niveaux, avec effet et son.
 - Apercu avant/apres de la vitesse, barre de palier, bouton Palier.
 - Specialisation au niveau 10 : Turbo (vitesse x1,35), Rendement (valeur x1,3), Econome (ameliorations -35 %). Changement payant (4x le cout).
+
+## Equilibrage v36 (specialisations et cadence des achats)
+- Specialisations ajustees : Turbo vitesse x1,25 ; Rendement valeur x1,25 (sources et Upload seulement, pour ne pas se cumuler le long d'une ligne) ; Econome -30 % sur les ameliorations du noeud.
+- `tools/bot.js` mesure maintenant la cadence : ecart entre deux hausses de +10 % du revenu theorique (`gaps` : n, mediane, p90, max en secondes) et modelise le Turbo.
+- Resultats (7 h simulees, 16 Reboots) : mediane 5 a 15 s a tous les stades ; p90 15 a 55 s jusqu'a la 3e heure, 95 a 310 s ensuite. Les longues attentes de fin de partie viennent du bot qui epargne pour le meilleur retour (par exemple un bonus global a 2,4 Qi) alors que des niveaux de noeuds a retour de 30 a 700 s restent abordables.
+- Variantes testees et rejetees : croissance du cout des niveaux 1,5 ou 1,55 (au lieu de 1,6) et palier de vitesse tous les 5 niveaux : pas de gain de cadence, partie plus courte ou plus longue sans benefice.
+- Duree : delais entre Reboots 10, 7, 5, 7, 8, 9, 10, 13, 12, 15, 17, 22, 22, 28, 43, 75 min ; Omega vers 2 h, 16 Reboots en 5 h 30.
