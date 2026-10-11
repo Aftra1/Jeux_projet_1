@@ -85,3 +85,29 @@ button{background:var(--glass);backdrop-filter:blur(10px);-webkit-backdrop-filte
 .hide-sm{display:none}
 .row button{white-space:nowrap}
 #tabBody h3.sec{font-size:12px;letter-spacing:.8px;text-transform:uppercase;color:var(--acc);margin:12px 0 2px}
+
+/* ---- Menus ameliores ---- */
+#side{width:360px}
+#tabs{flex-wrap:nowrap!important;gap:4px;margin-bottom:6px;overflow-x:auto;scrollbar-width:none;align-items:center}
+#tabs::-webkit-scrollbar{display:none}
+#tabs button{flex:0 0 auto!important;padding:7px 11px;font-size:12.5px;white-space:nowrap}
+#tabs #sideX{margin-left:auto;padding:5px 11px;font-size:17px;line-height:1;color:var(--dim)}
+#tabs .bd{font-style:normal;background:var(--acc);color:#06201d;border-radius:999px;padding:1px 6px;font-size:10.5px;font-weight:700;margin-left:3px}
+#subs{display:none;gap:4px;margin:0 0 8px;padding:3px;background:rgba(255,255,255,.04);border-radius:999px}
+#subs button{flex:1;border:none;background:none;padding:5px 6px;font-size:12px;backdrop-filter:none;color:var(--dim)}
+#subs button.on{background:var(--panel2);color:var(--txt);box-shadow:0 0 0 1px var(--edge)}
+.item{align-items:center}
+.item.can{border-color:#2f6b4f;background:rgba(104,211,145,.07)}
+.item .bar{display:block;height:4px;margin-top:6px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden}
+.item .bar u{display:block;height:100%;border-radius:2px;transition:width .3s}
+.item small{color:var(--dim);font-size:11px;margin-left:2px}
+.item button{min-width:84px;font-weight:600}
+.item.can button:not(:disabled){border-color:#68d391;color:#68d391}
+.chip{flex:0 0 auto;font-size:11px;color:var(--dim);padding:2px 9px;border-radius:999px;border:1px solid var(--edge)}
+.item.done .chip{color:#68d391;border-color:#2f6b4f}
+.kb{display:grid;grid-template-columns:auto 1fr;gap:5px 10px;align-items:center;font-size:12px;margin:6px 0}
+.kb kbd{justify-self:start;background:var(--panel2);border:1px solid var(--edge);border-bottom-width:2px;border-radius:6px;padding:1px 7px;font:600 11px system-ui}
+.kb span{color:var(--dim)}
+@media(max-width:700px){#side{width:calc(100vw - 20px)}}
+#side{width:392px}
+#tabs button{padding:6px 9px;font-size:12px}

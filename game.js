@@ -878,16 +878,29 @@ function parseAmt(s){
   const mul = {k:1e3,m:1e6,md:1e9,b:1e9,t:1e12,qa:1e15,qi:1e18}[(m[2]||'').toLowerCase()] || 1;
   return parseFloat(m[1])*mul;
 }
-const TABS = [['bp','Schémas'],['up','Amélio.'],['res','Recherche'],['qp','Quantique'],['ach','Succès'],['stat','Stats'],['opt','Options'],['dev','Dév.']];
+const TOP = [['bp','Schémas'],['up','Amélio.'],['qp','Quantique'],['ach','Succès'],['more','Plus']];
+const SUBS = {up:[['up','Crédits'],['res','Recherche']], more:[['stat','Stats'],['opt','Options'],['dev','Dév.']]};
+const groupOf = t => t==='res' ? 'up' : (t==='stat'||t==='opt'||t==='dev') ? 'more' : t;
+const lastSub = {up:'up', more:'stat'};
 const hist = [];
+const bar = (v,m,col)=>`<span class="bar"><u style="width:${Math.min(100,v/m*100)}%;background:${col||'var(--acc)'}"></u></span>`;
+function affordCount(){ return GLOBALS.filter(g=>G.glob[g.id]<g.max && G.money>=gUpCost(g)).length + TECH.filter(d=>G.tech[d.id]<d.max && G.rp>=techCost(d)).length; }
 function openTab(t){
+  if(t==='more'||t==='up') t = lastSub[t];
   if(tab===t){ tab=null; $('side').style.display='none'; return; }
   tab=t; $('side').style.display='flex'; renderTab();
 }
 function renderTab(){
   if(!tab) return;
-  $('tabs').innerHTML = TABS.map(([id,l])=>`<button data-t="${id}" class="${id===tab?'on':''}">${l}</button>`).join('');
-  $('tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{ tab=b.dataset.t; renderTab(); });
+  const grp = groupOf(tab);
+  if(lastSub[grp]!==undefined) lastSub[grp] = tab;
+  const badge = {up:affordCount(), qp:qpGain()>=1?'+'+qpGain():0};
+  $('tabs').innerHTML = TOP.map(([id,l])=>`<button data-t="${id}" class="${id===grp?'on':''}">${l}${badge[id]?` <i class="bd">${badge[id]}</i>`:''}</button>`).join('');
+  $('tabs').querySelectorAll('button[data-t]').forEach(b=>b.onclick=()=>{ const id=b.dataset.t; tab = lastSub[id]||id; renderTab(); });
+  const subs = SUBS[grp];
+  $('subs').style.display = subs ? 'flex' : 'none';
+  $('subs').innerHTML = subs ? subs.map(([id,l])=>`<button data-s="${id}" class="${id===tab?'on':''}">${l}</button>`).join('') : '';
+  $('subs').querySelectorAll('button').forEach(b=>b.onclick=()=>{ tab=b.dataset.s; renderTab(); });
   const body = $('tabBody');
   if(tab==='dev'){
     const amts = [['1 K',1e3],['1 M',1e6],['1 Md',1e9],['1 T',1e12],['1 Qa',1e15],['1 Qi',1e18]];
@@ -914,15 +927,15 @@ function renderTab(){
     body.innerHTML = '<p>Un schéma pose et relie plusieurs nœuds d\'un coup, au centre de l\'écran.</p>' + [[false,'Crédits : revenus'],[true,'Recherche : points de recherche']].map(([isLab,title])=>
       `<h3 class="sec">${title}</h3>` + BPS.filter(b=>bpIsLab(b)===isLab).map(b=>[b,bpCost(b)]).sort((x,y)=>x[1]-y[1]).map(([b,c])=>{
         const lock = !bpUnlocked(b), i = BPS.indexOf(b);
-        return `<div class="item${lock?' lock':''}"><div><b>${b.name}</b> <small>(${b.nodes.length} nœuds)</small><p>${lock?'Nécessite : '+bpLocked(b):b.desc}</p></div>
+        return `<div class="item${lock?' lock':!(G.money<c)?' can':''}"><div><b>${b.name}</b> <small>(${b.nodes.length} nœuds)</small><p>${lock?'Nécessite : '+bpLocked(b):b.desc}</p></div>
           <button data-bp="${i}" ${lock||G.money<c?'disabled':''}>${fmt(c)}</button></div>`;
       }).join('')).join('');
     body.querySelectorAll('button[data-bp]').forEach(b=>b.onclick=()=>buildBp(BPS[+b.dataset.bp]));
   } else if(tab==='up'){
     body.innerHTML = GLOBALS.map(g=>{
       const lv=G.glob[g.id], max=lv>=g.max, c=gUpCost(g);
-      return `<div class="item"><div><b>${g.name}</b> <small>(${lv}/${g.max})</small><p>${g.desc}</p></div>
-        <button data-g="${g.id}" ${max||G.money<c?'disabled':''}>${max?'MAX':'Coût : '+fmt(c)}</button></div>`;
+      return `<div class="item${!max&&G.money>=c?' can':''}"><div><b>${g.name}</b> <small>${lv}/${g.max}</small><p>${g.desc}</p>${bar(lv,g.max)}</div>
+        <button data-g="${g.id}" ${max||G.money<c?'disabled':''}>${max?'MAX':fmt(c)}</button></div>`;
     }).join('');
     body.querySelectorAll('button[data-g]').forEach(b=>b.onclick=()=>{
       const g=GLOBALS.find(x=>x.id===b.dataset.g), c=gUpCost(g);
@@ -936,8 +949,8 @@ function renderTab(){
       <p>${gain<1?'Il faut gagner '+fmt(qpNeed(1))+' crédits dans ce run pour obtenir le premier point.':'Prochain point à '+fmt(qpNeed(gain+1))+' crédits gagnés dans ce run (actuel : '+fmt(G.run)+').'} Les points deviennent de plus en plus difficiles à obtenir, et au-delà de ${FREEQ} points les prix des nœuds suivent en partie le bonus (inflation actuelle : ×${infl().toFixed(2)}).</p>` +
       PU.map(d=>{
         const lv=G.pu[d.id], max=lv>=d.max, c=puCost(d);
-        return `<div class="item"><div><b>${d.name}</b> <small>(${lv}/${d.max})</small><p>${d.desc}<br><span class="qp">${d.eff(lv)}</span></p></div>
-          <button data-p="${d.id}" ${max||G.qp<c?'disabled':''}>${max?'MAX':''+c}</button></div>`;
+        return `<div class="item${!max&&G.qp>=c?' can':''}"><div><b>${d.name}</b> <small>${lv}/${d.max}</small><p>${d.desc}<br><span class="qp">${lv?d.eff(lv):""}</span></p>${bar(lv,d.max,'var(--qp)')}</div>
+          <button data-p="${d.id}" ${max||G.qp<c?'disabled':''}>${max?'MAX':c+' PQ'}</button></div>`;
       }).join('');
     $('bReboot').onclick = reboot;
     body.querySelectorAll('button[data-p]').forEach(b=>b.onclick=()=>{
@@ -949,7 +962,7 @@ function renderTab(){
       <div class="item"><div><b style="color:#76e4f7">${fmt(G.rp)} RP</b><p>Total produit : ${fmt(G.rpTotal)}</p></div></div>` +
       TECH.map(d=>{
         const lv=G.tech[d.id], max=lv>=d.max, c=techCost(d);
-        return `<div class="item"><div><b>${d.name}</b> <small>(${lv}/${d.max})</small><p>${d.desc}<br><span style="color:#76e4f7">${d.eff(lv)}</span></p></div>
+        return `<div class="item${!max&&G.rp>=c?' can':''}"><div><b>${d.name}</b> <small>${lv}/${d.max}</small><p>${d.desc}<br><span style="color:#76e4f7">${lv?d.eff(lv):""}</span></p>${bar(lv,d.max,'#76e4f7')}</div>
           <button data-r="${d.id}" ${max||G.rp<c?'disabled':''}>${max?'MAX':fmt(c)+' RP'}</button></div>`;
       }).join('');
     body.querySelectorAll('button[data-r]').forEach(b=>b.onclick=()=>{
@@ -967,7 +980,7 @@ function renderTab(){
     drawSpark();
   } else if(tab==='ach'){
     body.innerHTML = `<p>${achCount()}/${ACH.length} succès · chaque succès donne +2 % de revenus (actuellement +${achCount()*2} %).</p>` +
-      ACH.map(a=>`<div class="item ${G.ach[a.id]?'done':'lock'}"><div><b>${G.ach[a.id]?'[OK]':'[ ]'} ${a.name}</b><p>${a.desc}</p></div></div>`).join('');
+      [...ACH].sort((x,y)=>(!!G.ach[y.id])-(!!G.ach[x.id])).map(a=>`<div class="item ${G.ach[a.id]?'done':'lock'}"><div><b>${a.name}</b><p>${a.desc}</p></div><span class="chip">${G.ach[a.id]?'Obtenu':'À faire'}</span></div>`).join('');
   } else if(tab==='opt'){
     body.innerHTML = `<div class="item"><div><b>Son</b></div><button id="oMute">${G.mute?'Désactivé':'Activé'}</button></div>
       <div class="item"><div><b>Sauvegarde</b><p>Exporter / importer ta partie (texte).</p></div></div>
@@ -975,8 +988,9 @@ function renderTab(){
       <div class="row"><button id="oExp">Exporter</button><button id="oImp">Importer</button></div>
       <div class="row"><button id="oReset" style="color:var(--bad)">Tout effacer</button></div>
       <p>Temps de jeu : ${Math.floor(G.playtime/3600)} h ${Math.floor(G.playtime/60)%60} min · Crédits gagnés au total : ${fmt(G.lifetime)}</p>
-      <p>Astuces : double-clic / clic droit sur un lien pour le supprimer · molette ou pincement pour zoomer · Suppr pour vendre un nœud.</p>
-      <p>Raccourcis (nœud sélectionné) : D duplique · U améliore d'un niveau · Maj+U améliore au maximum · Suppr vend · Ctrl+Z annule · M menu · B schémas · Maj+glisser ou bouton Sélection : vente en masse · Ctrl+A tout sélectionner · Echap ferme · O overclock · F ou double-clic sur le vide : centrer.</p>`;
+      <div class="item"><div><b>Raccourcis</b></div></div>
+      <div class="kb">${[['Molette','Zoom'],['F','Centrer la vue'],['O','Overclock'],['M','Menu'],['B','Schémas'],['D','Dupliquer le nœud'],['U','Améliorer (Maj : au max)'],['Suppr','Vendre'],['Ctrl+Z','Annuler'],['Ctrl+A','Tout sélectionner'],['Maj+glisser','Sélection en zone'],['Echap','Fermer / désélectionner']].map(([k,t])=>`<kbd>${k}</kbd><span>${t}</span>`).join('')}</div>
+      <p>Double-clic ou clic droit sur un lien pour le supprimer.</p>`;
     $('oMute').onclick = ()=>{ G.mute=!G.mute; renderTab(); };
     $('oExp').onclick = ()=>{ save(); $('oTxt').value = btoa(unescape(encodeURIComponent(JSON.stringify(serialize())))); $('oTxt').select(); };
     $('oImp').onclick = ()=>{
@@ -988,7 +1002,7 @@ function renderTab(){
     $('oReset').onclick = ()=>ask('Tout effacer, y compris les points quantiques ?', ()=>{ try{ localStorage.removeItem(KEY); }catch(e){} newGame(); income=[]; sel=null; showSel(); buildShop(); renderTab(); });
   }
 }
-$('bMenu').onclick = ()=>openTab(tab||'up');
+$('bMenu').onclick = ()=>openTab(tab?tab:'up');
 $('bBp').onclick = ()=>openTab('bp');
 $('bSel').onclick = ()=>{ selMode=!selMode; if(!selMode) msel.clear(); sel=null; $('bSel').classList.toggle('glow',selMode); showSel(); };
 
@@ -1204,7 +1218,7 @@ function loop(now){
     else oc.textContent='Overclock';
     oc.disabled = !ocActive() && G.playtime<G.oc.ready; oc.classList.toggle('glow', !oc.disabled && !ocActive());
     if(tab==='up' || tab==='qp' || tab==='res' || tab==='bp'){
-      const sig = tab+BPS.map(b=>bpUnlocked(b)&&G.money>=bpCost(b)).join()+GLOBALS.map(g=>G.money>=gUpCost(g)).join()+PU.map(d=>G.qp>=puCost(d)).join()+qpGain()+TECH.map(d=>G.rp>=techCost(d)).join();
+      const sig = tab+affordCount()+(qpGain()>=1?'q':'')+BPS.map(b=>bpUnlocked(b)&&G.money>=bpCost(b)).join()+GLOBALS.map(g=>G.money>=gUpCost(g)).join()+PU.map(d=>G.qp>=puCost(d)).join()+qpGain()+TECH.map(d=>G.rp>=techCost(d)).join();
       if(sig!==tabSig){ tabSig=sig; renderTab(); }
     }
     const h=hintText(); $('hint').style.display=h?'block':'none'; $('hint').textContent=h;
