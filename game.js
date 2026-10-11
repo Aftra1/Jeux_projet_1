@@ -86,7 +86,7 @@ function blankRun(g){
   g.view = {x:0,y:0,k:1};
 }
 function newGame(){
-  G = {rp:0, rpTotal:0, tech:{}, lifetime:0, files:0, qp:0, qpTotal:0, resets:0, golds:0, playtime:0, lastRate:0, ach:{}, pu:{start:0,spd:0,disc:0,off:0,auto:0,rev:0}, obj:0, daily:'', oc:{until:0,ready:0}, mute:false, savedAt:Date.now()};
+  G = {rp:0, rpTotal:0, tech:{}, lifetime:0, files:0, qp:0, qpTotal:0, resets:0, golds:0, playtime:0, lastRate:0, ach:{}, pu:{start:0,spd:0,disc:0,off:0,auto:0,rev:0}, obj:0, daily:'', oc:{until:0,ready:0}, mute:false, auto:{on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1}, savedAt:Date.now()};
   for(const t of TECH) G.tech[t.id]=0;
   blankRun(G);
   addNode('source', -280, -40, true);
@@ -579,7 +579,7 @@ const bpTypes = b => [...new Set(b.nodes.map(n=>n[0]))];
 const bpUnlocked = b => bpTypes(b).every(unlocked);
 const bpLocked = b => bpTypes(b).filter(t=>!unlocked(t)).map(t=>DEFS[t].name).join(', ');
 function bpCost(b){ const cnt={}; let s=0; for(const [t] of b.nodes){ s+=buyCost(t,cnt[t]||0); cnt[t]=(cnt[t]||0)+1; } return s; }
-function buildBp(b){
+function buildBp(b,quiet){
   if(!bpUnlocked(b)) return;
   const c = bpCost(b);
   if(G.money<c){ toast('Pas assez de crédits'); return; }
@@ -595,7 +595,7 @@ function buildBp(b){
   G.money -= c;
   const made = b.nodes.map(([t,cx_,cy_])=>addNode(t, ox+cx_*SX, oy+Math.round(cy_*SY/10)*10));
   for(const [a,ao,z,zi] of b.links) connect(made[a].id,ao,made[z].id,zi);
-  sel = null; showSel(); blip(520,0.1,0.06); toast('Schéma posé : '+b.name);
+  if(!quiet){ sel = null; showSel(); blip(520,0.1,0.06); toast('Schéma posé : '+b.name); }
   if(tab) renderTab();
 }
 function removeNode(n){ G.links = G.links.filter(l=>l.a!==n.id && l.b!==n.id); G.nodes = G.nodes.filter(x=>x!==n); }
@@ -705,6 +705,7 @@ addEventListener('keydown', e=>{
   if((e.ctrlKey||e.metaKey) && (e.key==='z'||e.key==='Z')){ e.preventDefault(); undo(); return; }
   if(e.key==='Escape'){ if(tab) openTab(tab); sel=null; msel.clear(); selMode=false; $('bSel').classList.remove('glow'); showSel(); }
   if(e.key==='m'||e.key==='M') $('bMenu').click();
+  if(e.key==='p'||e.key==='P') $('bAuto').click();
   if(e.key==='b'||e.key==='B') $('bBp').click();
   if(e.key==='o'||e.key==='O') useOverclock();
   if(e.key==='f'||e.key==='F') fitView();
@@ -879,8 +880,8 @@ function parseAmt(s){
   return parseFloat(m[1])*mul;
 }
 const TOP = [['bp','Schémas'],['up','Amélio.'],['qp','Quantique'],['ach','Succès'],['more','Plus']];
-const SUBS = {bp:[['bp','Crédits'],['bpr','Recherche']], up:[['up','Crédits'],['res','Recherche']], more:[['stat','Stats'],['opt','Options'],['dev','Dév.']]};
-const groupOf = t => t==='bpr' ? 'bp' : t==='res' ? 'up' : (t==='stat'||t==='opt'||t==='dev') ? 'more' : t;
+const SUBS = {bp:[['bp','Crédits'],['bpr','Recherche']], up:[['up','Crédits'],['res','Recherche']], more:[['auto','Auto'],['stat','Stats'],['opt','Options'],['dev','Dév.']]};
+const groupOf = t => t==='bpr' ? 'bp' : t==='res' ? 'up' : (t==='auto'||t==='stat'||t==='opt'||t==='dev') ? 'more' : t;
 const lastSub = {bp:'bp', up:'up', more:'stat'};
 const hist = [];
 const bar = (v,m,col)=>`<span class="bar"><u style="width:${Math.min(100,v/m*100)}%;background:${col||'var(--acc)'}"></u></span>`;
@@ -902,7 +903,16 @@ function renderTab(){
   $('subs').innerHTML = subs ? subs.map(([id,l])=>`<button data-s="${id}" class="${id===tab?'on':''}">${l}</button>`).join('') : '';
   $('subs').querySelectorAll('button').forEach(b=>b.onclick=()=>{ tab=b.dataset.s; renderTab(); });
   const body = $('tabBody');
-  if(tab==='dev'){
+  if(tab==='auto'){
+    const A = G.auto, opts = [['nodes','Améliorer les nœuds'],['glob','Améliorations globales'],['bp','Construire des schémas'],['tech','Dépenser la recherche'],['oc','Utiliser l\'Overclock'],['reboot','Reboot quantique automatique']];
+    body.innerHTML = `<p>Le pilote automatique joue à ta place : il dépense tes crédits en priorité sur ce qui coûte le moins, construit des schémas, lance l'Overclock et la recherche. Il tourne aussi avec le menu fermé.</p>
+      <div class="item${A.on?' can':''}"><div><b>Pilote automatique</b><p>${A.on?'En marche':'Arrêté'}</p></div><button id="aOn" class="${A.on?'glow':''}">${A.on?'Arrêter':'Démarrer'}</button></div>` +
+      opts.map(([k,l])=>`<div class="item"><div><b>${l}</b></div><button data-ao="${k}">${A[k]?'Activé':'Désactivé'}</button></div>`).join('') +
+      `<div class="item"><div><b>Reboot à partir de</b><p>Reboot quand le gain atteint ce multiple de tes points quantiques totaux (minimum 1).</p></div><button id="aRat">×${A.ratio}</button></div>`;
+    $('aOn').onclick = ()=>{ A.on=!A.on; renderTab(); };
+    body.querySelectorAll('button[data-ao]').forEach(b=>b.onclick=()=>{ A[b.dataset.ao]=!A[b.dataset.ao]; renderTab(); });
+    $('aRat').onclick = ()=>{ const r=[0.5,1,2,4]; A.ratio = r[(r.indexOf(A.ratio)+1)%r.length]; renderTab(); };
+  } else if(tab==='dev'){
     const amts = [['1 K',1e3],['1 M',1e6],['1 Md',1e9],['1 T',1e12],['1 Qa',1e15],['1 Qi',1e18]];
     body.innerHTML = `<p>Menu développeur : outils de test. Les crédits donnés ne comptent pas dans les gains du run ni dans les objectifs.</p>
       <div class="item"><div><b>Crédits</b><p>Ajouter au solde</p></div></div>
@@ -1004,6 +1014,7 @@ function renderTab(){
 }
 $('bMenu').onclick = ()=>openTab(tab?tab:'up');
 $('bBp').onclick = ()=>openTab('bp');
+$('bAuto').onclick = ()=>{ G.auto.on=!G.auto.on; toast(G.auto.on?'Pilote automatique activé':'Pilote automatique arrêté'); if(tab==='auto') renderTab(); };
 $('bSel').onclick = ()=>{ selMode=!selMode; if(!selMode) msel.clear(); sel=null; $('bSel').classList.toggle('glow',selMode); showSel(); };
 
 // fichier doré
@@ -1136,7 +1147,8 @@ cv.addEventListener('dblclick', e=>{ if(!findNode(toWorld(e.clientX,e.clientY)) 
 const KEY = 'uploadlab2';
 function serialize(){ G.savedAt = Date.now(); return JSON.parse(JSON.stringify(G, (k,v)=> k==='packets' ? [] : v)); }
 function hydrate(d){
-  const g = Object.assign({rp:0,rpTotal:0,obj:0,daily:'',oc:{until:0,ready:0},lifetime:0,files:0,qp:0,qpTotal:0,resets:0,golds:0,playtime:0,lastRate:0,mute:false,savedAt:Date.now()}, d);
+  const g = Object.assign({rp:0,rpTotal:0,obj:0,daily:'',oc:{until:0,ready:0},lifetime:0,files:0,qp:0,qpTotal:0,resets:0,golds:0,playtime:0,lastRate:0,mute:false,auto:{on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1},savedAt:Date.now()}, d);
+  g.auto = Object.assign({on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1}, g.auto);
   g.ach = g.ach||{}; g.tech = g.tech||{};
   for(const t of TECH) g.tech[t.id] = g.tech[t.id]||0;
   g.pu = Object.assign({start:0,spd:0,disc:0,off:0,auto:0,rev:0}, g.pu);
@@ -1187,6 +1199,41 @@ function hintText(){
   if(G.lifetime<100) return 'Clique sur un nœud pour l\'améliorer. Plus de nœuds + plus de niveaux = plus de crédits !';
   return 'Astuce : plusieurs Sources, des Diviseurs et des Fusions te permettent de paralléliser. De nouveaux nœuds se débloquent en gagnant des crédits.';
 }
+// Pilote automatique : joue a la place du joueur (achats du moins cher au plus utile, overclock, recherche, reboot)
+let autoTick = 0;
+function autoPlay(dt){
+  const A = G.auto; if(!A || !A.on) return;
+  autoTick += dt; if(autoTick<0.5) return; autoTick = 0;
+  if(!G.links.length){ const s=G.nodes.find(n=>n.type==='source'), u=G.nodes.find(n=>n.type==='upload'); if(s&&u) connect(s.id,0,u.id,0); }
+  if(A.oc && G.playtime>=G.oc.ready && G.nodes.length>=3) useOverclock();
+  if(A.tech) for(let k=0;k<30;k++){ const d=TECH.filter(x=>G.tech[x.id]<x.max && techCost(x)<=G.rp).sort((a,b)=>techCost(a)-techCost(b))[0]; if(!d) break; G.rp-=techCost(d); G.tech[d.id]++; }
+  if(A.reboot){
+    const gn = qpGain();
+    if(gn>=Math.max(1,Math.ceil(G.qpTotal*A.ratio)) && G.playtime>0){
+      doReboot();
+      for(let k=0;k<80;k++){ const d=PU.filter(x=>G.pu[x.id]<x.max && puCost(x)<=G.qp).sort((a,b)=>puCost(a)-puCost(b))[0]; if(!d) break; G.qp-=puCost(d); G.pu[d.id]++; }
+      if(G.pu.start) G.money = Math.max(G.money, startCash(G.pu.start));
+      return;
+    }
+  }
+  for(let k=0;k<25;k++){
+    const c = [];
+    if(A.nodes) for(const n of G.nodes){ const u=upCost(n); if(u<=G.money) c.push({cost:u, w:1, f:()=>{ G.money-=u; n.level++; }}); }
+    if(A.glob) for(const d of GLOBALS){ if(G.glob[d.id]>=d.max) continue; const u=gUpCost(d); if(u<=G.money) c.push({cost:u, w:d.id==='buf'?3:0.8, f:()=>{ G.money-=u; G.glob[d.id]++; }}); }
+    if(A.bp && G.nodes.length<80){
+      const ok = BPS.filter(b=>bpUnlocked(b)).map(b=>({b,c:bpCost(b)}));
+      const hasLab = G.nodes.some(n=>n.type==='lab');
+      const pick = (isLab)=>ok.filter(x=>bpIsLab(x.b)===isLab && x.c<=G.money*0.5).sort((a,b)=>b.c-a.c)[0];
+      const cheapUp = Math.min(Infinity, ...G.nodes.map(upCost));
+      const p = pick(false);
+      if(p && p.c < cheapUp*14) c.push({cost:p.c, w:1.5, f:()=>buildBp(p.b,true)});
+      if(!hasLab){ const l = pick(true); if(l) c.push({cost:l.c, w:1.2, f:()=>buildBp(l.b,true)}); }
+    }
+    if(!c.length) break;
+    c.sort((a,b)=>a.cost/a.w-b.cost/b.w);
+    c[0].f();
+  }
+}
 function loop(now){
   const dt = Math.min(0.25,(now-last)/1000)*devSpeed; last = now;
   const n = Math.max(1,Math.ceil(dt/0.05));
@@ -1194,6 +1241,7 @@ function loop(now){
   for(let i=floats.length-1;i>=0;i--){ floats[i].life -= dt*0.9; if(floats[i].life<=0) floats.splice(i,1); }
   for(let i=parts.length-1;i>=0;i--){ const q=parts[i]; q.life-=dt*1.6; q.x+=q.vx*dt; q.y+=q.vy*dt; q.vy+=300*dt; if(q.life<=0) parts.splice(i,1); }
   updateGold(dt);
+  autoPlay(dt);
   draw();
   autoT += dt;
   if(G.pu.auto && autoT>6){
@@ -1208,6 +1256,7 @@ function loop(now){
     G.lastRate = income.reduce((s,e)=>s+e.v,0)/10;
     $('money').textContent = fmt(G.money);
     $('rate').textContent = fmt(G.lastRate);
+    $('bAuto').classList.toggle('glow', !!G.auto.on); $('bAuto').textContent = G.auto.on ? 'Auto : actif' : 'Auto';
     const qg = qpGain();
     $('bMenu').classList.toggle('glow', qg>=1);
     $('bMenu').textContent = qg>=1 ? `Menu  (+${qg} PQ)` : 'Menu';
