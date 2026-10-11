@@ -541,9 +541,32 @@ const BPS = [
   {name:'Tri intelligent', desc:'Le Trieur envoie les gros fichiers vers un Chiffreur, les petits directement à l\'Upload.',
    nodes:[['source',0,0.5],['compress',1,0.5],['sorter',2,0.5],['encrypt',3,0],['upload',4,0.5]],
    links:[[0,0,1,0],[1,0,2,0],[2,0,3,0],[3,0,4,0],[2,1,4,1]]},
+  {name:'Duo fusionné', desc:'Deux Sources fusionnées, puis compressées avant l\'Upload.',
+   nodes:[['source',0,0],['source',0,1],['merge',1,0.5],['compress',2,0.5],['upload',3,0.5]], links:[[0,0,2,0],[1,0,2,1],[2,0,3,0],[3,0,4,0]]},
+  {name:'Clonage double', desc:'Le Clonage duplique chaque fichier vers deux Uploads.',
+   nodes:[['source',0,0.5],['compress',1,0.5],['clone',2,0.5],['upload',3,0],['upload',3,1]], links:[[0,0,1,0],[1,0,2,0],[2,0,3,0],[2,1,4,0]]},
+  {name:'Arbre de fusion', desc:'Quatre Sources fusionnées deux par deux, puis ensemble, avant l\'Upload.',
+   nodes:[['source',0,0],['source',0,1],['source',0,2],['source',0,3],['merge',1,0.5],['merge',1,2.5],['merge',2,1.5],['upload',3,1.5]],
+   links:[[0,0,4,0],[1,0,4,1],[2,0,5,0],[3,0,5,1],[4,0,6,0],[5,0,6,1],[6,0,7,0]]},
+  {name:'Labo intensif', desc:'Trois Sources compressées nourrissent un Laboratoire (3 entrées).',
+   nodes:[['source',0,0],['compress',1,0],['source',0,1],['compress',1,1],['source',0,2],['compress',1,2],['lab',2,1]],
+   links:[[0,0,1,0],[1,0,6,0],[2,0,3,0],[3,0,6,1],[4,0,5,0],[5,0,6,2]]},
+  {name:'Triple Super Source', desc:'Trois Super Sources chiffrées dans un même Upload.',
+   nodes:[['mega',0,0],['encrypt',1,0],['mega',0,1],['encrypt',1,1],['mega',0,2],['encrypt',1,2],['upload',2,1]],
+   links:[[0,0,1,0],[1,0,6,0],[2,0,3,0],[3,0,6,1],[4,0,5,0],[5,0,6,2]]},
   {name:'Usine quantique', desc:'Super Source, Chiffreur, Analyseur IA, Quantique, Upload.',
    nodes:[['mega',0,0],['encrypt',1,0],['ai',2,0],['quantum',3,0],['upload',4,0]], links:[[0,0,1,0],[1,0,2,0],[2,0,3,0],[3,0,4,0]]},
 ];
+BPS.push(
+  {name:'Chaîne singulière', desc:'Super Source, IA, Quantique, Singularité, Upload.',
+   nodes:[['mega',0,0],['ai',1,0],['quantum',2,0],['sing',3,0],['upload',4,0]], links:[[0,0,1,0],[1,0,2,0],[2,0,3,0],[3,0,4,0]]},
+  {name:'Réseau profond', desc:'Super Source, Quantique, Singularité, Réseau neuronal, Upload.',
+   nodes:[['mega',0,0],['quantum',1,0],['sing',2,0],['neural',3,0],['upload',4,0]], links:[[0,0,1,0],[1,0,2,0],[2,0,3,0],[3,0,4,0]]},
+  {name:'Chaîne dimensionnelle', desc:'Quantique, Singularité, Réseau neuronal, Dimension, Upload.',
+   nodes:[['mega',0,0],['quantum',1,0],['sing',2,0],['neural',3,0],['dim',4,0],['upload',5,0]], links:[[0,0,1,0],[1,0,2,0],[2,0,3,0],[3,0,4,0],[4,0,5,0]]},
+  {name:'Sommet oméga', desc:'Toute la montée : Quantique jusqu\'à Oméga, puis Upload.',
+   nodes:[['mega',0,0],['quantum',1,0],['sing',2,0],['neural',3,0],['dim',4,0],['omega',5,0],['upload',6,0]], links:[[0,0,1,0],[1,0,2,0],[2,0,3,0],[3,0,4,0],[4,0,5,0],[5,0,6,0]]},
+);
 const bpTypes = b => [...new Set(b.nodes.map(n=>n[0]))];
 const bpUnlocked = b => bpTypes(b).every(unlocked);
 const bpLocked = b => bpTypes(b).filter(t=>!unlocked(t)).map(t=>DEFS[t].name).join(', ');
@@ -840,8 +863,8 @@ function renderTab(){
   $('tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{ tab=b.dataset.t; renderTab(); });
   const body = $('tabBody');
   if(tab==='bp'){
-    body.innerHTML = '<p>Un schéma pose et relie plusieurs nœuds d\'un coup, au centre de l\'écran.</p>' + BPS.map((b,i)=>{
-      const lock = !bpUnlocked(b), c = bpCost(b);
+    body.innerHTML = '<p>Un schéma pose et relie plusieurs nœuds d\'un coup, au centre de l\'écran.</p>' + BPS.map(b=>[b,bpCost(b)]).sort((x,y)=>x[1]-y[1]).map(([b,c])=>{
+      const lock = !bpUnlocked(b), i = BPS.indexOf(b);
       return `<div class="item${lock?' lock':''}"><div><b>${b.name}</b> <small>(${b.nodes.length} nœuds)</small><p>${lock?'Nécessite : '+bpLocked(b):b.desc}</p></div>
         <button data-bp="${i}" ${lock||G.money<c?'disabled':''}>${fmt(c)}</button></div>`;
     }).join('');

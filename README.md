@@ -5,7 +5,7 @@ Jeu incrémental inspiré d'Upload Labs : construis un réseau de nœuds qui tra
 - Relie les nœuds en glissant d'un port de sortie (rond) vers une entrée. Double-clic / clic droit sur un lien pour le supprimer.
 - 11 types de nœuds débloqués progressivement, améliorations par nœud (×1 / ×10 / Max) et globales.
 - Reboot quantique (prestige) : points quantiques, bonus permanents, ingénieur automatique.
-- 8 schémas préconstruits (bouton Schémas ou touche B), posés et reliés en un clic.
+- 17 schémas préconstruits triés par prix (bouton Schémas ou touche B), posés et reliés en un clic.
 - 17 succès, fichiers dorés aléatoires, upload critique, gains hors-ligne, sons, zoom/pincement tactile.
 - Sauvegarde automatique (localStorage) + export/import de code.
 
