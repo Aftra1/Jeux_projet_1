@@ -258,7 +258,7 @@ function reboot(){
   const g = qpGain(); if(g<1) return;
   ask(`Reboot quantique ? Tu gagnes ${g} point(s) quantique(s) (revenus x${qpMult(G.qpTotal+g).toFixed(2)} au lieu de x${qpMult(G.qpTotal).toFixed(2)}). Tes nœuds, crédits et améliorations de run sont remis à zéro.`, doReboot);
 }
-function doReboot(){
+function doReboot(){ msel.clear();
   const g = qpGain(); if(g<1) return;
   G.qp += g; G.qpTotal += g; G.resets++;
   blankRun(G);
@@ -290,6 +290,7 @@ function packetColor(v){
 }
 
 let sel = null, drag = null, hoverPort = null;
+const msel = new Set(); let selMode = false;   // selection multiple (vente en masse)
 // Zoom : cible lissée, vitesse de zoom pour les effets, niveaux de détail
 const ZMIN = 0.05, ZMAX = 3;
 let zoomT = null, zoomVel = 0, lastDraw = performance.now(), zoomShow = 0, lodPrev = 0, lodFlash = 0;
@@ -378,6 +379,10 @@ function draw(){
     cx.fillStyle = gl; rrect(n.x,n.y,NW,NH,14); cx.fill();
     cx.strokeStyle = 'rgba(255,255,255,0.10)'; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(n.x+14,n.y+1.5); cx.lineTo(n.x+NW-14,n.y+1.5); cx.stroke();
     cx.strokeStyle = sel===n.id ? '#fff' : col+(busy?'ff':'aa'); cx.lineWidth = sel===n.id?3:1.8; rrect(n.x,n.y,NW,NH,14); cx.stroke();
+    if(msel.has(n.id)){
+      cx.fillStyle = '#f6c45322'; rrect(n.x,n.y,NW,NH,14); cx.fill();
+      cx.strokeStyle = '#f6c453'; cx.lineWidth = 3; cx.setLineDash([8,6]); rrect(n.x-4,n.y-4,NW+8,NH+8,17); cx.stroke(); cx.setLineDash([]);
+    }
     // progression
     let pr = 0;
     if(n.work) pr = 1 - n.work.rem/timeOf(n); else if(d.val) pr = n.timer/timeOf(n);
@@ -402,6 +407,10 @@ function draw(){
     for(let i=0;i<d.ins;i++) port(inPort(n,i), hoverPort&&hoverPort.in&&hoverPort.n===n.id&&hoverPort.i===i, false, col, G.links.some(l=>l.b===n.id&&l.bi===i));
     for(let i=0;i<d.outs;i++) port(outPort(n,i), hoverPort&&!hoverPort.in&&hoverPort.n===n.id&&hoverPort.i===i, true, col, !!linkFrom(n.id,i));
     cx.globalAlpha = 1;
+  }
+  if(drag && drag.kind==='box'){
+    const bx=Math.min(drag.a.x,drag.b.x), by=Math.min(drag.a.y,drag.b.y), bw=Math.abs(drag.a.x-drag.b.x), bh=Math.abs(drag.a.y-drag.b.y);
+    cx.fillStyle='#f6c4531a'; cx.fillRect(bx,by,bw,bh); cx.strokeStyle='#f6c453'; cx.lineWidth=Math.max(1.5,1.5/v.k); cx.strokeRect(bx,by,bw,bh);
   }
   for(const f of floats){
     cx.globalAlpha = Math.max(0,f.life); cx.fillStyle=f.col; cx.font=`700 ${f.size}px system-ui`; cx.textAlign='center';
@@ -570,6 +579,12 @@ cv.addEventListener('pointerdown', e=>{
     pinch={d:Math.hypot(a.x-b.x,a.y-b.y), k:G.view.k}; zoomT=null; drag=null; return;
   }
   const w = toWorld(e.clientX,e.clientY);
+  if(e.shiftKey || selMode){
+    const hit = findNode(w);
+    if(hit){ if(msel.has(hit.id)) msel.delete(hit.id); else msel.add(hit.id); sel=null; showSel(); return; }
+    drag = {kind:'box', a:w, b:w, add:e.shiftKey}; return;
+  }
+  if(msel.size){ msel.clear(); showSel(); }
   const pt = findPort(w);
   if(pt && !pt.in){ drag={kind:'link',n:pt.n,o:pt.i,pos:w}; return; }
   if(pt && pt.in){
@@ -598,6 +613,7 @@ cv.addEventListener('pointermove', e=>{
   if(!drag) return;
   if(drag.kind==='link') drag.pos = w;
   else if(drag.kind==='node'){ const n=nodeById(drag.n); n.x=Math.round((w.x-drag.dx)/10)*10; n.y=Math.round((w.y-drag.dy)/10)*10; }
+  else if(drag.kind==='box') drag.b = w;
   else if(drag.kind==='pan'){ G.view.x=drag.vx+e.clientX-drag.sx; G.view.y=drag.vy+e.clientY-drag.sy; }
 });
 function endPointer(e){
@@ -614,6 +630,12 @@ function endPointer(e){
       }
     }
     if(pt && pt.in) connect(drag.n,drag.o,pt.n,pt.i);
+  }
+  if(drag && drag.kind==='box'){
+    const x0=Math.min(drag.a.x,drag.b.x), x1=Math.max(drag.a.x,drag.b.x), y0=Math.min(drag.a.y,drag.b.y), y1=Math.max(drag.a.y,drag.b.y);
+    if(!drag.add) msel.clear();
+    for(const n of G.nodes) if(n.x<x1 && n.x+NW>x0 && n.y<y1 && n.y+NH>y0) msel.add(n.id);
+    sel = null; showSel();
   }
   drag=null;
 }
@@ -637,7 +659,7 @@ shopEl.addEventListener('wheel', e=>{
 addEventListener('keydown', e=>{
   if(e.target.tagName==='TEXTAREA') return;
   if((e.ctrlKey||e.metaKey) && (e.key==='z'||e.key==='Z')){ e.preventDefault(); undo(); return; }
-  if(e.key==='Escape'){ if(tab) openTab(tab); sel=null; showSel(); }
+  if(e.key==='Escape'){ if(tab) openTab(tab); sel=null; msel.clear(); selMode=false; $('bSel').classList.remove('glow'); showSel(); }
   if(e.key==='m'||e.key==='M') $('bMenu').click();
   if(e.key==='b'||e.key==='B') $('bBp').click();
   if(e.key==='o'||e.key==='O') useOverclock();
@@ -649,6 +671,8 @@ addEventListener('keydown', e=>{
       G.money-=c; const m=addNode(n.type, n.x+30, n.y+NH+30); sel=m.id; showSel(); blip(600,0.08,0.05,'triangle');
     } else if(n) toast('Pas assez de crédits pour dupliquer');
   }
+  if((e.key==='Delete'||e.key==='Backspace') && msel.size){ sellMany(); return; }
+  if((e.ctrlKey||e.metaKey) && (e.key==='a'||e.key==='A')){ e.preventDefault(); for(const n of G.nodes) msel.add(n.id); sel=null; showSel(); return; }
   if((e.key==='Delete'||e.key==='Backspace') && sel){ const n=nodeById(sel); if(n) sell(n); }
 });
 
@@ -706,13 +730,27 @@ function sell(n){
   G.money += refund;
   removeNode(n); sel=null; showSel();
 }
+const sellVal = n => Math.floor(buyCost(n.type)*0.4);
+function sellMany(){
+  const ns = G.nodes.filter(n=>msel.has(n.id));
+  if(!ns.length) return;
+  const ids = new Set(ns.map(n=>n.id));
+  const refund = ns.reduce((s,n)=>s+sellVal(n),0);
+  pushUndo({multi:ns.map(n=>({node:n})), links:G.links.filter(l=>ids.has(l.a)||ids.has(l.b)), refund});
+  G.money += refund;
+  G.links = G.links.filter(l=>!ids.has(l.a) && !ids.has(l.b));
+  G.nodes = G.nodes.filter(n=>!ids.has(n.id));
+  msel.clear(); showSel(); blip(300,0.12,0.06,'triangle');
+  toast(ns.length+' nœuds vendus (+'+fmt(refund)+'). Ctrl+Z pour annuler.');
+}
 function dropLink(l){ pushUndo({links:[l]}); G.links = G.links.filter(x=>x!==l); }
 function undo(){
   const u = undoStack.pop();
   if(!u){ toast('Rien à annuler'); return; }
-  if(u.node){
+  if(u.node || u.multi){
     if(G.money<u.refund){ undoStack.push(u); toast('Pas assez de crédits pour annuler'); return; }
-    G.money -= u.refund; G.nodes.push(u.node);
+    G.money -= u.refund;
+    if(u.node) G.nodes.push(u.node); else for(const m of u.multi) G.nodes.push(m.node);
   }
   for(const l of u.links){
     if(!nodeById(l.a) || !nodeById(l.b)) continue;
@@ -732,7 +770,21 @@ function upgradeNode(n,count){
 function bulkCost(n,count){ let s=0; for(let i=0;i<count;i++) s+=upCost(n,n.level+i); return s; }
 function maxAffordable(n){ let c=0,s=0; while(c<500){ const u=upCost(n,n.level+c); if(s+u>G.money) break; s+=u; c++; } return c; }
 
+function showMulti(){
+  const box = $('sel'), ns = G.nodes.filter(n=>msel.has(n.id));
+  const total = ns.reduce((s,n)=>s+sellVal(n),0);
+  box.innerHTML = `<h3>${ns.length} nœud${ns.length>1?'s':''} sélectionné${ns.length>1?'s':''}</h3>
+    <p>${selMode ? 'Mode sélection : touche des nœuds ou glisse pour tracer un cadre.' : 'Maj + glisser trace un cadre, Maj + clic ajoute ou retire un nœud.'}</p>
+    <div class="row"><button id="mAll">Tout</button><button id="mType">Même type</button><button id="mNone">Aucun</button></div>
+    <div class="row"><button id="mSell" ${ns.length?'':'disabled'}>Vendre tout${ns.length?' +'+fmt(total):''}</button></div>`;
+  box.style.display = 'block';
+  $('mAll').onclick = ()=>{ for(const n of G.nodes) msel.add(n.id); showSel(); };
+  $('mNone').onclick = ()=>{ msel.clear(); showSel(); };
+  $('mType').onclick = ()=>{ const ty = new Set(ns.map(n=>n.type)); for(const n of G.nodes) if(ty.has(n.type)) msel.add(n.id); showSel(); };
+  $('mSell').onclick = sellMany;
+}
 function showSel(){
+  if(msel.size || selMode){ showMulti(); return; }
   const box = $('sel'), n = sel ? nodeById(sel) : null;
   if(!n){ box.style.display='none'; return; }
   const d = DEFS[n.type], t = timeOf(n);
@@ -852,7 +904,7 @@ function renderTab(){
       <div class="row"><button id="oReset" style="color:var(--bad)">Tout effacer</button></div>
       <p>Temps de jeu : ${Math.floor(G.playtime/3600)} h ${Math.floor(G.playtime/60)%60} min · Crédits gagnés au total : ${fmt(G.lifetime)}</p>
       <p>Astuces : double-clic / clic droit sur un lien pour le supprimer · molette ou pincement pour zoomer · Suppr pour vendre un nœud.</p>
-      <p>Raccourcis (nœud sélectionné) : D duplique · U améliore d'un niveau · Maj+U améliore au maximum · Suppr vend · Ctrl+Z annule · M menu · B schémas · Echap ferme · O overclock · F ou double-clic sur le vide : centrer.</p>`;
+      <p>Raccourcis (nœud sélectionné) : D duplique · U améliore d'un niveau · Maj+U améliore au maximum · Suppr vend · Ctrl+Z annule · M menu · B schémas · Maj+glisser ou bouton Sélection : vente en masse · Ctrl+A tout sélectionner · Echap ferme · O overclock · F ou double-clic sur le vide : centrer.</p>`;
     $('oMute').onclick = ()=>{ G.mute=!G.mute; renderTab(); };
     $('oExp').onclick = ()=>{ save(); $('oTxt').value = btoa(unescape(encodeURIComponent(JSON.stringify(serialize())))); $('oTxt').select(); };
     $('oImp').onclick = ()=>{
@@ -866,6 +918,7 @@ function renderTab(){
 }
 $('bMenu').onclick = ()=>openTab(tab||'up');
 $('bBp').onclick = ()=>openTab('bp');
+$('bSel').onclick = ()=>{ selMode=!selMode; if(!selMode) msel.clear(); sel=null; $('bSel').classList.toggle('glow',selMode); showSel(); };
 
 // fichier doré
 let goldTimer = 0, goldNext = 60 + Math.random()*60, goldLife = 0;
