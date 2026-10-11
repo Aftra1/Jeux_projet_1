@@ -7,6 +7,7 @@ Jeu incrémental inspiré d'Upload Labs : construis un réseau de nœuds qui tra
 - Reboot quantique (prestige) : points quantiques, bonus permanents, ingénieur automatique.
 - 19 schémas préconstruits (crédits ou recherche, triés par prix) (bouton Schémas ou touche B), posés et reliés en un clic.
 - Pilote automatique (bouton Auto, touche P) : joue à la place du joueur.
+- Maîtrise des nœuds (rangs permanents, +4 % de vitesse par rang) et contrats chronométrés avec série de réussites.
 - 17 succès, fichiers dorés aléatoires, upload critique, gains hors-ligne, sons, zoom/pincement tactile.
 - Sauvegarde automatique (localStorage) + export/import de code.
 

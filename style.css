@@ -111,3 +111,10 @@ button{background:var(--glass);backdrop-filter:blur(10px);-webkit-backdrop-filte
 @media(max-width:700px){#side{width:calc(100vw - 20px)}}
 #side{width:392px}
 #tabs button{padding:6px 9px;font-size:12px}
+
+#ctr{position:absolute;left:50%;transform:translateX(-50%);bottom:92px;width:min(340px,90vw);background:var(--glass);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--edge);border-radius:12px;padding:6px 12px 10px;overflow:hidden;font-size:13px;display:none;pointer-events:none}
+#ctr small{color:var(--dim);font-size:11px}
+#ctr div{display:flex;justify-content:space-between;gap:10px;margin-top:2px;font-variant-numeric:tabular-nums}
+#ctr span{color:var(--gold)}
+#ctr i{position:absolute;left:0;bottom:0;height:4px;background:var(--gold);transition:width .3s}
+#toast{bottom:150px}

@@ -86,7 +86,8 @@ function blankRun(g){
   g.view = {x:0,y:0,k:1};
 }
 function newGame(){
-  G = {rp:0, rpTotal:0, tech:{}, lifetime:0, files:0, qp:0, qpTotal:0, resets:0, golds:0, playtime:0, lastRate:0, ach:{}, pu:{start:0,spd:0,disc:0,off:0,auto:0,rev:0}, obj:0, daily:'', oc:{until:0,ready:0}, mute:false, auto:{on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1}, savedAt:Date.now()};
+  for(const k in RKC) delete RKC[k];
+  G = {rp:0, rpTotal:0, tech:{}, lifetime:0, files:0, qp:0, qpTotal:0, resets:0, golds:0, playtime:0, lastRate:0, ach:{}, pu:{start:0,spd:0,disc:0,off:0,auto:0,rev:0}, obj:0, daily:'', oc:{until:0,ready:0}, mute:false, mast:{}, contract:null, cStreak:0, cNext:0, auto:{on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1}, savedAt:Date.now()};
   for(const t of TECH) G.tech[t.id]=0;
   blankRun(G);
   addNode('source', -280, -40, true);
@@ -110,8 +111,17 @@ const buyCost = (type,extra=0) => Math.ceil(infl() * CS * DEFS[type].cost * Math
 const upCost = (n, lvl) => Math.ceil(infl() * CS * DEFS[n.type].cost * 0.8 * Math.pow(1.6, lvl===undefined?n.level:lvl) * (1 - 0.03*G.tech.tup) + 10);
 const gUpCost = d => Math.ceil(infl() * CS * d.base * Math.pow(d.grow, G.glob[d.id]));
 const puCost = d => Math.ceil(d.base * Math.pow(d.grow, G.pu[d.id]) * (d.grow===1?1:1));
+// Maitrise : chaque type de noeud gagne des rangs avec le nombre de fichiers traites (permanent, +4 % de vitesse par rang)
+const MASTTH = [200,1200,7200,43000,260000,1.5e6,9.3e6,5.6e7];
+const mastRank = type => { const c = G.mast[type]||0; let r=0; while(r<MASTTH.length && c>=MASTTH[r]) r++; return r; };
+const RKC = {};   // cache des rangs
+function mastTick(n){
+  const t = n.type, r = rankOf(t), c = G.mast[t] = (G.mast[t]||0)+1;
+  if(c===MASTTH[r]){ RKC[t] = r+1; toast('Maîtrise : '+DEFS[t].name+' rang '+(r+1)+' (+4 % de vitesse)'); blip(900,0.2,0.07,'triangle'); }
+}
+const rankOf = t => RKC[t]===undefined ? (RKC[t]=mastRank(t)) : RKC[t];
 const lvlMult = lv => Math.pow(1.5, Math.floor(lv/10));   // palier : x1,5 de vitesse tous les 10 niveaux
-const speedOf = n => (1 + 0.3*n.level) * lvlMult(n.level) * (1 + 0.1*G.glob.spd) * (1 + 0.05*G.pu.spd) * (ocActive()?2:1) * (1 + 0.04*G.tech.tspd);
+const speedOf = n => (1 + 0.3*n.level) * lvlMult(n.level) * (1 + 0.04*rankOf(n.type)) * (1 + 0.1*G.glob.spd) * (1 + 0.05*G.pu.spd) * (ocActive()?2:1) * (1 + 0.04*G.tech.tspd);
 const timeOf = n => DEFS[n.type].t / speedOf(n);
 const ocActive = () => G.playtime < G.oc.until;
 const bufCap = () => 3 + G.glob.buf;
@@ -188,7 +198,7 @@ function updateNode(n,dt){
   if(def.val){                                   // sources
     if(n.outq.length<2){
       n.timer += dt;
-      if(n.timer>=t){ n.timer=0; n.outq.push({v:seedV(def), o:-1}); }
+      if(n.timer>=t){ n.timer=0; n.outq.push({v:seedV(def), o:-1}); mastTick(n); }
     }
   } else if(n.type==='lab'){
     if(!n.work){
@@ -199,7 +209,7 @@ function updateNode(n,dt){
     }
     if(n.work){
       n.work.rem -= dt;
-      if(n.work.rem<=0){ const r=rpOf(n.work.v); G.rp+=r; G.rpTotal+=r; floatText(n.x+NW/2, n.y-4, '+'+fmt(r)+' RP', '#76e4f7', 13); n.work=null; }
+      if(n.work.rem<=0){ const r=rpOf(n.work.v); G.rp+=r; G.rpTotal+=r; floatText(n.x+NW/2, n.y-4, '+'+fmt(r)+' RP', '#76e4f7', 13); n.work=null; mastTick(n); }
     }
   } else if(n.type==='upload'){
     if(!n.work){
@@ -213,7 +223,7 @@ function updateNode(n,dt){
       if(n.work.rem<=0){
         let v = n.work.v*revMult(), crit = Math.random()<critChance();
         if(crit) v*=5;
-        earn(v,n,crit); G.files++; n.work=null;
+        earn(v,n,crit); G.files++; n.work=null; mastTick(n);
       }
     }
   } else {
@@ -228,7 +238,7 @@ function updateNode(n,dt){
         if(n.type==='clone') n.outq.push({v:n.work.v,o:0},{v:n.work.v,o:1});
         else if(n.type==='sorter') n.outq.push({v:n.work.v,o:n.work.v>=(n.thr||10)?0:1});
         else n.outq.push({v:n.work.v,o:-1});
-        n.work=null;
+        n.work=null; mastTick(n);
       }
     }
   }
@@ -258,7 +268,7 @@ function reboot(){
   const g = qpGain(); if(g<1) return;
   ask(`Reboot quantique ? Tu gagnes ${g} point(s) quantique(s) (revenus x${qpMult(G.qpTotal+g).toFixed(2)} au lieu de x${qpMult(G.qpTotal).toFixed(2)}). Tes nœuds, crédits et améliorations de run sont remis à zéro.`, doReboot);
 }
-function doReboot(){ msel.clear(); if(G.auto) G.auto.built = {};
+function doReboot(){ msel.clear(); G.contract = null; G.cNext = G.playtime + 60; if(G.auto) G.auto.built = {};
   const g = qpGain(); if(g<1) return;
   G.qp += g; G.qpTotal += g; G.resets++;
   blankRun(G);
@@ -839,6 +849,7 @@ function showSel(){
   else if(n.type==='sorter') extra = `Seuil : valeur ≥ ${fmt(n.thr||10)} vers le haut, le reste vers le bas.`;
   else extra = `${t.toFixed(2)} s par fichier.`;
   const nm = (Math.floor(n.level/10)+1)*10;
+  { const rk = rankOf(n.type); extra += ` Maîtrise : rang ${rk}/${MASTTH.length}`+(rk<MASTTH.length?` (${fmt(G.mast[n.type]||0)} / ${fmt(MASTTH[rk])} fichiers).`:' (maximum).'); }
   extra += ` Palier : niveau ${nm+1} (vitesse ×1,5), encore ${nm-n.level} niveaux.`;
   box.innerHTML = `<h3>${d.name} — niveau ${n.level+1}</h3><p>${d.desc}</p><p>${extra}</p>
     <div class="row"><button id="bu1"></button><button id="bu10"></button><button id="buM"></button></div>
@@ -986,7 +997,9 @@ function renderTab(){
       <div class="item"><div>Fichiers uploadés<p>${fmt(G.files)}</p></div></div>
       <div class="item"><div>Multiplicateur de revenus<p>x${revMult().toFixed(2)}</p></div></div>
       <div class="item"><div>Nœuds posés<p>${G.nodes.length}</p></div></div>
-      <div class="item"><div>Temps de jeu<p>${Math.floor(G.playtime/3600)} h ${Math.floor(G.playtime/60)%60} min</p></div></div>`;
+      <div class="item"><div>Temps de jeu<p>${Math.floor(G.playtime/3600)} h ${Math.floor(G.playtime/60)%60} min</p></div></div>
+      <h3 class="sec">Maîtrise des nœuds (permanente)</h3>` + ORDER.filter(t=>G.mast[t]).map(t=>{ const rk=rankOf(t), c=G.mast[t], nx=MASTTH[rk];
+        return `<div class="item"><div><b>${DEFS[t].name}</b> <small>rang ${rk}/${MASTTH.length}</small><p>${fmt(c)} fichiers traités${nx?' · prochain rang à '+fmt(nx):''}</p>${bar(nx?c-(MASTTH[rk-1]||0):1, nx?nx-(MASTTH[rk-1]||0):1, COLORS[t])}</div></div>`; }).join('');
     drawSpark();
   } else if(tab==='ach'){
     body.innerHTML = `<p>${achCount()}/${ACH.length} succès · chaque succès donne +2 % de revenus (actuellement +${achCount()*2} %).</p>` +
@@ -1147,8 +1160,10 @@ cv.addEventListener('dblclick', e=>{ if(!findNode(toWorld(e.clientX,e.clientY)) 
 const KEY = 'uploadlab2';
 function serialize(){ G.savedAt = Date.now(); return JSON.parse(JSON.stringify(G, (k,v)=> k==='packets' ? [] : v)); }
 function hydrate(d){
-  const g = Object.assign({rp:0,rpTotal:0,obj:0,daily:'',oc:{until:0,ready:0},lifetime:0,files:0,qp:0,qpTotal:0,resets:0,golds:0,playtime:0,lastRate:0,mute:false,auto:{on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1},savedAt:Date.now()}, d);
+  for(const k in RKC) delete RKC[k];
+  const g = Object.assign({rp:0,rpTotal:0,obj:0,daily:'',oc:{until:0,ready:0},lifetime:0,files:0,qp:0,qpTotal:0,resets:0,golds:0,playtime:0,lastRate:0,mute:false,mast:{},contract:null,cStreak:0,cNext:0,auto:{on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1},savedAt:Date.now()}, d);
   g.auto = Object.assign({on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1}, g.auto);
+  g.mast = g.mast||{};
   g.ach = g.ach||{}; g.tech = g.tech||{};
   for(const t of TECH) g.tech[t.id] = g.tech[t.id]||0;
   g.pu = Object.assign({start:0,spd:0,disc:0,off:0,auto:0,rev:0}, g.pu);
@@ -1244,6 +1259,29 @@ function autoPlay(dt){
     c[0].f();
   }
 }
+// Contrats : "gagne X credits avant la fin du temps", recompense proportionnelle au revenu, serie de reussites
+function contractTick(){
+  if(G.obj<3) return;
+  let c = G.contract;
+  if(c){
+    const got = G.run - c.start, left = c.until - G.playtime;
+    if(got>=c.need){
+      G.money += c.reward; G.cStreak++; G.cNext = G.playtime + 100; G.contract = null;
+      toast('Contrat rempli : +'+fmt(c.reward)+' crédits (série '+G.cStreak+')'); blip(760,0.25,0.07,'triangle');
+    } else if(left<=0){
+      G.cStreak = 0; G.cNext = G.playtime + 60; G.contract = null; toast('Contrat échoué : série remise à zéro');
+    }
+  } else if(G.playtime>=G.cNext && G.lastRate>0){
+    const T = 90, need = Math.ceil(Math.max(100, G.lastRate*T*1.25));
+    G.contract = {start:G.run, need, until:G.playtime+T, T, reward:Math.floor(need*0.5*(1+0.1*Math.min(5,G.cStreak)))};
+    toast('Nouveau contrat : gagne '+fmt(need)+' crédits en '+T+' s');
+  }
+  const el = $('ctr'); c = G.contract;
+  if(!c){ el.style.display='none'; return; }
+  const got = Math.max(0,G.run-c.start), f = Math.min(1,got/c.need);
+  el.style.display='block';
+  el.innerHTML = `<small>Contrat  -  récompense ${fmt(c.reward)}${G.cStreak?'  -  série '+G.cStreak:''}</small><div>${fmt(Math.min(got,c.need))} / ${fmt(c.need)}<span>${Math.max(0,Math.ceil(c.until-G.playtime))} s</span></div><i style="width:${f*100}%"></i>`;
+}
 function loop(now){
   const dt = Math.min(0.25,(now-last)/1000)*devSpeed; last = now;
   const n = Math.max(1,Math.ceil(dt/0.05));
@@ -1270,7 +1308,7 @@ function loop(now){
     const qg = qpGain();
     $('bMenu').classList.toggle('glow', qg>=1);
     $('bMenu').textContent = qg>=1 ? `Menu  (+${qg} PQ)` : 'Menu';
-    refreshShop(); refreshSelButtons(); checkAch(); checkObj(); updateObjHud();
+    contractTick(); refreshShop(); refreshSelButtons(); checkAch(); checkObj(); updateObjHud();
     const oc=$('bOc');
     if(ocActive()) oc.textContent='Overclock actif : '+Math.ceil(G.oc.until-G.playtime)+' s';
     else if(G.playtime<G.oc.ready) oc.textContent='Overclock : '+Math.ceil(G.oc.ready-G.playtime)+' s';
