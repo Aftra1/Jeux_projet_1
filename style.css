@@ -154,3 +154,20 @@ button{background:var(--glass);backdrop-filter:blur(10px);-webkit-backdrop-filte
 #tabs button.on{background:linear-gradient(180deg,#1d4450,#12303a);box-shadow:0 0 12px #4fd1c533}
 button.glow{animation:glw 1.6s ease-in-out infinite alternate}
 @keyframes glw{from{box-shadow:0 0 6px #b794f455}to{box-shadow:0 0 18px #b794f4cc}}
+
+/* ---- Style plat, sans lueur ---- */
+body,html{background:#212a3e}
+#top .stat b,#top .stat.sm b{text-shadow:none}
+#top .stat:first-child b{filter:none;background:none;color:var(--gold);-webkit-text-fill-color:currentColor}
+#top button,#obj,#ctr,#hint,#toast,.box,.box2,#shop button,#tabs button.on,#obj i,#ctr i,button.glow,.item{box-shadow:none!important}
+#shop button img{filter:none}
+#shop button:hover:not(:disabled){box-shadow:none;transform:none;border-color:var(--c)}
+button.glow{animation:none}
+#top button:hover:not(:disabled){box-shadow:none}
+#shop{background:linear-gradient(#212a3e00,#212a3ee6 55%)}
+.box,.box2,#hint,#obj,#toast,#ctr{backdrop-filter:none;-webkit-backdrop-filter:none;background:#161d2e;border-radius:8px}
+button{backdrop-filter:none;-webkit-backdrop-filter:none;background:#1a2236;border-radius:8px}
+#top button{background:#1a2236}
+#shop button{border-radius:8px;background:#1a2236}
+#tabs button,#subs button,#tabs button.on{border-radius:8px}
+#subs{border-radius:8px}

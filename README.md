@@ -60,3 +60,5 @@ Selectionne au moins 2 noeuds puis "Enregistrer schema" : le groupe (noeuds et l
 ## Visuels (v33)
 - Icones vectorielles par type de noeud (noeuds, vue lointaine, boutique), ciel etoile en parallaxe, nebuleuses, vignette.
 - Liaisons avec flux anime, paquets avec traine, interface vitree avec degrades.
+
+- Style plat (v34) : fond uni, noeuds sombres a fine bordure, liaisons orthogonales fines, aucune lueur.
