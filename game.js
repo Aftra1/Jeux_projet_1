@@ -768,6 +768,7 @@ addEventListener('keydown', e=>{
   if(e.target.tagName==='TEXTAREA'||e.target.tagName==='INPUT') return;
   if((e.ctrlKey||e.metaKey) && (e.key==='z'||e.key==='Z')){ e.preventDefault(); undo(); return; }
   if(e.key==='Escape'){ if(tab) openTab(tab); sel=null; msel.clear(); selMode=false; $('bSel').classList.remove('glow'); showSel(); }
+  if(e.key===' '){ e.preventDefault(); togglePause(); return; }
   if(e.key==='m'||e.key==='M') $('bMenu').click();
   if(e.key==='b'||e.key==='B') $('bBp').click();
   if(e.key==='o'||e.key==='O') useOverclock();
@@ -884,6 +885,19 @@ function upgradeNode(n,count){
   }
   if(done){ blip(780,0.1,0.06,'triangle'); showSel(); }
 }
+function upgradeSel(){
+  const ns = G.nodes.filter(n=>msel.has(n.id)); let k=0;
+  for(let i=0;i<500;i++){ const n=ns.reduce((a,b)=>!a||upCost(b)<upCost(a)?b:a,null); if(!n||G.money<upCost(n)) break; G.money-=upCost(n); n.level++; k++; }
+  if(k){ toast(k+' amélioration(s) sur la sélection'); blip(780,0.1,0.06,'triangle'); showSel(); }
+  else toast('Pas assez de crédits');
+}
+let paused = false;
+function togglePause(){
+  paused = !paused;
+  let p = document.getElementById('pauseB');
+  if(!p){ p = document.createElement('div'); p.id='pauseB'; p.textContent='PAUSE  (Espace pour reprendre)'; p.style.cssText='position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:var(--glass);border:1px solid var(--acc);border-radius:12px;padding:12px 22px;font-size:18px;letter-spacing:1px;pointer-events:none;z-index:6;display:none'; document.body.appendChild(p); }
+  p.style.display = paused ? 'block' : 'none';
+}
 function bulkCost(n,count){ let s=0; for(let i=0;i<count;i++) s+=upCost(n,n.level+i); return s; }
 function maxAffordable(n){ let c=0,s=0; while(c<500){ const u=upCost(n,n.level+c); if(s+u>G.money) break; s+=u; c++; } return c; }
 
@@ -894,8 +908,9 @@ function showMulti(){
     <p>${selMode ? 'Mode sélection : trace un cadre ou touche des nœuds. Glisse un nœud sélectionné pour déplacer le groupe.' : 'Glisse un nœud sélectionné pour déplacer tout le groupe. Maj + glisser trace un cadre, Maj + clic ajoute ou retire un nœud.'}</p>
     <div class="row"><button id="mAll">Tout</button><button id="mType">Même type</button><button id="mNone">Aucun</button></div>
     <div class="row"><button id="mDup" ${ns.length?'':'disabled'}>Dupliquer</button><button id="mSave" ${ns.length>1?'':'disabled'}>Enregistrer schéma</button></div>
+    <div class="row"><button id="mUp" ${ns.length?'':'disabled'}>Améliorer la sélection</button></div>
     <div class="row"><button id="mSell" ${ns.length?'':'disabled'}>Vendre tout${ns.length?' +'+fmt(total):''}</button></div>`;
-  $('mSave').onclick = saveBp; $('mDup').onclick = dupSel;
+  $('mSave').onclick = saveBp; $('mDup').onclick = dupSel; $('mUp').onclick = upgradeSel;
   box.style.display = 'block';
   $('mAll').onclick = ()=>{ for(const n of G.nodes) msel.add(n.id); showSel(); };
   $('mNone').onclick = ()=>{ msel.clear(); showSel(); };
@@ -1084,7 +1099,7 @@ function renderTab(){
       <div class="row"><button id="oReset" style="color:var(--bad)">Tout effacer</button></div>
       <p>Temps de jeu : ${Math.floor(G.playtime/3600)} h ${Math.floor(G.playtime/60)%60} min · Crédits gagnés au total : ${fmt(G.lifetime)}</p>
       <div class="item"><div><b>Raccourcis</b></div></div>
-      <div class="kb">${[['Molette','Zoom'],['F','Centrer la vue'],['O','Overclock'],['M','Menu'],['B','Schémas'],['D','Dupliquer nœud ou sélection'],['U','Améliorer (Maj : au max)'],['A','Tout améliorer'],['Suppr','Vendre'],['Ctrl+Z','Annuler (vente, lien, déplacement)'],['Ctrl+A','Tout sélectionner'],['Maj+glisser','Sélection en zone'],['Echap','Fermer / désélectionner']].map(([k,t])=>`<kbd>${k}</kbd><span>${t}</span>`).join('')}</div>
+      <div class="kb">${[['Molette','Zoom'],['F','Centrer la vue'],['O','Overclock'],['M','Menu'],['B','Schémas'],['D','Dupliquer nœud ou sélection'],['U','Améliorer (Maj : au max)'],['A','Tout améliorer'],['Suppr','Vendre'],['Espace','Pause'],['Double-clic nœud','Sélectionner le même type'],['Ctrl+Z','Annuler (vente, lien, déplacement)'],['Ctrl+A','Tout sélectionner'],['Maj+glisser','Sélection en zone'],['Echap','Fermer / désélectionner']].map(([k,t])=>`<kbd>${k}</kbd><span>${t}</span>`).join('')}</div>
       <p>Double-clic ou clic droit sur un lien pour le supprimer.</p>`;
     $('oMute').onclick = ()=>{ G.mute=!G.mute; renderTab(); };
     $('oSci').onclick = ()=>{ G.sci=!G.sci; renderTab(); };
@@ -1227,6 +1242,7 @@ mini.addEventListener('pointerdown', e=>{
   G.view.x = -wx*G.view.k; G.view.y = -wy*G.view.k;
 });
 $('bOc').onclick = useOverclock;
+cv.addEventListener('dblclick', e=>{ const nd=findNode(toWorld(e.clientX,e.clientY)); if(nd){ msel.clear(); for(const m of G.nodes) if(m.type===nd.type) msel.add(m.id); sel=null; showSel(); toast(msel.size+' nœud(s) du même type'); } });
 cv.addEventListener('dblclick', e=>{ if(!findNode(toWorld(e.clientX,e.clientY)) && !findLink(toWorld(e.clientX,e.clientY))) fitView(); });
 
 // Sauvegarde 
@@ -1373,7 +1389,7 @@ function contractTick(){
 function loop(now){
   const dt = Math.min(0.25,(now-last)/1000)*devSpeed; last = now;
   const n = Math.max(1,Math.ceil(dt/0.05));
-  for(let i=0;i<n;i++) step(dt/n);
+  if(!paused) for(let i=0;i<n;i++) step(dt/n);
   for(let i=floats.length-1;i>=0;i--){ floats[i].life -= dt*0.9; if(floats[i].life<=0) floats.splice(i,1); }
   for(let i=parts.length-1;i>=0;i--){ const q=parts[i]; q.life-=dt*1.6; q.x+=q.vx*dt; q.y+=q.vy*dt; q.vy+=300*dt; if(q.life<=0) parts.splice(i,1); }
   updateGold(dt);

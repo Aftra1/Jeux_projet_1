@@ -48,3 +48,8 @@ Selectionne au moins 2 noeuds puis "Enregistrer schema" : le groupe (noeuds et l
 - Dupliquer une selection (bouton ou touche D) : copie le groupe et ses liens, paye le prix des noeuds.
 - Ctrl+Z annule aussi les deplacements (noeud seul ou groupe).
 - Les schemas personnels conservent le seuil des Trieurs.
+
+## Confort (v32)
+- Espace : pause du jeu (le temps, la production et les evenements sont geles).
+- Double-clic sur un noeud : selectionne tous les noeuds du meme type.
+- Bouton "Ameliorer la sélection" : depense les credits sur les noeuds selectionnes, les moins chers d'abord.
