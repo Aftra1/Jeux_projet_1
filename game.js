@@ -98,7 +98,7 @@ function blankRun(g){
 }
 function newGame(){
   for(const k in RKC) delete RKC[k];
-  G = {rp:0, rpTotal:0, tech:{}, lifetime:0, files:0, qp:0, qpTotal:0, resets:0, golds:0, playtime:0, lastRate:0, ach:{}, pu:{start:0,spd:0,disc:0,off:0,auto:0,rev:0}, obj:0, daily:'', oc:{until:0,ready:0}, mute:false, mast:{}, contract:null, cStreak:0, cDone:0, cNext:0, ev:null, evNext:0, evDone:0, bestRate:0, sci:false, auto:{on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1}, savedAt:Date.now()};
+  G = {rp:0, rpTotal:0, tech:{}, lifetime:0, files:0, qp:0, qpTotal:0, resets:0, golds:0, playtime:0, lastRate:0, ach:{}, pu:{start:0,spd:0,disc:0,off:0,auto:0,rev:0}, obj:0, daily:'', oc:{until:0,ready:0}, mute:false, mast:{}, contract:null, cStreak:0, cDone:0, cNext:0, ev:null, hist:[], runStart:0, evNext:0, evDone:0, bestRate:0, sci:false, auto:{on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1}, savedAt:Date.now()};
   for(const t of TECH) G.tech[t.id]=0;
   blankRun(G);
   addNode('source', -280, -40, true);
@@ -290,6 +290,7 @@ function reboot(){
 }
 function doReboot(){ msel.clear(); G.contract = null; G.ev = null; G.cNext = G.playtime + 60; if(G.auto) G.auto.built = {};
   const g = qpGain(); if(g<1) return;
+  G.hist = (G.hist||[]).concat([{t:G.playtime-G.runStart, g, run:G.run}]).slice(-6); G.runStart = G.playtime;
   G.qp += g; G.qpTotal += g; G.resets++;
   blankRun(G);
   addNode('source', -280, -40, true);
@@ -732,12 +733,13 @@ shopEl.addEventListener('wheel', e=>{
   shopEl.scrollLeft += e.deltaMode===1 ? d*32 : d;
 },{passive:false});
 addEventListener('keydown', e=>{
-  if(e.target.tagName==='TEXTAREA') return;
+  if(e.target.tagName==='TEXTAREA'||e.target.tagName==='INPUT') return;
   if((e.ctrlKey||e.metaKey) && (e.key==='z'||e.key==='Z')){ e.preventDefault(); undo(); return; }
   if(e.key==='Escape'){ if(tab) openTab(tab); sel=null; msel.clear(); selMode=false; $('bSel').classList.remove('glow'); showSel(); }
   if(e.key==='m'||e.key==='M') $('bMenu').click();
   if(e.key==='b'||e.key==='B') $('bBp').click();
   if(e.key==='o'||e.key==='O') useOverclock();
+  if((e.key==='a'||e.key==='A') && !e.ctrlKey && !e.metaKey) upgradeAll();
   if(e.key==='f'||e.key==='F') fitView();
   if((e.key==='u'||e.key==='U') && sel){ const n=nodeById(sel); if(n) upgradeNode(n, e.shiftKey?1000:1); }
   if((e.key==='d'||e.key==='D') && sel){
@@ -833,6 +835,12 @@ function undo(){
     G.links.push({a:l.a,ao:l.ao,b:l.b,bi:l.bi,packets:[]});
   }
   blip(500,0.08,0.05,'triangle'); toast('Action annulée');
+}
+function upgradeAll(){
+  let k=0;
+  for(let i=0;i<500;i++){ const n=G.nodes.reduce((a,b)=>!a||upCost(b)<upCost(a)?b:a,null); if(!n||G.money<upCost(n)) break; G.money-=upCost(n); n.level++; k++; }
+  if(k){ toast(k+' amélioration(s) achetée(s)'); blip(780,0.1,0.06,'triangle'); renderTab(); showSel(); }
+  else toast('Pas assez de crédits');
 }
 function upgradeNode(n,count){
   let done=0;
@@ -978,11 +986,7 @@ function renderTab(){
       return `<div class="item${!max&&G.money>=c?' can':''}"><div><b>${g.name}</b> <small>${lv}/${g.max}</small><p>${g.desc}</p>${bar(lv,g.max)}</div>
         <button data-g="${g.id}" ${max||G.money<c?'disabled':''}>${max?'MAX':fmt(c)}</button></div>`;
     }).join('');
-    $('upAll').onclick = ()=>{
-      let k=0;
-      for(let i=0;i<500;i++){ const n=G.nodes.reduce((a,b)=>!a||upCost(b)<upCost(a)?b:a,null); if(!n||G.money<upCost(n)) break; G.money-=upCost(n); n.level++; k++; }
-      if(k){ toast(k+' amélioration(s) achetée(s)'); blip(780,0.1,0.06,'triangle'); renderTab(); showSel(); }
-    };
+    $('upAll').onclick = upgradeAll;
     body.querySelectorAll('button[data-g]').forEach(b=>b.onclick=()=>{
       const g=GLOBALS.find(x=>x.id===b.dataset.g), c=gUpCost(g);
       if(G.money>=c && G.glob[g.id]<g.max){ G.money-=c; G.glob[g.id]++; blip(780,0.1,0.06,'triangle'); renderTab(); showSel(); }
@@ -991,6 +995,7 @@ function renderTab(){
     const gain=qpGain();
     body.innerHTML = `<p>Un <b class="qp">Reboot quantique</b> remet ta progression à zéro, mais te donne des <b class="qp">points quantiques</b>. Ils donnent un bonus de revenus permanent (×(1 + points)<sup>0,6</sup>) et se dépensent aussi en bonus permanents.</p>
       <div class="item"><div><b class="qp">${G.qp} point(s)</b> disponible(s)<p>Total : ${G.qpTotal} · Reboots : ${G.resets} · Bonus : ×${qpMult(G.qpTotal).toFixed(2)}</p></div></div>
+      <div class="item"><div>Run en cours : ${Math.floor((G.playtime-G.runStart)/60)} min<p>Rendement actuel : ${((G.playtime-G.runStart)>60?gain/((G.playtime-G.runStart)/60):0).toFixed(1)} PQ / min</p></div></div>
       <button id="bReboot" class="${gain>=1?'glow':''}" style="width:100%" ${gain<1?'disabled':''}>Reboot : +${gain} point(s)</button>
       <p>${gain<1?'Il faut gagner '+fmt(qpNeed(1))+' crédits dans ce run pour obtenir le premier point.':'Prochain point à '+fmt(qpNeed(gain+1))+' crédits gagnés dans ce run (actuel : '+fmt(G.run)+').'} Les points deviennent de plus en plus difficiles à obtenir, et au-delà de ${FREEQ} points les prix des nœuds suivent en partie le bonus (inflation actuelle : ×${infl().toFixed(2)}).</p>` +
       PU.map(d=>{
@@ -1025,6 +1030,7 @@ function renderTab(){
       <div class="item"><div>Contrats remplis · événements<p>${G.cDone} · ${G.evDone}</p></div></div>
       <div class="item"><div>Nœuds posés<p>${G.nodes.length}</p></div></div>
       <div class="item"><div>Temps de jeu<p>${Math.floor(G.playtime/3600)} h ${Math.floor(G.playtime/60)%60} min</p></div></div>
+      <h3 class="sec">Derniers reboots</h3>${(G.hist||[]).length?[...G.hist].reverse().map(h=>`<div class="item"><div>+${h.g} PQ en ${Math.floor(h.t/60)} min<p>${fmt(h.run)} crédits dans le run</p></div></div>`).join(''):'<p>Aucun reboot pour le moment.</p>'}
       <h3 class="sec">Maîtrise des nœuds (permanente)</h3>` + ORDER.filter(t=>G.mast[t]).map(t=>{ const rk=rankOf(t), c=G.mast[t], nx=MASTTH[rk];
         return `<div class="item"><div><b>${DEFS[t].name}</b> <small>rang ${rk}/${MASTTH.length}</small><p>${fmt(c)} fichiers traités${nx?' · prochain rang à '+fmt(nx):''}</p>${bar(nx?c-(MASTTH[rk-1]||0):1, nx?nx-(MASTTH[rk-1]||0):1, COLORS[t])}</div></div>`; }).join('');
     drawSpark();
@@ -1040,7 +1046,7 @@ function renderTab(){
       <div class="row"><button id="oReset" style="color:var(--bad)">Tout effacer</button></div>
       <p>Temps de jeu : ${Math.floor(G.playtime/3600)} h ${Math.floor(G.playtime/60)%60} min · Crédits gagnés au total : ${fmt(G.lifetime)}</p>
       <div class="item"><div><b>Raccourcis</b></div></div>
-      <div class="kb">${[['Molette','Zoom'],['F','Centrer la vue'],['O','Overclock'],['M','Menu'],['B','Schémas'],['D','Dupliquer le nœud'],['U','Améliorer (Maj : au max)'],['Suppr','Vendre'],['Ctrl+Z','Annuler'],['Ctrl+A','Tout sélectionner'],['Maj+glisser','Sélection en zone'],['Echap','Fermer / désélectionner']].map(([k,t])=>`<kbd>${k}</kbd><span>${t}</span>`).join('')}</div>
+      <div class="kb">${[['Molette','Zoom'],['F','Centrer la vue'],['O','Overclock'],['M','Menu'],['B','Schémas'],['D','Dupliquer le nœud'],['U','Améliorer (Maj : au max)'],['A','Tout améliorer'],['Suppr','Vendre'],['Ctrl+Z','Annuler'],['Ctrl+A','Tout sélectionner'],['Maj+glisser','Sélection en zone'],['Echap','Fermer / désélectionner']].map(([k,t])=>`<kbd>${k}</kbd><span>${t}</span>`).join('')}</div>
       <p>Double-clic ou clic droit sur un lien pour le supprimer.</p>`;
     $('oMute').onclick = ()=>{ G.mute=!G.mute; renderTab(); };
     $('oSci').onclick = ()=>{ G.sci=!G.sci; renderTab(); };
@@ -1190,7 +1196,7 @@ const KEY = 'uploadlab2';
 function serialize(){ G.savedAt = Date.now(); return JSON.parse(JSON.stringify(G, (k,v)=> k==='packets' ? [] : v)); }
 function hydrate(d){
   for(const k in RKC) delete RKC[k];
-  const g = Object.assign({rp:0,rpTotal:0,obj:0,daily:'',oc:{until:0,ready:0},lifetime:0,files:0,qp:0,qpTotal:0,resets:0,golds:0,playtime:0,lastRate:0,mute:false,mast:{},contract:null,cStreak:0,cDone:0,cNext:0,ev:null,evNext:0,evDone:0,bestRate:0,sci:false,auto:{on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1},savedAt:Date.now()}, d);
+  const g = Object.assign({rp:0,rpTotal:0,obj:0,daily:'',oc:{until:0,ready:0},lifetime:0,files:0,qp:0,qpTotal:0,resets:0,golds:0,playtime:0,lastRate:0,mute:false,mast:{},contract:null,cStreak:0,cDone:0,cNext:0,ev:null,hist:[],runStart:0,evNext:0,evDone:0,bestRate:0,sci:false,auto:{on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1},savedAt:Date.now()}, d);
   g.auto = Object.assign({on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1}, g.auto);
   g.mast = g.mast||{};
   g.ach = g.ach||{}; g.tech = g.tech||{};

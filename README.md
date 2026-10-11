@@ -37,3 +37,6 @@ Repères du joueur automatique (idéal, un humain est 2 à 3 fois plus lent) : d
 
 ## Evenements reseau (v28)
 Apres l'objectif 3, un evenement aleatoire survient toutes les 4 a 6 minutes : Pic de trafic (revenus x2, 30 s), Surtension (vitesse x1,5, 30 s), Soldes (prix -30 %, 45 s) ou Don de donnees (credits offerts). Ajouts : meilleur debit et compteurs dans les stats, format des nombres scientifique en option, 5 nouveaux succes.
+
+## Confort (v29)
+Touche A : tout ameliorer. Onglet Quantique : duree du run et rendement en PQ/min pour choisir le bon moment de reboot. Stats : historique des 6 derniers reboots.
