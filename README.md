@@ -28,3 +28,9 @@ Mécanismes qui donnent cette courbe :
 - Objectifs, fichier doré, bonus quotidien et gains hors-ligne sont proportionnels au revenu du moment.
 
 Repères du joueur automatique (idéal, un humain est 2 à 3 fois plus lent) : délai entre Reboots 8, 6, 7, 6, 9, 9, 10, 12, 14, 17, 19, 21, 28, 52 min. Oméga est débloqué après 2 h environ ; ensuite la croissance ralentit nettement (hors règles du bot : un humain construit plus de lignes que lui).
+
+## Equilibrage global (v26)
+- Plafonds repousses (Marketing 60, Fibre 45, Capteurs 30, Chanceux 20, techs de revenu/vitesse/format 24, Surcadencage et Amplificateur quantique 16) pour eviter le mur de fin de partie.
+- Cout en credits d'un point quantique : 1e5 x g^2,8 (au lieu de g^3), courbe d'intervalles de reboot reguliere (environ 10, 7, 5, 6, 9, 9, 10, 12, 15 ... min en simulation).
+- Mobile : barre du haut compacte sur une ligne, bouton de fermeture du panneau, libelles courts.
+- 6 nouveaux succes (contrats, maitrise).

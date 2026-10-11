@@ -24,24 +24,24 @@ const ORDER = Object.keys(DEFS);
 const COLORS = {source:'#4fd1c5',upload:'#f6c453',split:'#9f7aea',compress:'#63b3ed',merge:'#f687b3',encrypt:'#68d391',clone:'#f6ad55',sorter:'#a3e635',boost:'#ecc94b',ai:'#fc8181',mega:'#38b2ac',lab:'#76e4f7',quantum:'#b794f4',sing:'#ffffff',neural:'#f56565',dim:'#ed64a6',omega:'#faf089'};
 
 const GLOBALS = [
-  {id:'rev',  name:'Marketing',          desc:'+25 % de revenus par upload',          base:100, grow:2.1, max:40},
-  {id:'spd',  name:'Fibre optique',      desc:'+10 % de vitesse partout',             base:250, grow:2.4, max:30},
-  {id:'seed', name:'Meilleurs capteurs', desc:'+20 % de valeur des fichiers produits par les Sources',      base:500, grow:2.8, max:20},
+  {id:'rev',  name:'Marketing',          desc:'+25 % de revenus par upload',          base:100, grow:2.1, max:60},
+  {id:'spd',  name:'Fibre optique',      desc:'+10 % de vitesse partout',             base:250, grow:2.4, max:45},
+  {id:'seed', name:'Meilleurs capteurs', desc:'+20 % de valeur des fichiers produits par les Sources',      base:500, grow:2.8, max:30},
   {id:'buf',  name:'Mémoire tampon',     desc:'+1 capacité des files d\'attente',     base:400, grow:2.4, max:6},
-  {id:'crit', name:'Upload chanceux',    desc:'+3 % de chance d\'upload ×5',          base:1500,grow:2.6, max:15},
+  {id:'crit', name:'Upload chanceux',    desc:'+3 % de chance d\'upload ×5',          base:1500,grow:2.6, max:20},
 ];
 const PU = [
   {id:'start', name:'Capital de départ',     desc:'Démarre chaque run avec plus de crédits (proportionnel à la hausse des prix)', base:1, grow:2, max:8, eff:l=>'Crédits de départ : '+fmt(startCash(l))},
-  {id:'spd',   name:'Surcadençage',          desc:'+5 % de vitesse permanente',             base:1, grow:2, max:10, eff:l=>'+'+l*5+' %'},
+  {id:'spd',   name:'Surcadençage',          desc:'+5 % de vitesse permanente',             base:1, grow:2, max:16, eff:l=>'+'+l*5+' %'},
   {id:'disc',  name:'Négociation',           desc:'5 % sur le prix des nœuds',              base:2, grow:2, max:6,  eff:l=>''+l*5+' %'},
   {id:'off',   name:'Serveurs de nuit',      desc:'+8 % de gains hors-ligne (base 40 %, 3 h max)',   base:2, grow:2, max:5,  eff:l=>(40+l*8)+' %'},
-  {id:'rev',   name:'Amplificateur quantique', desc:'+10 % de revenus permanents', base:3, grow:2, max:10, eff:l=>'+'+l*10+' %'},
+  {id:'rev',   name:'Amplificateur quantique', desc:'+10 % de revenus permanents', base:3, grow:2, max:16, eff:l=>'+'+l*10+' %'},
   {id:'auto',  name:'Ingénieur automatique', desc:'Améliore automatiquement tes nœuds',      base:10,grow:1, max:1,  eff:l=>l?'Actif':'—'},
 ];
 const TECH = [
-  {id:'trev', name:'Algorithmes de revenu',   desc:'+8 % de revenus par niveau',                base:20, grow:1.9, max:15, eff:l=>'+'+l*8+' %'},
-  {id:'tspd', name:'Architecture parallèle',  desc:'+4 % de vitesse par niveau',                base:25, grow:1.9, max:15, eff:l=>'+'+l*4+' %'},
-  {id:'tseed',name:'Formats optimisés',       desc:'+8 % de valeur des fichiers des Sources par niveau', base:35, grow:1.8, max:15, eff:l=>'+'+l*8+' %'},
+  {id:'trev', name:'Algorithmes de revenu',   desc:'+8 % de revenus par niveau',                base:20, grow:1.9, max:24, eff:l=>'+'+l*8+' %'},
+  {id:'tspd', name:'Architecture parallèle',  desc:'+4 % de vitesse par niveau',                base:25, grow:1.9, max:24, eff:l=>'+'+l*4+' %'},
+  {id:'tseed',name:'Formats optimisés',       desc:'+8 % de valeur des fichiers des Sources par niveau', base:35, grow:1.8, max:24, eff:l=>'+'+l*8+' %'},
   {id:'tcost',name:'Économies d\'échelle',    desc:'-2 % sur le prix des nœuds par niveau',     base:40, grow:2.0, max:10, eff:l=>'-'+l*2+' %'},
   {id:'tup',  name:'Maintenance prédictive',  desc:'-3 % sur le prix des améliorations',        base:50, grow:2.1, max:10, eff:l=>'-'+l*3+' %'},
   {id:'tcrit',name:'Compression adaptative',  desc:'+2 % de chance d\'upload critique',         base:60, grow:2.0, max:10, eff:l=>'+'+l*2+' %'},
@@ -74,6 +74,12 @@ const ACH = [
   {id:'a21',name:'Vétéran',          desc:'Fais 15 Reboots',             t:()=>G.resets>=15},
   {id:'a22',name:'Maître ingénieur', desc:'Un nœud au niveau 50',        t:()=>G.nodes.some(n=>n.level>=49)},
   {id:'a23',name:'Légende',          desc:'Gagne 1 Qa de crédits',       t:()=>G.lifetime>=1e15},
+  {id:'a24',name:'Sous contrat',     desc:'Remplis 5 contrats',          t:()=>G.cDone>=5},
+  {id:'a25',name:'Entrepreneur',     desc:'Remplis 25 contrats',         t:()=>G.cDone>=25},
+  {id:'a26',name:'Sans faute',       desc:'Série de 5 contrats',         t:()=>G.cStreak>=5},
+  {id:'a27',name:'Apprenti',         desc:'Un nœud au rang de maîtrise 3', t:()=>Object.keys(G.mast).some(t=>rankOf(t)>=3)},
+  {id:'a28',name:'Grand maître',     desc:'Un nœud au rang de maîtrise 8', t:()=>Object.keys(G.mast).some(t=>rankOf(t)>=8)},
+  {id:'a29',name:'Polyvalent',       desc:'4 types de nœuds au rang 2 ou plus', t:()=>Object.keys(G.mast).filter(t=>rankOf(t)>=2).length>=4},
   {id:'a17',name:'Ingénieur',        desc:'Un nœud au niveau 20',        t:()=>G.nodes.some(n=>n.level>=19)},
 ];
 
@@ -87,7 +93,7 @@ function blankRun(g){
 }
 function newGame(){
   for(const k in RKC) delete RKC[k];
-  G = {rp:0, rpTotal:0, tech:{}, lifetime:0, files:0, qp:0, qpTotal:0, resets:0, golds:0, playtime:0, lastRate:0, ach:{}, pu:{start:0,spd:0,disc:0,off:0,auto:0,rev:0}, obj:0, daily:'', oc:{until:0,ready:0}, mute:false, mast:{}, contract:null, cStreak:0, cNext:0, auto:{on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1}, savedAt:Date.now()};
+  G = {rp:0, rpTotal:0, tech:{}, lifetime:0, files:0, qp:0, qpTotal:0, resets:0, golds:0, playtime:0, lastRate:0, ach:{}, pu:{start:0,spd:0,disc:0,off:0,auto:0,rev:0}, obj:0, daily:'', oc:{until:0,ready:0}, mute:false, mast:{}, contract:null, cStreak:0, cDone:0, cNext:0, auto:{on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1}, savedAt:Date.now()};
   for(const t of TECH) G.tech[t.id]=0;
   blankRun(G);
   addNode('source', -280, -40, true);
@@ -131,7 +137,7 @@ const seedV = def => def.val * (1 + 0.2*G.glob.seed) * (1 + 0.08*G.tech.tseed);
 const rpOf = v => 0.5*Math.pow(v,0.3)*(1+0.2*G.tech.tlab);
 // Crédits à gagner dans un run pour obtenir g points quantiques : de plus en plus durs à obtenir
 const QPB = 0.1;
-const qpNeed = g => 1e5*g*g*g*Math.exp(QPB*Math.min(48, Math.pow(Math.log(1+g),2)));
+const qpNeed = g => 1e5*Math.pow(g,2.8)*Math.exp(QPB*Math.min(48, Math.pow(Math.log(1+g),2)));
 const qpGain = () => { let lo=0, hi=1e7; while(hi-lo>1){ const m=Math.floor((lo+hi)/2); if(qpNeed(m)<=G.run) lo=m; else hi=m; } return lo; };
 
 // Géométrie 
@@ -1027,6 +1033,7 @@ function renderTab(){
 }
 $('bMenu').onclick = ()=>openTab(tab?tab:'up');
 $('bBp').onclick = ()=>openTab('bp');
+$('sideX').onclick = ()=>{ if(tab) openTab(tab); };
 $('bAuto').onclick = ()=>{ G.auto.on=!G.auto.on; toast(G.auto.on?'Pilote automatique activé':'Pilote automatique arrêté'); if(tab==='auto') renderTab(); };
 $('bSel').onclick = ()=>{ selMode=!selMode; if(!selMode) msel.clear(); sel=null; $('bSel').classList.toggle('glow',selMode); showSel(); };
 
@@ -1161,7 +1168,7 @@ const KEY = 'uploadlab2';
 function serialize(){ G.savedAt = Date.now(); return JSON.parse(JSON.stringify(G, (k,v)=> k==='packets' ? [] : v)); }
 function hydrate(d){
   for(const k in RKC) delete RKC[k];
-  const g = Object.assign({rp:0,rpTotal:0,obj:0,daily:'',oc:{until:0,ready:0},lifetime:0,files:0,qp:0,qpTotal:0,resets:0,golds:0,playtime:0,lastRate:0,mute:false,mast:{},contract:null,cStreak:0,cNext:0,auto:{on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1},savedAt:Date.now()}, d);
+  const g = Object.assign({rp:0,rpTotal:0,obj:0,daily:'',oc:{until:0,ready:0},lifetime:0,files:0,qp:0,qpTotal:0,resets:0,golds:0,playtime:0,lastRate:0,mute:false,mast:{},contract:null,cStreak:0,cDone:0,cNext:0,auto:{on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1},savedAt:Date.now()}, d);
   g.auto = Object.assign({on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1}, g.auto);
   g.mast = g.mast||{};
   g.ach = g.ach||{}; g.tech = g.tech||{};
@@ -1266,7 +1273,7 @@ function contractTick(){
   if(c){
     const got = G.run - c.start, left = c.until - G.playtime;
     if(got>=c.need){
-      G.money += c.reward; G.cStreak++; G.cNext = G.playtime + 100; G.contract = null;
+      G.money += c.reward; G.cStreak++; G.cDone++; G.cNext = G.playtime + 100; G.contract = null;
       toast('Contrat rempli : +'+fmt(c.reward)+' crédits (série '+G.cStreak+')'); blip(760,0.25,0.07,'triangle');
     } else if(left<=0){
       G.cStreak = 0; G.cNext = G.playtime + 60; G.contract = null; toast('Contrat échoué : série remise à zéro');
@@ -1304,15 +1311,15 @@ function loop(now){
     G.lastRate = income.reduce((s,e)=>s+e.v,0)/10;
     $('money').textContent = fmt(G.money);
     $('rate').textContent = fmt(G.lastRate);
-    $('bAuto').classList.toggle('glow', !!G.auto.on); $('bAuto').textContent = G.auto.on ? 'Auto : actif' : 'Auto';
+    $('bAuto').classList.toggle('glow', !!G.auto.on); $('bAuto').textContent = G.auto.on ? (innerWidth<=700?'Auto ON':'Auto : actif') : 'Auto';
     const qg = qpGain();
     $('bMenu').classList.toggle('glow', qg>=1);
-    $('bMenu').textContent = qg>=1 ? `Menu  (+${qg} PQ)` : 'Menu';
+    $('bMenu').textContent = qg>=1 ? (innerWidth<=700 ? `Menu +${qg}` : `Menu  (+${qg} PQ)`) : "Menu";
     contractTick(); refreshShop(); refreshSelButtons(); checkAch(); checkObj(); updateObjHud();
-    const oc=$('bOc');
-    if(ocActive()) oc.textContent='Overclock actif : '+Math.ceil(G.oc.until-G.playtime)+' s';
-    else if(G.playtime<G.oc.ready) oc.textContent='Overclock : '+Math.ceil(G.oc.ready-G.playtime)+' s';
-    else oc.textContent='Overclock';
+    const oc=$('bOc'), sm=innerWidth<=700;
+    if(ocActive()) oc.textContent=(sm?'OC actif ':'Overclock actif : ')+Math.ceil(G.oc.until-G.playtime)+' s';
+    else if(G.playtime<G.oc.ready) oc.textContent=(sm?'OC ':'Overclock : ')+Math.ceil(G.oc.ready-G.playtime)+' s';
+    else oc.textContent=sm?'OC':'Overclock';
     oc.disabled = !ocActive() && G.playtime<G.oc.ready; oc.classList.toggle('glow', !oc.disabled && !ocActive());
     if(tab==='up' || tab==='qp' || tab==='res' || tab==='bp' || tab==='bpr'){
       const sig = tab+affordCount()+(qpGain()>=1?'q':'')+BPS.map(b=>bpUnlocked(b)&&G.money>=bpCost(b)).join()+GLOBALS.map(g=>G.money>=gUpCost(g)).join()+PU.map(d=>G.qp>=puCost(d)).join()+qpGain()+TECH.map(d=>G.rp>=techCost(d)).join();
