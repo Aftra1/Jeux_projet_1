@@ -128,7 +128,11 @@ const EVT = [
 const evActive = id => !!G.ev && G.ev.id===id && G.playtime<G.ev.until;
 const saleMult = () => evActive('sale') ? 0.7 : 1;
 const buyCost = (type,extra=0) => Math.ceil(saleMult() * infl() * CS * DEFS[type].cost * Math.pow(BG, (G.bought[type]||0)+extra) * (1 - 0.05*G.pu.disc) * (1 - 0.02*G.tech.tcost));
-const upCost = (n, lvl) => Math.ceil(saleMult() * infl() * CS * DEFS[n.type].cost * 0.8 * Math.pow(1.6, lvl===undefined?n.level:lvl) * (1 - 0.03*G.tech.tup) + 10);
+const SPECS = {spd:{name:'Turbo',desc:'Vitesse ×1,35'}, val:{name:'Rendement',desc:'Valeur produite ×1,3'}, eco:{name:'Économe',desc:'Améliorations de ce nœud -35 %'}};
+const TIERS = [['Brut','#8794b3'],['Bronze','#d69e6b'],['Argent','#cbd5e0'],['Or','#f6c453'],['Platine','#76e4f7'],['Diamant','#b794f4'],['Mythique','#f687b3'],['Légende','#ffffff']];
+const tierOf = lv => Math.min(TIERS.length-1, Math.floor(lv/10));
+const vmult = n => n.spec==='val' ? 1.3 : 1;
+const upCost = (n, lvl) => Math.ceil(saleMult() * infl() * CS * DEFS[n.type].cost * 0.8 * Math.pow(1.6, lvl===undefined?n.level:lvl) * (1 - 0.03*G.tech.tup) * (n.spec==='eco'?0.65:1) + 10);
 const gUpCost = d => Math.ceil(saleMult() * infl() * CS * d.base * Math.pow(d.grow, G.glob[d.id]));
 const puCost = d => Math.ceil(d.base * Math.pow(d.grow, G.pu[d.id]) * (d.grow===1?1:1));
 // Maitrise : chaque type de noeud gagne des rangs avec le nombre de fichiers traites (permanent, +4 % de vitesse par rang)
@@ -141,7 +145,7 @@ function mastTick(n){
 }
 const rankOf = t => RKC[t]===undefined ? (RKC[t]=mastRank(t)) : RKC[t];
 const lvlMult = lv => Math.pow(1.5, Math.floor(lv/10));   // palier : x1,5 de vitesse tous les 10 niveaux
-const speedOf = n => (1 + 0.3*n.level) * lvlMult(n.level) * (1 + 0.04*rankOf(n.type)) * (1 + 0.1*G.glob.spd) * (1 + 0.05*G.pu.spd) * (ocActive()?2:1) * (1 + 0.04*G.tech.tspd) * (evActive('surge')?1.5:1);
+const speedOf = (n,lv=n.level) => (n.spec==='spd'?1.35:1) * (1 + 0.3*lv) * lvlMult(lv) * (1 + 0.04*rankOf(n.type)) * (1 + 0.1*G.glob.spd) * (1 + 0.05*G.pu.spd) * (ocActive()?2:1) * (1 + 0.04*G.tech.tspd) * (evActive('surge')?1.5:1);
 const timeOf = n => DEFS[n.type].t / speedOf(n);
 const ocActive = () => G.playtime < G.oc.until;
 const bufCap = () => 3 + G.glob.buf;
@@ -228,7 +232,7 @@ function updateNode(n,dt){
   if(def.val){                                   // sources
     if(n.outq.length<2){
       n.timer += dt;
-      if(n.timer>=t){ n.timer=0; n.outq.push({v:seedV(def), o:-1}); mastTick(n); }
+      if(n.timer>=t){ n.timer=0; n.outq.push({v:seedV(def)*vmult(n), o:-1}); mastTick(n); }
     }
   } else if(n.type==='lab'){
     if(!n.work){
@@ -251,7 +255,7 @@ function updateNode(n,dt){
     if(n.work){
       n.work.rem -= dt;
       if(n.work.rem<=0){
-        let v = n.work.v*revMult(), crit = Math.random()<critChance();
+        let v = n.work.v*revMult()*vmult(n), crit = Math.random()<critChance();
         if(crit) v*=5;
         earn(v,n,crit); G.files++; n.work=null; mastTick(n);
       }
@@ -259,8 +263,8 @@ function updateNode(n,dt){
   } else {
     if(!n.work && n.outq.length===0){
       if(n.type==='merge'){
-        if(n.inb[0].length && n.inb[1].length) n.work = {v:(n.inb[0].shift()+n.inb[1].shift())*1.3, rem:t};
-      } else if(n.inb[0].length) n.work = {v:n.inb[0].shift()*(def.mult||1), rem:t};
+        if(n.inb[0].length && n.inb[1].length) n.work = {v:(n.inb[0].shift()+n.inb[1].shift())*1.3*vmult(n), rem:t};
+      } else if(n.inb[0].length) n.work = {v:n.inb[0].shift()*(def.mult||1)*vmult(n), rem:t};
     }
     if(n.work){
       n.work.rem -= dt;
@@ -290,7 +294,19 @@ function updateLinks(dt){
 function step(dt){
   G.playtime += dt;
   updateLinks(dt);
-  for(const n of G.nodes) updateNode(n,dt);
+  for(const n of G.nodes){
+    updateNode(n,dt);
+    const tr = tierOf(n.level);
+    if(n.tr===undefined) n.tr = tr;
+    else if(tr!==n.tr){ if(tr>n.tr) tierUp(n,tr); n.tr = tr; }
+  }
+}
+function tierUp(n,tr){
+  const col = TIERS[tr][1];
+  for(let i=0;i<24;i++) if(parts.length<250){ const a=Math.random()*6.283, sp=60+Math.random()*140; parts.push({x:n.x+NW/2,y:n.y+NH/2,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,col}); }
+  floatText(n.x+NW/2, n.y-6, 'Palier '+TIERS[tr][0], col, 15);
+  blip(660,0.12,0.06,'triangle'); setTimeout(()=>blip(990,0.16,0.06,'triangle'),90);
+  if(tr===1) toast('Palier atteint : vitesse x1,5. Au niveau 10, un nœud peut se spécialiser (sélectionne-le).');
 }
 
 // Prestige 
@@ -444,7 +460,8 @@ function draw(){
     cx.font='600 13px system-ui'; cx.fillStyle='#e6ecf8'; cx.fillText(d.name, n.x+42, n.y+18);
     cx.font='11px system-ui'; cx.fillStyle='#8794b3';
     const buf = n.inb.reduce((s,q)=>s+q.length,0);
-    cx.fillText('Niv. '+(n.level+1)+(d.ins?'  ·  file '+buf+'/'+bufCap():'  ·  '+(1/timeOf(n)).toFixed(2)+'/s'), n.x+42, n.y+35);
+    cx.fillStyle = TIERS[tierOf(n.level)][1]; cx.fillText('Niv. '+(n.level+1)+(n.spec?' · '+SPECS[n.spec].name:'')+(d.ins?'  ·  file '+buf+'/'+bufCap():'  ·  '+(1/timeOf(n)).toFixed(2)+'/s'), n.x+42, n.y+35);
+    { const tr = tierOf(n.level), lv10 = n.level%10; cx.fillStyle = '#2a3550'; for(let i=0;i<10;i++) cx.fillRect(n.x+NW-8-(10-i)*7,n.y+NH-21,5,2); cx.fillStyle = TIERS[tr][1]; for(let i=0;i<lv10;i++) cx.fillRect(n.x+NW-8-(10-i)*7,n.y+NH-21,5,2); }
     if(G.money>=upCost(n)){
       const bx = n.x+NW-2, by = n.y+2, pu = 1+0.08*Math.sin(tm*4+n.id);
       cx.fillStyle = '#68d391';
@@ -939,18 +956,33 @@ function showSel(){
   else if(n.type==='upload') extra = `1 fichier toutes les ${t.toFixed(2)} s (revenus ×${revMult().toFixed(2)}).`;
   else if(n.type==='sorter') extra = `Seuil : valeur ≥ ${fmt(n.thr||10)} vers le haut, le reste vers le bas.`;
   else extra = `${t.toFixed(2)} s par fichier.`;
-  const nm = (Math.floor(n.level/10)+1)*10;
+  const nm = (Math.floor(n.level/10)+1)*10, tr = tierOf(n.level), tcol = TIERS[tr][1];
   { const rk = rankOf(n.type); extra += ` Maîtrise : rang ${rk}/${MASTTH.length}`+(rk<MASTTH.length?` (${fmt(G.mast[n.type]||0)} / ${fmt(MASTTH[rk])} fichiers).`:' (maximum).'); }
-  extra += ` Palier : niveau ${nm+1} (vitesse ×1,5), encore ${nm-n.level} niveaux.`;
-  box.innerHTML = `<h3>${d.name} — niveau ${n.level+1}</h3><p>${d.desc}</p><p>${extra}</p>
-    <div class="row"><button id="bu1"></button><button id="bu10"></button><button id="buM"></button></div>
+  const s0 = 1/t, s1 = speedOf(n,n.level+1)/DEFS[n.type].t, gain = Math.round((s1/s0-1)*100);
+  const prev = `<div class="up-prev"><span>Vitesse</span><b>${s0.toFixed(2)}/s</b><i>&rarr;</i><b class="g">${s1.toFixed(2)}/s</b><em>+${gain} %</em></div>
+    <div class="up-tier"><span style="color:${tcol}">${TIERS[tr][0]}</span><u><s style="width:${(n.level%10)*10}%;background:${tcol}"></s></u><span>Palier ×1,5 dans ${nm-n.level}</span></div>`;
+  let spec = '';
+  if(n.level>=9){
+    spec = `<div class="up-spec"><small>Spécialisation${n.spec?' (changer : '+fmt(upCost(n)*4)+')':' (gratuite, une fois)'}</small><div class="row">`+
+      Object.keys(SPECS).map(k=>`<button data-spec="${k}" class="${n.spec===k?'on':''}" title="${SPECS[k].desc}">${SPECS[k].name}<br><small>${SPECS[k].desc}</small></button>`).join('')+`</div></div>`;
+  } else spec = `<p class="up-hint">Niveau 10 : spécialisation (Turbo, Rendement ou Économe).</p>`;
+  box.innerHTML = `<h3>${d.name} — niveau ${n.level+1}</h3><p>${d.desc}</p><p>${extra}</p>${prev}
+    <div class="row"><button id="bu1"></button><button id="bu10"></button><button id="buP"></button><button id="buM"></button></div>
+    ${spec}
     <div class="row"><button id="bDis">Déconnecter</button><button id="bDup">Dupliquer</button><button id="bSell">Vendre +${fmt(Math.floor(buyCost(n.type)*0.4))}</button></div>
     ${n.type==='sorter'?'<div class="row"><button id="bThrD">Seuil ÷2</button><button id="bThrU">Seuil ×2</button></div>':''}`;
-  box.style.display='block';
+  box.style.display='block'; box._sig = n.id+':'+n.level+':'+n.spec;
   refreshSelButtons();
   $('bu1').onclick = ()=>upgradeNode(n,1);
   $('bu10').onclick = ()=>upgradeNode(n,10);
+  $('buP').onclick = ()=>upgradeNode(n,nm-n.level);
   $('buM').onclick = ()=>upgradeNode(n,maxAffordable(n));
+  for(const bt of box.querySelectorAll('[data-spec]')) bt.onclick = ()=>{
+    const k = bt.dataset.spec; if(n.spec===k) return;
+    const c = n.spec ? upCost(n)*4 : 0;
+    if(G.money<c){ toast('Pas assez de crédits'); return; }
+    G.money -= c; n.spec = k; blip(700,0.12,0.06,'triangle'); toast('Spécialisation : '+SPECS[k].name); showSel();
+  };
   $('bDis').onclick = ()=>{ G.links = G.links.filter(l=>l.a!==n.id && l.b!==n.id); };
   $('bSell').onclick = ()=>sell(n);
   if(n.type==='sorter'){
@@ -967,9 +999,12 @@ function showSel(){
 }
 function refreshSelButtons(){
   const n = sel ? nodeById(sel) : null; if(!n || !$('bu1')) return;
+  if($('sel')._sig!==n.id+':'+n.level+':'+n.spec && !msel.size){ showSel(); return; }
   const c1=upCost(n), c10=bulkCost(n,10), m=maxAffordable(n);
   $('bu1').innerHTML = `×1<br>${fmt(c1)}`;  $('bu1').disabled = G.money<c1;
   $('bu10').innerHTML = `×10<br>${fmt(c10)}`; $('bu10').disabled = G.money<c10;
+  const toT = (Math.floor(n.level/10)+1)*10-n.level, cT = bulkCost(n,toT);
+  $('buP').innerHTML = `Palier (${toT})<br>${fmt(cT)}`; $('buP').disabled = G.money<cT;
   $('buM').innerHTML = `Max (${m})<br>${fmt(bulkCost(n,m))}`; $('buM').disabled = m<1;
 }
 

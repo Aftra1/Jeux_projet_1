@@ -62,3 +62,12 @@ Selectionne au moins 2 noeuds puis "Enregistrer schema" : le groupe (noeuds et l
 - Liaisons avec flux anime, paquets avec traine, interface vitree avec degrades.
 
 - Style plat (v34) : fond uni, noeuds sombres a fine bordure, liaisons orthogonales fines, aucune lueur.
+
+## Amelioration des noeuds (v35)
+- Paliers nommes (Brut, Bronze, Argent, Or, Platine, Diamant, Mythique, Legende) tous les 10 niveaux, avec effet et son.
+- Apercu avant/apres de la vitesse, barre de palier, bouton Palier.
+- Specialisation au niveau 10 : Turbo (vitesse x1,35), Rendement (valeur x1,3), Econome (ameliorations -35 
+## Amelioration des noeuds (v35)
+- Paliers nommes (Brut, Bronze, Argent, Or, Platine, Diamant, Mythique, Legende) tous les 10 niveaux, avec effet et son.
+- Apercu avant/apres de la vitesse, barre de palier, bouton Palier.
+- Specialisation au niveau 10 : Turbo (vitesse x1,35), Rendement (valeur x1,3), Econome (ameliorations -35 %). Changement payant (4x le cout).
