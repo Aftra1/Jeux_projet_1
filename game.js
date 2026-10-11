@@ -106,7 +106,7 @@ const BG = 1.28;   // croissance du prix par exemplaire déjà acheté
 const CS = 1.5;   // échelle globale des prix (équilibrage)
 const INFL = 0.9, FREEQ = 2;   // inflation : part du bonus quantique (au-delà des FREEQ premiers points) répercutée sur les prix
 const infl = () => Math.pow(qpMult(Math.max(0, G.qpTotal - FREEQ)), INFL);
-const buyCost = type => Math.ceil(infl() * CS * DEFS[type].cost * Math.pow(BG, G.bought[type]||0) * (1 - 0.05*G.pu.disc) * (1 - 0.02*G.tech.tcost));
+const buyCost = (type,extra=0) => Math.ceil(infl() * CS * DEFS[type].cost * Math.pow(BG, (G.bought[type]||0)+extra) * (1 - 0.05*G.pu.disc) * (1 - 0.02*G.tech.tcost));
 const upCost = (n, lvl) => Math.ceil(infl() * CS * DEFS[n.type].cost * 0.8 * Math.pow(1.6, lvl===undefined?n.level:lvl) * (1 - 0.03*G.tech.tup) + 10);
 const gUpCost = d => Math.ceil(infl() * CS * d.base * Math.pow(d.grow, G.glob[d.id]));
 const puCost = d => Math.ceil(d.base * Math.pow(d.grow, G.pu[d.id]) * (d.grow===1?1:1));
@@ -513,6 +513,51 @@ function freeSpot(x,y){
   }
   return {x,y};
 }
+// Schémas : groupes de nœuds préconstruits. nodes : [type, colonne, ligne], links : [de, sortie, vers, entrée]
+const BPS = [
+  {name:'Ligne de base', desc:'Source, Compresseur, Upload.',
+   nodes:[['source',0,0],['compress',1,0],['upload',2,0]], links:[[0,0,1,0],[1,0,2,0]]},
+  {name:'Ligne chiffrée', desc:'Source, Compresseur, Chiffreur, Upload.',
+   nodes:[['source',0,0],['compress',1,0],['encrypt',2,0],['upload',3,0]], links:[[0,0,1,0],[1,0,2,0],[2,0,3,0]]},
+  {name:'Double voie', desc:'Un Diviseur répartit sur deux Compresseurs, une Fusion regroupe avant l\'Upload.',
+   nodes:[['source',0,0.5],['split',1,0.5],['compress',2,0],['compress',2,1],['merge',3,0.5],['upload',4,0.5]],
+   links:[[0,0,1,0],[1,0,2,0],[1,1,3,0],[2,0,4,0],[3,0,4,1],[4,0,5,0]]},
+  {name:'Trio de Sources', desc:'Trois Sources compressées alimentent les trois entrées d\'un même Upload.',
+   nodes:[['source',0,0],['compress',1,0],['source',0,1],['compress',1,1],['source',0,2],['compress',1,2],['upload',2,1]],
+   links:[[0,0,1,0],[1,0,6,0],[2,0,3,0],[3,0,6,1],[4,0,5,0],[5,0,6,2]]},
+  {name:'Chaîne amplifiée', desc:'Source, Compresseur, Amplificateur, Analyseur IA, Upload.',
+   nodes:[['source',0,0],['compress',1,0],['boost',2,0],['ai',3,0],['upload',4,0]], links:[[0,0,1,0],[1,0,2,0],[2,0,3,0],[3,0,4,0]]},
+  {name:'Atelier de recherche', desc:'Source, Compresseur, Laboratoire : produit des points de recherche.',
+   nodes:[['source',0,0],['compress',1,0],['lab',2,0]], links:[[0,0,1,0],[1,0,2,0]]},
+  {name:'Tri intelligent', desc:'Le Trieur envoie les gros fichiers vers un Chiffreur, les petits directement à l\'Upload.',
+   nodes:[['source',0,0.5],['compress',1,0.5],['sorter',2,0.5],['encrypt',3,0],['upload',4,0.5]],
+   links:[[0,0,1,0],[1,0,2,0],[2,0,3,0],[3,0,4,0],[2,1,4,1]]},
+  {name:'Usine quantique', desc:'Super Source, Chiffreur, Analyseur IA, Quantique, Upload.',
+   nodes:[['mega',0,0],['encrypt',1,0],['ai',2,0],['quantum',3,0],['upload',4,0]], links:[[0,0,1,0],[1,0,2,0],[2,0,3,0],[3,0,4,0]]},
+];
+const bpTypes = b => [...new Set(b.nodes.map(n=>n[0]))];
+const bpUnlocked = b => bpTypes(b).every(unlocked);
+const bpLocked = b => bpTypes(b).filter(t=>!unlocked(t)).map(t=>DEFS[t].name).join(', ');
+function bpCost(b){ const cnt={}; let s=0; for(const [t] of b.nodes){ s+=buyCost(t,cnt[t]||0); cnt[t]=(cnt[t]||0)+1; } return s; }
+function buildBp(b){
+  if(!bpUnlocked(b)) return;
+  const c = bpCost(b);
+  if(G.money<c){ toast('Pas assez de crédits'); return; }
+  const SX = NW+60, SY = NH+40, cols = Math.max(...b.nodes.map(n=>n[1]))+1, rows = Math.max(...b.nodes.map(n=>n[2]))+1;
+  const bw = (cols-1)*SX+NW, bh = (rows-1)*SY+NH, gap = 24;
+  const free = (px,py)=>!G.nodes.some(m=>px<m.x+NW+gap && px+bw+gap>m.x && py<m.y+NH+gap && py+bh+gap>m.y);
+  const ctr = toWorld(W/2, H/2-40);
+  let ox = Math.round((ctr.x-bw/2)/10)*10, oy = Math.round((ctr.y-bh/2)/10)*10, found = free(ox,oy);
+  for(let r=1;r<60 && !found;r++) for(let i=0;i<r*8 && !found;i++){
+    const a = i/(r*8)*Math.PI*2, px = Math.round((ctr.x-bw/2+Math.cos(a)*r*(bw+gap)*0.5)/10)*10, py = Math.round((ctr.y-bh/2+Math.sin(a)*r*(bh+gap)*0.5)/10)*10;
+    if(free(px,py)){ ox=px; oy=py; found=true; }
+  }
+  G.money -= c;
+  const made = b.nodes.map(([t,cx_,cy_])=>addNode(t, ox+cx_*SX, oy+Math.round(cy_*SY/10)*10));
+  for(const [a,ao,z,zi] of b.links) connect(made[a].id,ao,made[z].id,zi);
+  sel = null; showSel(); blip(520,0.1,0.06); toast('Schéma posé : '+b.name);
+  if(tab) renderTab();
+}
 function removeNode(n){ G.links = G.links.filter(l=>l.a!==n.id && l.b!==n.id); G.nodes = G.nodes.filter(x=>x!==n); }
 
 const v_badge = (n,w) => G.view.k>=0.52 && G.money>=upCost(n) && Math.hypot(w.x-(n.x+NW-2), w.y-(n.y+2))<=14;
@@ -594,6 +639,7 @@ addEventListener('keydown', e=>{
   if((e.ctrlKey||e.metaKey) && (e.key==='z'||e.key==='Z')){ e.preventDefault(); undo(); return; }
   if(e.key==='Escape'){ if(tab) openTab(tab); sel=null; showSel(); }
   if(e.key==='m'||e.key==='M') $('bMenu').click();
+  if(e.key==='b'||e.key==='B') $('bBp').click();
   if(e.key==='o'||e.key==='O') useOverclock();
   if(e.key==='f'||e.key==='F') fitView();
   if((e.key==='u'||e.key==='U') && sel){ const n=nodeById(sel); if(n) upgradeNode(n, e.shiftKey?1000:1); }
@@ -730,7 +776,7 @@ function refreshSelButtons(){
 
 // panneau latéral à onglets
 let tab = null, tabSig = '';
-const TABS = [['up','Amélio.'],['res','Recherche'],['qp','Quantique'],['ach','Succès'],['stat','Stats'],['opt','Options']];
+const TABS = [['bp','Schémas'],['up','Amélio.'],['res','Recherche'],['qp','Quantique'],['ach','Succès'],['stat','Stats'],['opt','Options']];
 const hist = [];
 function openTab(t){
   if(tab===t){ tab=null; $('side').style.display='none'; return; }
@@ -741,7 +787,14 @@ function renderTab(){
   $('tabs').innerHTML = TABS.map(([id,l])=>`<button data-t="${id}" class="${id===tab?'on':''}">${l}</button>`).join('');
   $('tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{ tab=b.dataset.t; renderTab(); });
   const body = $('tabBody');
-  if(tab==='up'){
+  if(tab==='bp'){
+    body.innerHTML = '<p>Un schéma pose et relie plusieurs nœuds d\'un coup, au centre de l\'écran.</p>' + BPS.map((b,i)=>{
+      const lock = !bpUnlocked(b), c = bpCost(b);
+      return `<div class="item${lock?' lock':''}"><div><b>${b.name}</b> <small>(${b.nodes.length} nœuds)</small><p>${lock?'Nécessite : '+bpLocked(b):b.desc}</p></div>
+        <button data-bp="${i}" ${lock||G.money<c?'disabled':''}>${fmt(c)}</button></div>`;
+    }).join('');
+    body.querySelectorAll('button[data-bp]').forEach(b=>b.onclick=()=>buildBp(BPS[+b.dataset.bp]));
+  } else if(tab==='up'){
     body.innerHTML = GLOBALS.map(g=>{
       const lv=G.glob[g.id], max=lv>=g.max, c=gUpCost(g);
       return `<div class="item"><div><b>${g.name}</b> <small>(${lv}/${g.max})</small><p>${g.desc}</p></div>
@@ -799,7 +852,7 @@ function renderTab(){
       <div class="row"><button id="oReset" style="color:var(--bad)">Tout effacer</button></div>
       <p>Temps de jeu : ${Math.floor(G.playtime/3600)} h ${Math.floor(G.playtime/60)%60} min · Crédits gagnés au total : ${fmt(G.lifetime)}</p>
       <p>Astuces : double-clic / clic droit sur un lien pour le supprimer · molette ou pincement pour zoomer · Suppr pour vendre un nœud.</p>
-      <p>Raccourcis (nœud sélectionné) : D duplique · U améliore d'un niveau · Maj+U améliore au maximum · Suppr vend · Ctrl+Z annule · M menu · Echap ferme · O overclock · F ou double-clic sur le vide : centrer.</p>`;
+      <p>Raccourcis (nœud sélectionné) : D duplique · U améliore d'un niveau · Maj+U améliore au maximum · Suppr vend · Ctrl+Z annule · M menu · B schémas · Echap ferme · O overclock · F ou double-clic sur le vide : centrer.</p>`;
     $('oMute').onclick = ()=>{ G.mute=!G.mute; renderTab(); };
     $('oExp').onclick = ()=>{ save(); $('oTxt').value = btoa(unescape(encodeURIComponent(JSON.stringify(serialize())))); $('oTxt').select(); };
     $('oImp').onclick = ()=>{
@@ -812,6 +865,7 @@ function renderTab(){
   }
 }
 $('bMenu').onclick = ()=>openTab(tab||'up');
+$('bBp').onclick = ()=>openTab('bp');
 
 // fichier doré
 let goldTimer = 0, goldNext = 60 + Math.random()*60, goldLife = 0;
@@ -1024,8 +1078,8 @@ function loop(now){
     else if(G.playtime<G.oc.ready) oc.textContent='Overclock : '+Math.ceil(G.oc.ready-G.playtime)+' s';
     else oc.textContent='Overclock';
     oc.disabled = !ocActive() && G.playtime<G.oc.ready; oc.classList.toggle('glow', !oc.disabled && !ocActive());
-    if(tab==='up' || tab==='qp' || tab==='res'){
-      const sig = tab+GLOBALS.map(g=>G.money>=gUpCost(g)).join()+PU.map(d=>G.qp>=puCost(d)).join()+qpGain()+TECH.map(d=>G.rp>=techCost(d)).join();
+    if(tab==='up' || tab==='qp' || tab==='res' || tab==='bp'){
+      const sig = tab+BPS.map(b=>bpUnlocked(b)&&G.money>=bpCost(b)).join()+GLOBALS.map(g=>G.money>=gUpCost(g)).join()+PU.map(d=>G.qp>=puCost(d)).join()+qpGain()+TECH.map(d=>G.rp>=techCost(d)).join();
       if(sig!==tabSig){ tabSig=sig; renderTab(); }
     }
     const h=hintText(); $('hint').style.display=h?'block':'none'; $('hint').textContent=h;
