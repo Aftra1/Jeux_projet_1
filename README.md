@@ -34,3 +34,6 @@ Repères du joueur automatique (idéal, un humain est 2 à 3 fois plus lent) : d
 - Cout en credits d'un point quantique : 1e5 x g^2,8 (au lieu de g^3), courbe d'intervalles de reboot reguliere (environ 10, 7, 5, 6, 9, 9, 10, 12, 15 ... min en simulation).
 - Mobile : barre du haut compacte sur une ligne, bouton de fermeture du panneau, libelles courts.
 - 6 nouveaux succes (contrats, maitrise).
+
+## Evenements reseau (v28)
+Apres l'objectif 3, un evenement aleatoire survient toutes les 4 a 6 minutes : Pic de trafic (revenus x2, 30 s), Surtension (vitesse x1,5, 30 s), Soldes (prix -30 %, 45 s) ou Don de donnees (credits offerts). Ajouts : meilleur debit et compteurs dans les stats, format des nombres scientifique en option, 5 nouveaux succes.

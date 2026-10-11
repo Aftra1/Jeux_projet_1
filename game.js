@@ -80,6 +80,11 @@ const ACH = [
   {id:'a27',name:'Apprenti',         desc:'Un nœud au rang de maîtrise 3', t:()=>Object.keys(G.mast).some(t=>rankOf(t)>=3)},
   {id:'a28',name:'Grand maître',     desc:'Un nœud au rang de maîtrise 8', t:()=>Object.keys(G.mast).some(t=>rankOf(t)>=8)},
   {id:'a29',name:'Polyvalent',       desc:'4 types de nœuds au rang 2 ou plus', t:()=>Object.keys(G.mast).filter(t=>rankOf(t)>=2).length>=4},
+  {id:'a30',name:'Opportuniste',     desc:'Profite de 5 événements réseau', t:()=>G.evDone>=5},
+  {id:'a31',name:'Chasseur d\'or',   desc:'Attrape 20 fichiers dorés',   t:()=>G.golds>=20},
+  {id:'a32',name:'Marathon',         desc:'Joue 10 heures',              t:()=>G.playtime>=36000},
+  {id:'a33',name:'Hyperdébit',       desc:'Atteins 1 M de crédits/s',    t:()=>G.lastRate>=1e6},
+  {id:'a34',name:'Chaîne de montage',desc:'Série de 15 contrats',        t:()=>G.cStreak>=15},
   {id:'a17',name:'Ingénieur',        desc:'Un nœud au niveau 20',        t:()=>G.nodes.some(n=>n.level>=19)},
 ];
 
@@ -93,7 +98,7 @@ function blankRun(g){
 }
 function newGame(){
   for(const k in RKC) delete RKC[k];
-  G = {rp:0, rpTotal:0, tech:{}, lifetime:0, files:0, qp:0, qpTotal:0, resets:0, golds:0, playtime:0, lastRate:0, ach:{}, pu:{start:0,spd:0,disc:0,off:0,auto:0,rev:0}, obj:0, daily:'', oc:{until:0,ready:0}, mute:false, mast:{}, contract:null, cStreak:0, cDone:0, cNext:0, auto:{on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1}, savedAt:Date.now()};
+  G = {rp:0, rpTotal:0, tech:{}, lifetime:0, files:0, qp:0, qpTotal:0, resets:0, golds:0, playtime:0, lastRate:0, ach:{}, pu:{start:0,spd:0,disc:0,off:0,auto:0,rev:0}, obj:0, daily:'', oc:{until:0,ready:0}, mute:false, mast:{}, contract:null, cStreak:0, cDone:0, cNext:0, ev:null, evNext:0, evDone:0, bestRate:0, sci:false, auto:{on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1}, savedAt:Date.now()};
   for(const t of TECH) G.tech[t.id]=0;
   blankRun(G);
   addNode('source', -280, -40, true);
@@ -113,9 +118,18 @@ const BG = 1.28;   // croissance du prix par exemplaire déjà acheté
 const CS = 1.5;   // échelle globale des prix (équilibrage)
 const INFL = 0.9, FREEQ = 2;   // inflation : part du bonus quantique (au-delà des FREEQ premiers points) répercutée sur les prix
 const infl = () => Math.pow(qpMult(Math.max(0, G.qpTotal - FREEQ)), INFL);
-const buyCost = (type,extra=0) => Math.ceil(infl() * CS * DEFS[type].cost * Math.pow(BG, (G.bought[type]||0)+extra) * (1 - 0.05*G.pu.disc) * (1 - 0.02*G.tech.tcost));
-const upCost = (n, lvl) => Math.ceil(infl() * CS * DEFS[n.type].cost * 0.8 * Math.pow(1.6, lvl===undefined?n.level:lvl) * (1 - 0.03*G.tech.tup) + 10);
-const gUpCost = d => Math.ceil(infl() * CS * d.base * Math.pow(d.grow, G.glob[d.id]));
+// Evenements reseau : bonus temporaires aleatoires
+const EVT = [
+  {id:'traffic', name:'Pic de trafic', desc:'Revenus x2',       dur:30},
+  {id:'surge',   name:'Surtension',    desc:'Vitesse x1,5',     dur:30},
+  {id:'sale',    name:'Soldes',        desc:'Prix -30 %',       dur:45},
+  {id:'gift',    name:'Don de données',desc:'Crédits offerts',  dur:0},
+];
+const evActive = id => !!G.ev && G.ev.id===id && G.playtime<G.ev.until;
+const saleMult = () => evActive('sale') ? 0.7 : 1;
+const buyCost = (type,extra=0) => Math.ceil(saleMult() * infl() * CS * DEFS[type].cost * Math.pow(BG, (G.bought[type]||0)+extra) * (1 - 0.05*G.pu.disc) * (1 - 0.02*G.tech.tcost));
+const upCost = (n, lvl) => Math.ceil(saleMult() * infl() * CS * DEFS[n.type].cost * 0.8 * Math.pow(1.6, lvl===undefined?n.level:lvl) * (1 - 0.03*G.tech.tup) + 10);
+const gUpCost = d => Math.ceil(saleMult() * infl() * CS * d.base * Math.pow(d.grow, G.glob[d.id]));
 const puCost = d => Math.ceil(d.base * Math.pow(d.grow, G.pu[d.id]) * (d.grow===1?1:1));
 // Maitrise : chaque type de noeud gagne des rangs avec le nombre de fichiers traites (permanent, +4 % de vitesse par rang)
 const MASTTH = [200,1200,7200,43000,260000,1.5e6,9.3e6,5.6e7];
@@ -127,11 +141,11 @@ function mastTick(n){
 }
 const rankOf = t => RKC[t]===undefined ? (RKC[t]=mastRank(t)) : RKC[t];
 const lvlMult = lv => Math.pow(1.5, Math.floor(lv/10));   // palier : x1,5 de vitesse tous les 10 niveaux
-const speedOf = n => (1 + 0.3*n.level) * lvlMult(n.level) * (1 + 0.04*rankOf(n.type)) * (1 + 0.1*G.glob.spd) * (1 + 0.05*G.pu.spd) * (ocActive()?2:1) * (1 + 0.04*G.tech.tspd);
+const speedOf = n => (1 + 0.3*n.level) * lvlMult(n.level) * (1 + 0.04*rankOf(n.type)) * (1 + 0.1*G.glob.spd) * (1 + 0.05*G.pu.spd) * (ocActive()?2:1) * (1 + 0.04*G.tech.tspd) * (evActive('surge')?1.5:1);
 const timeOf = n => DEFS[n.type].t / speedOf(n);
 const ocActive = () => G.playtime < G.oc.until;
 const bufCap = () => 3 + G.glob.buf;
-const revMult = () => (1 + 0.25*G.glob.rev) * qpMult(G.qpTotal) * (1 + 0.02*achCount()) * (1 + 0.1*G.pu.rev) * (1 + 0.08*G.tech.trev);
+const revMult = () => (1 + 0.25*G.glob.rev) * qpMult(G.qpTotal) * (1 + 0.02*achCount()) * (1 + 0.1*G.pu.rev) * (1 + 0.08*G.tech.trev) * (evActive('traffic')?2:1);
 const critChance = () => 0.03*G.glob.crit + 0.02*G.tech.tcrit;
 const seedV = def => def.val * (1 + 0.2*G.glob.seed) * (1 + 0.08*G.tech.tseed);
 const rpOf = v => 0.5*Math.pow(v,0.3)*(1+0.2*G.tech.tlab);
@@ -274,7 +288,7 @@ function reboot(){
   const g = qpGain(); if(g<1) return;
   ask(`Reboot quantique ? Tu gagnes ${g} point(s) quantique(s) (revenus x${qpMult(G.qpTotal+g).toFixed(2)} au lieu de x${qpMult(G.qpTotal).toFixed(2)}). Tes nœuds, crédits et améliorations de run sont remis à zéro.`, doReboot);
 }
-function doReboot(){ msel.clear(); G.contract = null; G.cNext = G.playtime + 60; if(G.auto) G.auto.built = {};
+function doReboot(){ msel.clear(); G.contract = null; G.ev = null; G.cNext = G.playtime + 60; if(G.auto) G.auto.built = {};
   const g = qpGain(); if(g<1) return;
   G.qp += g; G.qpTotal += g; G.resets++;
   blankRun(G);
@@ -297,6 +311,7 @@ function fmt(v){
   if(!isFinite(v)) return 'Inf';
   if(v>=1e39) return v.toExponential(2).replace('e+','e');
   if(v<1000) return v<10 ? (Math.round(v*10)/10).toString() : Math.floor(v).toString();
+  if(G && G.sci){ const e=Math.floor(Math.log10(v)); return (v/Math.pow(10,e)).toFixed(2)+'e'+e; }
   let i=0; while(v>=1000 && i<SUF.length-1){ v/=1000; i++; }
   return v.toFixed(v<10?2:v<100?1:0)+SUF[i];
 }
@@ -1006,6 +1021,8 @@ function renderTab(){
       <div class="item"><div>Crédits gagnés dans ce run<p>${fmt(G.run)}</p></div></div>
       <div class="item"><div>Fichiers uploadés<p>${fmt(G.files)}</p></div></div>
       <div class="item"><div>Multiplicateur de revenus<p>x${revMult().toFixed(2)}</p></div></div>
+      <div class="item"><div>Meilleur débit<p>${fmt(G.bestRate)} / s</p></div></div>
+      <div class="item"><div>Contrats remplis · événements<p>${G.cDone} · ${G.evDone}</p></div></div>
       <div class="item"><div>Nœuds posés<p>${G.nodes.length}</p></div></div>
       <div class="item"><div>Temps de jeu<p>${Math.floor(G.playtime/3600)} h ${Math.floor(G.playtime/60)%60} min</p></div></div>
       <h3 class="sec">Maîtrise des nœuds (permanente)</h3>` + ORDER.filter(t=>G.mast[t]).map(t=>{ const rk=rankOf(t), c=G.mast[t], nx=MASTTH[rk];
@@ -1016,6 +1033,7 @@ function renderTab(){
       [...ACH].sort((x,y)=>(!!G.ach[y.id])-(!!G.ach[x.id])).map(a=>`<div class="item ${G.ach[a.id]?'done':'lock'}"><div><b>${a.name}</b><p>${a.desc}</p></div><span class="chip">${G.ach[a.id]?'Obtenu':'À faire'}</span></div>`).join('');
   } else if(tab==='opt'){
     body.innerHTML = `<div class="item"><div><b>Son</b></div><button id="oMute">${G.mute?'Désactivé':'Activé'}</button></div>
+      <div class="item"><div><b>Format des nombres</b><p>${G.sci?'Scientifique (1.23e6)':'Abrégé (1,23M)'}</p></div><button id="oSci">Changer</button></div>
       <div class="item"><div><b>Sauvegarde</b><p>Exporter / importer ta partie (texte).</p></div></div>
       <textarea id="oTxt" placeholder="Code de sauvegarde…"></textarea>
       <div class="row"><button id="oExp">Exporter</button><button id="oImp">Importer</button></div>
@@ -1025,6 +1043,7 @@ function renderTab(){
       <div class="kb">${[['Molette','Zoom'],['F','Centrer la vue'],['O','Overclock'],['M','Menu'],['B','Schémas'],['D','Dupliquer le nœud'],['U','Améliorer (Maj : au max)'],['Suppr','Vendre'],['Ctrl+Z','Annuler'],['Ctrl+A','Tout sélectionner'],['Maj+glisser','Sélection en zone'],['Echap','Fermer / désélectionner']].map(([k,t])=>`<kbd>${k}</kbd><span>${t}</span>`).join('')}</div>
       <p>Double-clic ou clic droit sur un lien pour le supprimer.</p>`;
     $('oMute').onclick = ()=>{ G.mute=!G.mute; renderTab(); };
+    $('oSci').onclick = ()=>{ G.sci=!G.sci; renderTab(); };
     $('oExp').onclick = ()=>{ save(); $('oTxt').value = btoa(unescape(encodeURIComponent(JSON.stringify(serialize())))); $('oTxt').select(); };
     $('oImp').onclick = ()=>{
       try{
@@ -1171,7 +1190,7 @@ const KEY = 'uploadlab2';
 function serialize(){ G.savedAt = Date.now(); return JSON.parse(JSON.stringify(G, (k,v)=> k==='packets' ? [] : v)); }
 function hydrate(d){
   for(const k in RKC) delete RKC[k];
-  const g = Object.assign({rp:0,rpTotal:0,obj:0,daily:'',oc:{until:0,ready:0},lifetime:0,files:0,qp:0,qpTotal:0,resets:0,golds:0,playtime:0,lastRate:0,mute:false,mast:{},contract:null,cStreak:0,cDone:0,cNext:0,auto:{on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1},savedAt:Date.now()}, d);
+  const g = Object.assign({rp:0,rpTotal:0,obj:0,daily:'',oc:{until:0,ready:0},lifetime:0,files:0,qp:0,qpTotal:0,resets:0,golds:0,playtime:0,lastRate:0,mute:false,mast:{},contract:null,cStreak:0,cDone:0,cNext:0,ev:null,evNext:0,evDone:0,bestRate:0,sci:false,auto:{on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1},savedAt:Date.now()}, d);
   g.auto = Object.assign({on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1}, g.auto);
   g.mast = g.mast||{};
   g.ach = g.ach||{}; g.tech = g.tech||{};
@@ -1270,6 +1289,21 @@ function autoPlay(dt){
   }
 }
 // Contrats : "gagne X credits avant la fin du temps", recompense proportionnelle au revenu, serie de reussites
+function evTick(){
+  if(G.obj>=3 && G.lastRate>0){
+    if(!G.evNext) G.evNext = G.playtime + 200;
+    else if(G.playtime>=G.evNext && !evActive((G.ev||{}).id)){
+      const e = EVT[Math.floor(Math.random()*EVT.length)];
+      G.evNext = G.playtime + 220 + Math.random()*140; G.evDone++;
+      if(e.dur){ G.ev = {id:e.id, until:G.playtime+e.dur}; toast('Événement : '+e.name+' ('+e.desc+', '+e.dur+' s)'); }
+      else { const r = Math.max(200, G.lastRate*40); G.money+=r; G.run+=r; G.lifetime+=r; toast('Événement : '+e.name+' +'+fmt(r)+' crédits'); }
+      blip(660,0.2,0.07,'triangle');
+    }
+  }
+  const el = $('evS'), on = G.ev && G.playtime<G.ev.until;
+  el.style.display = on ? 'block' : 'none';
+  if(on){ const e = EVT.find(x=>x.id===G.ev.id); $('evB').textContent = e.name; $('evT').textContent = e.desc+' · '+Math.ceil(G.ev.until-G.playtime)+' s'; }
+}
 function contractTick(){
   if(G.obj<3) return;
   let c = G.contract;
@@ -1318,7 +1352,8 @@ function loop(now){
     const qg = qpGain();
     $('bMenu').classList.toggle('glow', qg>=1);
     $('bMenu').textContent = qg>=1 ? (innerWidth<=700 ? `Menu +${qg}` : `Menu  (+${qg} PQ)`) : "Menu";
-    contractTick(); refreshShop(); refreshSelButtons(); checkAch(); checkObj(); updateObjHud();
+    if(G.lastRate>G.bestRate) G.bestRate=G.lastRate;
+    evTick(); contractTick(); refreshShop(); refreshSelButtons(); checkAch(); checkObj(); updateObjHud();
     const oc=$('bOc'), sm=innerWidth<=700;
     if(ocActive()) oc.textContent=(sm?'OC actif ':'Overclock actif : ')+Math.ceil(G.oc.until-G.playtime)+' s';
     else if(G.playtime<G.oc.ready) oc.textContent=(sm?'OC ':'Overclock : ')+Math.ceil(G.oc.ready-G.playtime)+' s';
