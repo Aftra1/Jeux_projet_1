@@ -402,7 +402,46 @@ function iconImg(type, col){
 }
 // ciel : etoiles lointaines en parallaxe
 const STARS = Array.from({length:110}, (_,i)=>{ const r=(s)=>{ const x=Math.sin(i*127.1+s*311.7)*43758.5453; return x-Math.floor(x); }; return {x:r(1),y:r(2),z:0.04+r(3)*0.14,s:0.6+r(4)*1.6,p:r(5)*6.28,h:r(6)}; });
+
+// Mise en page : les elements d'interface ne se superposent jamais
+let lastPanel = '', zoomLX = 0, zoomLY = 0;
+const lay = {};
+function setSt(el, k, v){ const key = el.id+k; if(lay[key]!==v){ lay[key]=v; el.style[k]=v; } }
+const shown = el => el.style.display!=='none' && getComputedStyle(el).display!=='none';
+function layoutUI(){
+  const mob = W<=700, top = $('top'), side = $('side'), selB = $('sel'), shop = $('shop');
+  const pt = Math.round(top.getBoundingClientRect().bottom) + 2;
+  const shopTop = Math.round(shop.getBoundingClientRect().top) + 26;
+  let sideOn = shown(side), selOn = shown(selB);
+  if(mob && sideOn && selOn){
+    if(lastPanel==='side'){ selB.style.display = 'none'; selOn = false; }
+    else { tab = null; side.style.display = 'none'; sideOn = false; }
+  }
+  const room = mob ? 60 : 10;          // sur mobile, une ligne libre au-dessus de la boutique pour les messages
+  const maxH = Math.max(120, shopTop - pt - room);
+  setSt(side,'top',pt+'px'); setSt(side,'maxHeight',maxH+'px');
+  if(sideOn) setSt($('tabBody'),'maxHeight',Math.max(80, maxH-$('tabs').offsetHeight-($('subs').offsetHeight||0)-34)+'px');
+  if(mob){ setSt(selB,'top','auto'); setSt(selB,'bottom',(H-shopTop+room-2)+'px'); setSt(selB,'maxHeight',Math.max(120,Math.round(H*0.42))+'px'); }
+  else { setSt(selB,'top',pt+'px'); setSt(selB,'bottom','auto'); setSt(selB,'maxHeight',maxH+'px'); }
+  setSt(selB,'overflowY','auto');
+  const L = (!mob && sideOn) ? side.offsetWidth+20 : 10, R = (!mob && selOn) ? W-selB.offsetWidth-20 : W-10;
+  const cxm = Math.round((L+R)/2), fw = R-L;
+  const hideInfo = fw<250 || (mob && sideOn);
+  let y = pt+4;
+  for(const id of ['obj','hint']){
+    const el = $(id); setSt(el,'left',cxm+'px'); setSt(el,'width',Math.min(id==='obj'?420:560,fw)+'px'); setSt(el,'maxWidth',fw+'px');
+    if(shown(el)){ setSt(el,'visibility',hideInfo?'hidden':'visible'); setSt(el,'top',y+'px'); if(!hideInfo) y += el.offsetHeight+8; }
+  }
+  let base = H-shopTop+8;
+  if(mob && selOn) base = H - Math.round(selB.getBoundingClientRect().top) + 8;
+  const ctr = $('ctr'); setSt(ctr,'left',cxm+'px'); setSt(ctr,'width',Math.min(340,fw)+'px');
+  if(shown(ctr)){ setSt(ctr,'visibility',hideInfo?'hidden':'visible'); setSt(ctr,'bottom',base+'px'); if(!hideInfo) base += ctr.offsetHeight+8; }
+  const tt = $('toast'); setSt(tt,'left',cxm+'px'); setSt(tt,'maxWidth',Math.max(200,fw)+'px'); setSt(tt,'bottom',base+'px');
+  base += tt.offsetHeight+8;
+  zoomLX = cxm; zoomLY = H-base-34;
+}
 function draw(){
+  layoutUI();
   const now = performance.now(), dt = Math.min(0.1,(now-lastDraw)/1000); lastDraw = now;
   stepZoom(dt);
   const v = G.view, tm = now/1000;
@@ -528,8 +567,8 @@ function drawZoomFx(det){
   if(zoomShow>0){
     const a = Math.min(1,zoomShow), lab = G.view.k<0.28?'Vue globale':G.view.k<0.52?'Vue réseau':'Vue détaillée';
     cx.globalAlpha = a; cx.textAlign='center'; cx.textBaseline='middle';
-    cx.fillStyle='#0a0e16cc'; rrect(W/2-90,H-150,180,34,10); cx.fill();
-    cx.fillStyle='#e6ecf8'; cx.font='700 13px system-ui'; cx.fillText(Math.round(G.view.k*100)+' %  -  '+lab, W/2, H-133);
+    cx.fillStyle='#0a0e16cc'; rrect(zoomLX-90,zoomLY,180,34,10); cx.fill();
+    cx.fillStyle='#e6ecf8'; cx.font='700 13px system-ui'; cx.fillText(Math.round(G.view.k*100)+' %  -  '+lab, zoomLX, zoomLY+17);
     cx.globalAlpha = 1; cx.textAlign='left';
   }
 }
@@ -565,9 +604,9 @@ function connect(a,ao,b,bi){
   G.links.push({a,ao,b,bi,packets:[]});
   blip(660,0.07,0.05);
 }
-function freeSpot(x,y){
+function freeSpot(x,y,skip){
   const gap = 24;
-  const ok = (px,py)=>!G.nodes.some(m=>px<m.x+NW+gap && px+NW+gap>m.x && py<m.y+NH+gap && py+NH+gap>m.y);
+  const ok = (px,py)=>!G.nodes.some(m=>!(skip&&skip.has(m)) && px<m.x+NW+gap && px+NW+gap>m.x && py<m.y+NH+gap && py+NH+gap>m.y);
   x = Math.round(x/10)*10; y = Math.round(y/10)*10;
   if(ok(x,y)) return {x,y};
   for(let r=1;r<40;r++){
@@ -765,8 +804,17 @@ function endPointer(e){
     }
     if(pt && pt.in) connect(drag.n,drag.o,pt.n,pt.i);
   }
-  if(drag && drag.kind==='group' && drag.moved) pushUndo({move:drag.orig});
-  if(drag && drag.kind==='node' && drag.moved) pushUndo({move:[{n:nodeById(drag.n),x:drag.x0,y:drag.y0}]});
+  const clash = (a,b,g)=>a.x<b.x+NW+g && a.x+NW+g>b.x && a.y<b.y+NH+g && a.y+NH+g>b.y;
+  if(drag && drag.kind==='group' && drag.moved){
+    const mv = new Set(drag.orig.map(o=>o.n));
+    if(drag.orig.some(o=>G.nodes.some(m=>!mv.has(m) && clash(o.n,m,6)))){ for(const o of drag.orig){ o.n.x=o.x; o.n.y=o.y; } toast('Emplacement occupé'); }
+    else pushUndo({move:drag.orig});
+  }
+  if(drag && drag.kind==='node' && drag.moved){
+    const n = nodeById(drag.n);
+    if(G.nodes.some(m=>m!==n && clash(n,m,6))){ const sp = freeSpot(n.x,n.y,new Set([n])); n.x=sp.x; n.y=sp.y; }
+    pushUndo({move:[{n,x:drag.x0,y:drag.y0}]});
+  }
   if(drag && drag.kind==='group' && !drag.moved && drag.tap){ msel.delete(drag.tap); showSel(); }
   if(drag && drag.kind==='box'){
     const x0=Math.min(drag.a.x,drag.b.x), x1=Math.max(drag.a.x,drag.b.x), y0=Math.min(drag.a.y,drag.b.y), y1=Math.max(drag.a.y,drag.b.y);
@@ -941,7 +989,7 @@ function showMulti(){
     <div class="row"><button id="mUp" ${ns.length?'':'disabled'}>Améliorer la sélection</button></div>
     <div class="row"><button id="mSell" ${ns.length?'':'disabled'}>Vendre tout${ns.length?' +'+fmt(total):''}</button></div>`;
   $('mSave').onclick = saveBp; $('mDup').onclick = dupSel; $('mUp').onclick = upgradeSel;
-  box.style.display = 'block';
+  box.style.display = 'block'; lastPanel = 'sel';
   $('mAll').onclick = ()=>{ for(const n of G.nodes) msel.add(n.id); showSel(); };
   $('mNone').onclick = ()=>{ msel.clear(); showSel(); };
   $('mType').onclick = ()=>{ const ty = new Set(ns.map(n=>n.type)); for(const n of G.nodes) if(ty.has(n.type)) msel.add(n.id); showSel(); };
@@ -972,7 +1020,7 @@ function showSel(){
     ${spec}
     <div class="row"><button id="bDis">Déconnecter</button><button id="bDup">Dupliquer</button><button id="bSell">Vendre +${fmt(Math.floor(buyCost(n.type)*0.4))}</button></div>
     ${n.type==='sorter'?'<div class="row"><button id="bThrD">Seuil ÷2</button><button id="bThrU">Seuil ×2</button></div>':''}`;
-  box.style.display='block'; box._sig = n.id+':'+n.level+':'+n.spec;
+  box.style.display='block'; lastPanel='sel'; box._sig = n.id+':'+n.level+':'+n.spec;
   refreshSelButtons();
   $('bu1').onclick = ()=>upgradeNode(n,1);
   $('bu10').onclick = ()=>upgradeNode(n,10);
@@ -1027,7 +1075,7 @@ function affordCount(){ return GLOBALS.filter(g=>G.glob[g.id]<g.max && G.money>=
 function openTab(t){
   if(t==='more'||t==='up'||t==='bp') t = lastSub[t];
   if(tab===t){ tab=null; $('side').style.display='none'; return; }
-  tab=t; $('side').style.display='flex'; renderTab();
+  tab=t; lastPanel='side'; $('side').style.display='flex'; renderTab();
 }
 function renderTab(){
   if(!tab) return;
