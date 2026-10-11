@@ -98,7 +98,7 @@ function blankRun(g){
 }
 function newGame(){
   for(const k in RKC) delete RKC[k];
-  G = {rp:0, rpTotal:0, tech:{}, lifetime:0, files:0, qp:0, qpTotal:0, resets:0, golds:0, playtime:0, lastRate:0, ach:{}, pu:{start:0,spd:0,disc:0,off:0,auto:0,rev:0}, obj:0, daily:'', oc:{until:0,ready:0}, mute:false, mast:{}, contract:null, cStreak:0, cDone:0, cNext:0, ev:null, hist:[], runStart:0, evNext:0, evDone:0, bestRate:0, sci:false, auto:{on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1}, savedAt:Date.now()};
+  G = {rp:0, rpTotal:0, tech:{}, lifetime:0, files:0, qp:0, qpTotal:0, resets:0, golds:0, playtime:0, lastRate:0, ach:{}, pu:{start:0,spd:0,disc:0,off:0,auto:0,rev:0}, obj:0, daily:'', oc:{until:0,ready:0}, mute:false, mast:{}, contract:null, cStreak:0, cDone:0, cNext:0, ev:null, mine:[], hist:[], runStart:0, evNext:0, evDone:0, bestRate:0, sci:false, auto:{on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1}, savedAt:Date.now()};
   for(const t of TECH) G.tech[t.id]=0;
   blankRun(G);
   addNode('source', -280, -40, true);
@@ -630,6 +630,18 @@ function buildBp(b,quiet){
   if(!quiet){ sel = null; showSel(); blip(520,0.1,0.06); toast('Schéma posé : '+b.name); }
   if(tab) renderTab();
 }
+function saveBp(){
+  const ns = G.nodes.filter(n=>msel.has(n.id));
+  if(ns.length<2){ toast('Sélectionne au moins 2 nœuds'); return; }
+  if((G.mine||[]).length>=20){ toast('20 schémas personnels maximum'); return; }
+  const SX = NW+60, SY = NH+40, mx = Math.min(...ns.map(n=>n.x)), my = Math.min(...ns.map(n=>n.y));
+  const idx = new Map(ns.map((n,i)=>[n.id,i]));
+  const links = G.links.filter(l=>idx.has(l.a) && idx.has(l.b)).map(l=>[idx.get(l.a),l.ao,idx.get(l.b),l.bi]);
+  const k = (G.mine.length?Math.max(...G.mine.map(b=>b.k||0)):0)+1;
+  G.mine.push({k, mine:true, name:'Mon schéma '+k, desc:'Schéma personnel : '+ns.length+' nœuds, '+links.length+' liens.',
+    nodes:ns.map(n=>[n.type, Math.round((n.x-mx)/SX*100)/100, Math.round((n.y-my)/SY*100)/100]), links});
+  toast('Schéma enregistré : Mon schéma '+k+' (onglet Schémas)'); blip(700,0.1,0.06); if(tab) renderTab();
+}
 function removeNode(n){ G.links = G.links.filter(l=>l.a!==n.id && l.b!==n.id); G.nodes = G.nodes.filter(x=>x!==n); }
 
 const v_badge = (n,w) => G.view.k>=0.52 && G.money>=upCost(n) && Math.hypot(w.x-(n.x+NW-2), w.y-(n.y+2))<=14;
@@ -859,7 +871,8 @@ function showMulti(){
   box.innerHTML = `<h3>${ns.length} nœud${ns.length>1?'s':''} sélectionné${ns.length>1?'s':''}</h3>
     <p>${selMode ? 'Mode sélection : trace un cadre ou touche des nœuds. Glisse un nœud sélectionné pour déplacer le groupe.' : 'Glisse un nœud sélectionné pour déplacer tout le groupe. Maj + glisser trace un cadre, Maj + clic ajoute ou retire un nœud.'}</p>
     <div class="row"><button id="mAll">Tout</button><button id="mType">Même type</button><button id="mNone">Aucun</button></div>
-    <div class="row"><button id="mSell" ${ns.length?'':'disabled'}>Vendre tout${ns.length?' +'+fmt(total):''}</button></div>`;
+    <div class="row"><button id="mSave" ${ns.length>1?'':'disabled'}>Enregistrer schéma</button><button id="mSell" ${ns.length?'':'disabled'}>Vendre tout${ns.length?' +'+fmt(total):''}</button></div>`;
+  $('mSave').onclick = saveBp;
   box.style.display = 'block';
   $('mAll').onclick = ()=>{ for(const n of G.nodes) msel.add(n.id); showSel(); };
   $('mNone').onclick = ()=>{ msel.clear(); showSel(); };
@@ -974,11 +987,13 @@ function renderTab(){
     $('dUnl').onclick = ()=>{ G.run = Math.max(G.run, 1e12); G.resets = Math.max(G.resets, 11); buildShop(); toast('Tout est débloqué'); };
   } else if(tab==='bp' || tab==='bpr'){
     body.innerHTML = `<p>${tab==='bpr' ? 'Schémas qui produisent des points de recherche (Laboratoire).' : 'Schémas qui produisent des crédits (Upload).'} Un clic pose et relie tous les nœuds au centre de l\'écran.</p>` + [[tab==='bpr','']].map(([isLab,title])=>
-      BPS.filter(b=>bpIsLab(b)===isLab).map(b=>[b,bpCost(b)]).sort((x,y)=>x[1]-y[1]).map(([b,c])=>{
-        const lock = !bpUnlocked(b), i = BPS.indexOf(b);
+      BPS.concat(G.mine||[]).filter(b=>bpIsLab(b)===isLab).map(b=>[b,bpCost(b)]).sort((x,y)=>(!!x[0].mine-!!y[0].mine)||x[1]-y[1]).map(([b,c])=>{
+        const lock = !bpUnlocked(b), i = BPS.indexOf(b), mi = (G.mine||[]).indexOf(b);
         return `<div class="item${lock?' lock':!(G.money<c)?' can':''}"><div><b>${b.name}</b> <small>(${b.nodes.length} nœuds)</small><p>${lock?'Nécessite : '+bpLocked(b):b.desc}</p></div>
-          <button data-bp="${i}" ${lock||G.money<c?'disabled':''}>${fmt(c)}</button></div>`;
-      }).join('')).join('');
+          ${mi>=0?`<button data-bpd="${mi}" title="Supprimer" style="min-width:0;padding:6px 10px;color:var(--bad)">&times;</button>`:''}<button ${mi>=0?`data-bpm="${mi}"`:`data-bp="${i}"`} ${lock||G.money<c?'disabled':''}>${fmt(c)}</button></div>`;
+      }).join('')).join('') + (tab==='bp'?'<p>Astuce : sélectionne des nœuds (bouton Sélection) puis « Enregistrer schéma » pour créer ton propre schéma.</p>':'');
+    body.querySelectorAll('button[data-bpm]').forEach(b=>b.onclick=()=>buildBp(G.mine[+b.dataset.bpm]));
+    body.querySelectorAll('button[data-bpd]').forEach(b=>b.onclick=()=>{ G.mine.splice(+b.dataset.bpd,1); renderTab(); });
     body.querySelectorAll('button[data-bp]').forEach(b=>b.onclick=()=>buildBp(BPS[+b.dataset.bp]));
   } else if(tab==='up'){
     body.innerHTML = `<div class="item"><div><b>Tout améliorer</b><p>Améliore tous les nœuds, du moins cher au plus cher, tant que tu as les crédits.</p></div><button id="upAll" ${G.nodes.length&&G.money>=Math.min(...G.nodes.map(n=>upCost(n)))?'':'disabled'}>Go</button></div>` + GLOBALS.map(g=>{
@@ -1196,7 +1211,7 @@ const KEY = 'uploadlab2';
 function serialize(){ G.savedAt = Date.now(); return JSON.parse(JSON.stringify(G, (k,v)=> k==='packets' ? [] : v)); }
 function hydrate(d){
   for(const k in RKC) delete RKC[k];
-  const g = Object.assign({rp:0,rpTotal:0,obj:0,daily:'',oc:{until:0,ready:0},lifetime:0,files:0,qp:0,qpTotal:0,resets:0,golds:0,playtime:0,lastRate:0,mute:false,mast:{},contract:null,cStreak:0,cDone:0,cNext:0,ev:null,hist:[],runStart:0,evNext:0,evDone:0,bestRate:0,sci:false,auto:{on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1},savedAt:Date.now()}, d);
+  const g = Object.assign({rp:0,rpTotal:0,obj:0,daily:'',oc:{until:0,ready:0},lifetime:0,files:0,qp:0,qpTotal:0,resets:0,golds:0,playtime:0,lastRate:0,mute:false,mast:{},contract:null,cStreak:0,cDone:0,cNext:0,ev:null,mine:[],hist:[],runStart:0,evNext:0,evDone:0,bestRate:0,sci:false,auto:{on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1},savedAt:Date.now()}, d);
   g.auto = Object.assign({on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1}, g.auto);
   g.mast = g.mast||{};
   g.ach = g.ach||{}; g.tech = g.tech||{};
@@ -1366,7 +1381,7 @@ function loop(now){
     else oc.textContent=sm?'OC':'Overclock';
     oc.disabled = !ocActive() && G.playtime<G.oc.ready; oc.classList.toggle('glow', !oc.disabled && !ocActive());
     if(tab==='up' || tab==='qp' || tab==='res' || tab==='bp' || tab==='bpr'){
-      const sig = tab+affordCount()+(qpGain()>=1?'q':'')+BPS.map(b=>bpUnlocked(b)&&G.money>=bpCost(b)).join()+GLOBALS.map(g=>G.money>=gUpCost(g)).join()+PU.map(d=>G.qp>=puCost(d)).join()+qpGain()+TECH.map(d=>G.rp>=techCost(d)).join();
+      const sig = tab+affordCount()+(qpGain()>=1?'q':'')+BPS.concat(G.mine||[]).map(b=>bpUnlocked(b)&&G.money>=bpCost(b)).join()+GLOBALS.map(g=>G.money>=gUpCost(g)).join()+PU.map(d=>G.qp>=puCost(d)).join()+qpGain()+TECH.map(d=>G.rp>=techCost(d)).join();
       if(sig!==tabSig){ tabSig=sig; renderTab(); }
     }
     const h=hintText(); $('hint').style.display=h?'block':'none'; $('hint').textContent=h;

@@ -40,3 +40,6 @@ Apres l'objectif 3, un evenement aleatoire survient toutes les 4 a 6 minutes : P
 
 ## Confort (v29)
 Touche A : tout ameliorer. Onglet Quantique : duree du run et rendement en PQ/min pour choisir le bon moment de reboot. Stats : historique des 6 derniers reboots.
+
+## Schemas personnels (v30)
+Selectionne au moins 2 noeuds puis "Enregistrer schema" : le groupe (noeuds et liens) est ajoute a l'onglet Schemas (jusqu'a 20), posable en un clic et supprimable. Sauvegarde incluse.
