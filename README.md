@@ -56,3 +56,7 @@ Selectionne au moins 2 noeuds puis "Enregistrer schema" : le groupe (noeuds et l
 
 - Clic molette (bouton du milieu) maintenu : deplace la camera.
 - Souris : clic gauche ou droit glisse sur le vide = selection en zone ; seule la molette (maintenue) deplace la camera. Au doigt, un glissement deplace toujours la vue.
+
+## Visuels (v33)
+- Icones vectorielles par type de noeud (noeuds, vue lointaine, boutique), ciel etoile en parallaxe, nebuleuses, vignette.
+- Liaisons avec flux anime, paquets avec traine, interface vitree avec degrades.
