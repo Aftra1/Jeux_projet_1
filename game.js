@@ -567,6 +567,14 @@ BPS.push(
   {name:'Sommet oméga', desc:'Toute la montée : Quantique jusqu\'à Oméga, puis Upload.',
    nodes:[['mega',0,0],['quantum',1,0],['sing',2,0],['neural',3,0],['dim',4,0],['omega',5,0],['upload',6,0]], links:[[0,0,1,0],[1,0,2,0],[2,0,3,0],[3,0,4,0],[4,0,5,0],[5,0,6,0]]},
 );
+BPS.push(
+  {name:'Labo à Super Source', desc:'Super Source, Chiffreur, Laboratoire : beaucoup de recherche par fichier.',
+   nodes:[['mega',0,0],['encrypt',1,0],['lab',2,0]], links:[[0,0,1,0],[1,0,2,0]]},
+  {name:'Grand laboratoire', desc:'Trois Super Sources compressées nourrissent un Laboratoire.',
+   nodes:[['mega',0,0],['compress',1,0],['mega',0,1],['compress',1,1],['mega',0,2],['compress',1,2],['lab',2,1]],
+   links:[[0,0,1,0],[1,0,6,0],[2,0,3,0],[3,0,6,1],[4,0,5,0],[5,0,6,2]]},
+);
+const bpIsLab = b => b.nodes.some(n=>n[0]==='lab');
 const bpTypes = b => [...new Set(b.nodes.map(n=>n[0]))];
 const bpUnlocked = b => bpTypes(b).every(unlocked);
 const bpLocked = b => bpTypes(b).filter(t=>!unlocked(t)).map(t=>DEFS[t].name).join(', ');
@@ -903,11 +911,12 @@ function renderTab(){
     $('dQp').onclick = ()=>{ G.qp += 10; G.qpTotal += 10; };
     $('dUnl').onclick = ()=>{ G.run = Math.max(G.run, 1e12); G.resets = Math.max(G.resets, 11); buildShop(); toast('Tout est débloqué'); };
   } else if(tab==='bp'){
-    body.innerHTML = '<p>Un schéma pose et relie plusieurs nœuds d\'un coup, au centre de l\'écran.</p>' + BPS.map(b=>[b,bpCost(b)]).sort((x,y)=>x[1]-y[1]).map(([b,c])=>{
-      const lock = !bpUnlocked(b), i = BPS.indexOf(b);
-      return `<div class="item${lock?' lock':''}"><div><b>${b.name}</b> <small>(${b.nodes.length} nœuds)</small><p>${lock?'Nécessite : '+bpLocked(b):b.desc}</p></div>
-        <button data-bp="${i}" ${lock||G.money<c?'disabled':''}>${fmt(c)}</button></div>`;
-    }).join('');
+    body.innerHTML = '<p>Un schéma pose et relie plusieurs nœuds d\'un coup, au centre de l\'écran.</p>' + [[false,'Crédits : revenus'],[true,'Recherche : points de recherche']].map(([isLab,title])=>
+      `<h3 class="sec">${title}</h3>` + BPS.filter(b=>bpIsLab(b)===isLab).map(b=>[b,bpCost(b)]).sort((x,y)=>x[1]-y[1]).map(([b,c])=>{
+        const lock = !bpUnlocked(b), i = BPS.indexOf(b);
+        return `<div class="item${lock?' lock':''}"><div><b>${b.name}</b> <small>(${b.nodes.length} nœuds)</small><p>${lock?'Nécessite : '+bpLocked(b):b.desc}</p></div>
+          <button data-bp="${i}" ${lock||G.money<c?'disabled':''}>${fmt(c)}</button></div>`;
+      }).join('')).join('');
     body.querySelectorAll('button[data-bp]').forEach(b=>b.onclick=()=>buildBp(BPS[+b.dataset.bp]));
   } else if(tab==='up'){
     body.innerHTML = GLOBALS.map(g=>{

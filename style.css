@@ -84,3 +84,4 @@ button{background:var(--glass);backdrop-filter:blur(10px);-webkit-backdrop-filte
 #toast{bottom:110px}
 .hide-sm{display:none}
 .row button{white-space:nowrap}
+#tabBody h3.sec{font-size:12px;letter-spacing:.8px;text-transform:uppercase;color:var(--acc);margin:12px 0 2px}
