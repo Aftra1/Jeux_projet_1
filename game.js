@@ -602,6 +602,13 @@ cv.addEventListener('pointerdown', e=>{
     pinch={d:Math.hypot(a.x-b.x,a.y-b.y), k:G.view.k}; zoomT=null; drag=null; return;
   }
   const w = toWorld(e.clientX,e.clientY);
+  if(msel.size && !e.shiftKey){
+    const gh = findNode(w);
+    if(gh && msel.has(gh.id)){
+      drag = {kind:'group', a:w, moved:false, tap:selMode?gh.id:null, orig:G.nodes.filter(n=>msel.has(n.id)).map(n=>({n,x:n.x,y:n.y}))};
+      return;
+    }
+  }
   if(e.shiftKey || selMode){
     const hit = findNode(w);
     if(hit){ if(msel.has(hit.id)) msel.delete(hit.id); else msel.add(hit.id); sel=null; showSel(); return; }
@@ -637,6 +644,11 @@ cv.addEventListener('pointermove', e=>{
   if(drag.kind==='link') drag.pos = w;
   else if(drag.kind==='node'){ const n=nodeById(drag.n); n.x=Math.round((w.x-drag.dx)/10)*10; n.y=Math.round((w.y-drag.dy)/10)*10; }
   else if(drag.kind==='box') drag.b = w;
+  else if(drag.kind==='group'){
+    const dx = Math.round((w.x-drag.a.x)/10)*10, dy = Math.round((w.y-drag.a.y)/10)*10;
+    if(dx||dy) drag.moved = true;
+    for(const o of drag.orig){ o.n.x = o.x+dx; o.n.y = o.y+dy; }
+  }
   else if(drag.kind==='pan'){ G.view.x=drag.vx+e.clientX-drag.sx; G.view.y=drag.vy+e.clientY-drag.sy; }
 });
 function endPointer(e){
@@ -654,6 +666,7 @@ function endPointer(e){
     }
     if(pt && pt.in) connect(drag.n,drag.o,pt.n,pt.i);
   }
+  if(drag && drag.kind==='group' && !drag.moved && drag.tap){ msel.delete(drag.tap); showSel(); }
   if(drag && drag.kind==='box'){
     const x0=Math.min(drag.a.x,drag.b.x), x1=Math.max(drag.a.x,drag.b.x), y0=Math.min(drag.a.y,drag.b.y), y1=Math.max(drag.a.y,drag.b.y);
     if(!drag.add) msel.clear();
@@ -797,7 +810,7 @@ function showMulti(){
   const box = $('sel'), ns = G.nodes.filter(n=>msel.has(n.id));
   const total = ns.reduce((s,n)=>s+sellVal(n),0);
   box.innerHTML = `<h3>${ns.length} nœud${ns.length>1?'s':''} sélectionné${ns.length>1?'s':''}</h3>
-    <p>${selMode ? 'Mode sélection : touche des nœuds ou glisse pour tracer un cadre.' : 'Maj + glisser trace un cadre, Maj + clic ajoute ou retire un nœud.'}</p>
+    <p>${selMode ? 'Mode sélection : trace un cadre ou touche des nœuds. Glisse un nœud sélectionné pour déplacer le groupe.' : 'Glisse un nœud sélectionné pour déplacer tout le groupe. Maj + glisser trace un cadre, Maj + clic ajoute ou retire un nœud.'}</p>
     <div class="row"><button id="mAll">Tout</button><button id="mType">Même type</button><button id="mNone">Aucun</button></div>
     <div class="row"><button id="mSell" ${ns.length?'':'disabled'}>Vendre tout${ns.length?' +'+fmt(total):''}</button></div>`;
   box.style.display = 'block';
