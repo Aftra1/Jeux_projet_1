@@ -190,3 +190,26 @@ button{backdrop-filter:none;-webkit-backdrop-filter:none;background:#1a2236;bord
 .up-spec button.on{border-color:var(--gold);background:#2a2412}
 .up-hint{font-size:11.5px!important;margin:6px 0!important}
 #sel{width:310px}
+
+/* ---- Mobile (n'affecte pas l'interface PC) ---- */
+html,body{-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
+#tools{display:none}
+@media(max-width:700px){
+  #top{padding-top:max(8px,env(safe-area-inset-top));padding-left:max(10px,env(safe-area-inset-left));padding-right:max(10px,env(safe-area-inset-right))}
+  #top button{min-height:38px}
+  #shop{padding-bottom:max(10px,env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity}
+  #shop button{min-width:92px;min-height:70px;scroll-snap-align:center}
+  #shop button img{width:28px;height:28px}
+  .row button{min-height:42px;font-size:13px}
+  #sel .row button{font-size:12.5px}
+  .item button{min-height:40px;min-width:86px}
+  #tabs button{min-height:36px;font-size:12.5px}
+  #subs button{min-height:34px}
+  #side,#sel{font-size:14px}
+  .box p{font-size:13px}
+  #tools{display:flex;flex-direction:column;gap:8px;position:absolute;right:max(8px,env(safe-area-inset-right));z-index:4}
+  #tools button{width:46px;height:46px;padding:0;border-radius:12px;font-size:12px;font-weight:700;line-height:1.1;display:flex;align-items:center;justify-content:center}
+  #tools button:first-child,#tools button:nth-child(2){font-size:22px}
+  #tools button.on{border-color:var(--gold);color:var(--gold)}
+  #dlg .box2 button{min-height:44px}
+}

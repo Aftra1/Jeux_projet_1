@@ -82,3 +82,11 @@ Selectionne au moins 2 noeuds puis "Enregistrer schema" : le groupe (noeuds et l
 ## Mise en page sans chevauchement (v37)
 - `layoutUI()` place chaque frame les panneaux et messages dans l'espace libre : objectif et astuce empiles sous la barre du haut, contrat, message et indicateur de zoom empiles au-dessus de la boutique, centres entre le panneau gauche et le panneau droit. Sur mobile, un seul panneau a la fois et les messages gardent une ligne libre.
 - Un noeud ou un groupe depose sur d'autres noeuds est replace sur l'emplacement libre le plus proche (ou revient en place pour un groupe).
+
+## Mobile (v38)
+Reserve aux ecrans etroits ou tactiles, l'interface PC est inchangee.
+- La partie demarre cadree sur l'ecran (avant, la Source et l'Upload sortaient du cadre sur 390 px).
+- Zones de toucher agrandies au doigt (ports, liaisons, badge d'amelioration).
+- Double tape : meme type de noeud (ou tout voir sur le vide). Appui long sur un noeud : mode selection ; sur une liaison : suppression.
+- Boutons flottants : zoom +, zoom -, vue d'ensemble, annuler, pause. Boutons et boutique plus gros, marges pour les encoches, vibrations legeres.
+- Definition de rendu plafonnee a x2 pour economiser la batterie.

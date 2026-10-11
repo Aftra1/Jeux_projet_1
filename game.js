@@ -182,7 +182,9 @@ const linkFrom = (id,o) => G.links.find(l=>l.a===id && l.ao===o);
 // Effets (sons, textes) 
 let AC = null, lastBlip = 0;
 function audio(){ if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return AC; }
+let lastVib = 0, touchMode = false;
 function blip(freq, dur=0.08, vol=0.05, type='sine'){
+  if(touchMode && navigator.vibrate && Date.now()-lastVib>90){ lastVib = Date.now(); try{ navigator.vibrate(8); }catch(e){} }
   if(G.mute) return; const a = audio(); if(!a) return;
   try{
     const o=a.createOscillator(), g=a.createGain();
@@ -330,7 +332,7 @@ function doReboot(){ msel.clear(); G.contract = null; G.ev = null; G.cNext = G.p
 // Rendu 
 const cv = document.getElementById('c'), cx = cv.getContext('2d');
 let W=0,H=0,DPR=1;
-function resize(){ DPR=window.devicePixelRatio||1; W=innerWidth; H=innerHeight; cv.width=W*DPR; cv.height=H*DPR; }
+function resize(){ W=innerWidth; DPR=Math.min(window.devicePixelRatio||1, W<=700?2:8); H=innerHeight; cv.width=W*DPR; cv.height=H*DPR; }
 addEventListener('resize',resize); resize();
 const toWorld = (sx,sy)=>({x:(sx-W/2-G.view.x)/G.view.k, y:(sy-H/2-G.view.y)/G.view.k});
 
@@ -424,7 +426,9 @@ function layoutUI(){
   if(mob){ setSt(selB,'top','auto'); setSt(selB,'bottom',(H-shopTop+room-2)+'px'); setSt(selB,'maxHeight',Math.max(120,Math.round(H*0.42))+'px'); }
   else { setSt(selB,'top',pt+'px'); setSt(selB,'bottom','auto'); setSt(selB,'maxHeight',maxH+'px'); }
   setSt(selB,'overflowY','auto');
-  const L = (!mob && sideOn) ? side.offsetWidth+20 : 10, R = (!mob && selOn) ? W-selB.offsetWidth-20 : W-10;
+  const tl = $('tools'), toolsOn = mob && !sideOn && !selOn;
+  setSt(tl,'visibility',toolsOn?'visible':'hidden'); setSt(tl,'top',(pt+8)+'px');
+  const L = (!mob && sideOn) ? side.offsetWidth+20 : 10, R = (!mob && selOn) ? W-selB.offsetWidth-20 : (toolsOn ? W-62 : W-10);
   const cxm = Math.round((L+R)/2), fw = R-L;
   const hideInfo = fw<250 || (mob && sideOn);
   let y = pt+4;
@@ -581,7 +585,7 @@ function port(p,hot,out,col,linked){
 
 // Interactions 
 function findPort(w){
-  const r = 14/G.view.k;
+  const r = 14*hitR()/G.view.k;
   for(const n of G.nodes){
     const d = DEFS[n.type];
     for(let i=0;i<d.outs;i++){ const p=outPort(n,i); if(Math.hypot(p.x-w.x,p.y-w.y)<r) return {in:false,n:n.id,i}; }
@@ -594,7 +598,7 @@ function findNode(w){
   return null;
 }
 function findLink(w){
-  const r = 10/G.view.k;
+  const r = 10*hitR()/G.view.k;
   for(const l of G.links){ const p=linkPts(l); for(let t=0;t<=1;t+=0.04){ const q=bez(p,t); if(Math.hypot(q.x-w.x,q.y-w.y)<r) return l; } }
   return null;
 }
@@ -725,10 +729,32 @@ function saveBp(){
 }
 function removeNode(n){ G.links = G.links.filter(l=>l.a!==n.id && l.b!==n.id); G.nodes = G.nodes.filter(x=>x!==n); }
 
-const v_badge = (n,w) => G.view.k>=0.52 && G.money>=upCost(n) && Math.hypot(w.x-(n.x+NW-2), w.y-(n.y+2))<=14;
+let lastTap = {t:0,x:0,y:0}, lpTimer = 0;
+const hitR = () => touchMode ? 1.7 : 1;    // zones de toucher agrandies au doigt
+const v_badge = (n,w) => G.view.k>=0.52 && G.money>=upCost(n) && Math.hypot(w.x-(n.x+NW-2), w.y-(n.y+2))<=14*hitR();
+function vib(ms){ if(touchMode && navigator.vibrate){ try{ navigator.vibrate(ms); }catch(e){} } }
+function doubleTap(x,y){
+  const w = toWorld(x,y), nd = findNode(w);
+  if(nd){ msel.clear(); for(const m of G.nodes) if(m.type===nd.type) msel.add(m.id); sel=null; showSel(); toast(msel.size+' nœud(s) du même type'); vib(20); }
+  else { const l = findLink(w); if(l) dropLink(l); else fitView(); }
+}
+function longPress(x,y){
+  const w = toWorld(x,y), nd = findNode(w);
+  drag = null; vib(35);
+  if(nd){ selMode = true; $('bSel').classList.add('glow'); msel.add(nd.id); sel = null; showSel(); toast('Mode sélection : touche des nœuds pour les ajouter'); return; }
+  const l = findLink(w); if(l){ dropLink(l); toast('Liaison supprimée'); }
+}
 const pointers = new Map(); let pinch = null;
 cv.addEventListener('pointerdown', e=>{
   audio(); cv.setPointerCapture(e.pointerId);
+  touchMode = e.pointerType==='touch';
+  clearTimeout(lpTimer);
+  if(touchMode && pointers.size===0){
+    const now = performance.now();
+    if(now-lastTap.t<320 && Math.hypot(e.clientX-lastTap.x,e.clientY-lastTap.y)<28){ lastTap.t = 0; pointers.set(e.pointerId,{x:e.clientX,y:e.clientY}); doubleTap(e.clientX,e.clientY); return; }
+    lastTap = {t:now,x:e.clientX,y:e.clientY};
+    lpTimer = setTimeout(()=>{ if(pointers.size===1 && (!drag || (drag.kind==='node'&&!drag.moved) || drag.kind==='pan' && Math.hypot(drag.vx-G.view.x,drag.vy-G.view.y)<6)) longPress(e.clientX,e.clientY); }, 520);
+  }
   pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(pointers.size===2){
     const [a,b]=[...pointers.values()];
@@ -790,6 +816,7 @@ cv.addEventListener('pointermove', e=>{
   else if(drag.kind==='pan'){ G.view.x=drag.vx+e.clientX-drag.sx; G.view.y=drag.vy+e.clientY-drag.sy; }
 });
 function endPointer(e){
+  clearTimeout(lpTimer);
   pointers.delete(e.pointerId); if(pointers.size<2) pinch=null;
   if(drag && drag.kind==='link'){
     const w = toWorld(e.clientX,e.clientY);
@@ -1206,12 +1233,17 @@ function renderTab(){
         G = hydrate(d); buildShop(); sel=null; showSel(); toast('Sauvegarde importée'); save();
       }catch(e){ toast('Code invalide'); }
     };
-    $('oReset').onclick = ()=>ask('Tout effacer, y compris les points quantiques ?', ()=>{ try{ localStorage.removeItem(KEY); }catch(e){} newGame(); income=[]; sel=null; showSel(); buildShop(); renderTab(); });
+    $('oReset').onclick = ()=>ask('Tout effacer, y compris les points quantiques ?', ()=>{ try{ localStorage.removeItem(KEY); }catch(e){} newGame(); if(W<=700) fitView(); income=[]; sel=null; showSel(); buildShop(); renderTab(); });
   }
 }
 $('bMenu').onclick = ()=>openTab(tab?tab:'up');
 $('bBp').onclick = ()=>openTab('bp');
 $('sideX').onclick = ()=>{ if(tab) openTab(tab); };
+$('tZin').onclick = ()=>zoomAt(W/2,H/2,(zoomT?zoomT.k:G.view.k)*1.4);
+$('tZout').onclick = ()=>zoomAt(W/2,H/2,(zoomT?zoomT.k:G.view.k)/1.4);
+$('tFit').onclick = fitView;
+$('tUndo').onclick = undo;
+$('tPause').onclick = ()=>{ togglePause(); $('tPause').classList.toggle('on',paused); };
 $('bSel').onclick = ()=>{ selMode=!selMode; if(!selMode) msel.clear(); sel=null; $('bSel').classList.toggle('glow',selMode); showSel(); };
 
 // fichier doré
@@ -1312,7 +1344,7 @@ function fitView(){
   if(!G.nodes.length) return;
   let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
   for(const n of G.nodes){ x0=Math.min(x0,n.x); y0=Math.min(y0,n.y); x1=Math.max(x1,n.x+NW); y1=Math.max(y1,n.y+NH); }
-  const k = Math.max(ZMIN,Math.min(1.5, Math.min((W-120)/(x1-x0), (H-300)/(y1-y0)))); zoomT = null;
+  const mm = W<=700 ? 30 : 120, k = Math.max(ZMIN,Math.min(1.5, Math.min((W-mm)/(x1-x0), (H-300)/(y1-y0)))); zoomT = null;
   G.view.k = k; G.view.x = -((x0+x1)/2)*k; G.view.y = -((y0+y1)/2)*k - 20;
 }
 const mini = $('mini'), mx = mini.getContext('2d');
@@ -1388,10 +1420,11 @@ setInterval(save, 5000);
 addEventListener('beforeunload', save);
 
 // Boucle 
-if(!load()) newGame();
+if(!load()){ newGame(); if(W<=700) fitView(); }
 buildShop();
 let last = performance.now(), uiT = 0, autoT = 0;
-function hintText(){
+function hintText(){ const h = hintText0(); return touchMode ? h.replace(/Clique/g,'Touche').replace('Glisse depuis','Glisse le doigt depuis') : h; }
+function hintText0(){
   if(G.obj>=2) return '';
   if(G.files>=30 && G.resets===0 && G.lifetime>=100) return '';
   if(!G.links.length) return 'Glisse depuis le port rond de sortie d\'un nœud vers l\'entrée d\'un autre pour les relier. Relie la Source à l\'Upload !';
