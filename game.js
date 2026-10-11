@@ -671,6 +671,10 @@ cv.addEventListener('pointerdown', e=>{
     const [a,b]=[...pointers.values()];
     pinch={d:Math.hypot(a.x-b.x,a.y-b.y), k:G.view.k}; zoomT=null; drag=null; return;
   }
+  if(e.button===1){
+    e.preventDefault(); zoomT=null;
+    drag={kind:'pan',sx:e.clientX,sy:e.clientY,vx:G.view.x,vy:G.view.y}; return;
+  }
   const w = toWorld(e.clientX,e.clientY);
   if(msel.size && !e.shiftKey){
     const gh = findNode(w);
@@ -750,6 +754,7 @@ function endPointer(e){
 cv.addEventListener('pointerup', endPointer);
 cv.addEventListener('pointercancel', endPointer);
 cv.addEventListener('dblclick', e=>{ const l=findLink(toWorld(e.clientX,e.clientY)); if(l) dropLink(l); });
+cv.addEventListener('auxclick', e=>{ if(e.button===1) e.preventDefault(); });
 cv.addEventListener('contextmenu', e=>{ e.preventDefault(); const l=findLink(toWorld(e.clientX,e.clientY)); if(l) dropLink(l); });
 cv.addEventListener('wheel', e=>{
   e.preventDefault();

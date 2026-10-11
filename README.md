@@ -53,3 +53,5 @@ Selectionne au moins 2 noeuds puis "Enregistrer schema" : le groupe (noeuds et l
 - Espace : pause du jeu (le temps, la production et les evenements sont geles).
 - Double-clic sur un noeud : selectionne tous les noeuds du meme type.
 - Bouton "Ameliorer la sélection" : depense les credits sur les noeuds selectionnes, les moins chers d'abord.
+
+- Clic molette (bouton du milieu) maintenu : deplace la camera.
