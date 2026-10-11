@@ -55,3 +55,4 @@ Selectionne au moins 2 noeuds puis "Enregistrer schema" : le groupe (noeuds et l
 - Bouton "Ameliorer la sélection" : depense les credits sur les noeuds selectionnes, les moins chers d'abord.
 
 - Clic molette (bouton du milieu) maintenu : deplace la camera.
+- Souris : clic gauche ou droit glisse sur le vide = selection en zone ; seule la molette (maintenue) deplace la camera. Au doigt, un glissement deplace toujours la vue.

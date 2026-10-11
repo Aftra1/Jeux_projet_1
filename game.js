@@ -702,6 +702,7 @@ cv.addEventListener('pointerdown', e=>{
     drag={kind:'node',n:n.id,dx:w.x-n.x,dy:w.y-n.y,x0:n.x,y0:n.y,moved:false}; showSel(); return;
   }
   sel=null; showSel();
+  if(e.pointerType==='mouse'){ drag={kind:'box',a:w,b:w,add:e.shiftKey}; return; }
   drag={kind:'pan',sx:e.clientX,sy:e.clientY,vx:G.view.x,vy:G.view.y};
 });
 cv.addEventListener('pointermove', e=>{
