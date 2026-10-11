@@ -879,14 +879,14 @@ function parseAmt(s){
   return parseFloat(m[1])*mul;
 }
 const TOP = [['bp','Schémas'],['up','Amélio.'],['qp','Quantique'],['ach','Succès'],['more','Plus']];
-const SUBS = {up:[['up','Crédits'],['res','Recherche']], more:[['stat','Stats'],['opt','Options'],['dev','Dév.']]};
-const groupOf = t => t==='res' ? 'up' : (t==='stat'||t==='opt'||t==='dev') ? 'more' : t;
-const lastSub = {up:'up', more:'stat'};
+const SUBS = {bp:[['bp','Crédits'],['bpr','Recherche']], up:[['up','Crédits'],['res','Recherche']], more:[['stat','Stats'],['opt','Options'],['dev','Dév.']]};
+const groupOf = t => t==='bpr' ? 'bp' : t==='res' ? 'up' : (t==='stat'||t==='opt'||t==='dev') ? 'more' : t;
+const lastSub = {bp:'bp', up:'up', more:'stat'};
 const hist = [];
 const bar = (v,m,col)=>`<span class="bar"><u style="width:${Math.min(100,v/m*100)}%;background:${col||'var(--acc)'}"></u></span>`;
 function affordCount(){ return GLOBALS.filter(g=>G.glob[g.id]<g.max && G.money>=gUpCost(g)).length + TECH.filter(d=>G.tech[d.id]<d.max && G.rp>=techCost(d)).length; }
 function openTab(t){
-  if(t==='more'||t==='up') t = lastSub[t];
+  if(t==='more'||t==='up'||t==='bp') t = lastSub[t];
   if(tab===t){ tab=null; $('side').style.display='none'; return; }
   tab=t; $('side').style.display='flex'; renderTab();
 }
@@ -923,9 +923,9 @@ function renderTab(){
     $('dRp').onclick = ()=>{ G.rp += 1000; G.rpTotal += 1000; };
     $('dQp').onclick = ()=>{ G.qp += 10; G.qpTotal += 10; };
     $('dUnl').onclick = ()=>{ G.run = Math.max(G.run, 1e12); G.resets = Math.max(G.resets, 11); buildShop(); toast('Tout est débloqué'); };
-  } else if(tab==='bp'){
-    body.innerHTML = '<p>Un schéma pose et relie plusieurs nœuds d\'un coup, au centre de l\'écran.</p>' + [[false,'Crédits : revenus'],[true,'Recherche : points de recherche']].map(([isLab,title])=>
-      `<h3 class="sec">${title}</h3>` + BPS.filter(b=>bpIsLab(b)===isLab).map(b=>[b,bpCost(b)]).sort((x,y)=>x[1]-y[1]).map(([b,c])=>{
+  } else if(tab==='bp' || tab==='bpr'){
+    body.innerHTML = `<p>${tab==='bpr' ? 'Schémas qui produisent des points de recherche (Laboratoire).' : 'Schémas qui produisent des crédits (Upload).'} Un clic pose et relie tous les nœuds au centre de l\'écran.</p>` + [[tab==='bpr','']].map(([isLab,title])=>
+      BPS.filter(b=>bpIsLab(b)===isLab).map(b=>[b,bpCost(b)]).sort((x,y)=>x[1]-y[1]).map(([b,c])=>{
         const lock = !bpUnlocked(b), i = BPS.indexOf(b);
         return `<div class="item${lock?' lock':!(G.money<c)?' can':''}"><div><b>${b.name}</b> <small>(${b.nodes.length} nœuds)</small><p>${lock?'Nécessite : '+bpLocked(b):b.desc}</p></div>
           <button data-bp="${i}" ${lock||G.money<c?'disabled':''}>${fmt(c)}</button></div>`;
@@ -1217,7 +1217,7 @@ function loop(now){
     else if(G.playtime<G.oc.ready) oc.textContent='Overclock : '+Math.ceil(G.oc.ready-G.playtime)+' s';
     else oc.textContent='Overclock';
     oc.disabled = !ocActive() && G.playtime<G.oc.ready; oc.classList.toggle('glow', !oc.disabled && !ocActive());
-    if(tab==='up' || tab==='qp' || tab==='res' || tab==='bp'){
+    if(tab==='up' || tab==='qp' || tab==='res' || tab==='bp' || tab==='bpr'){
       const sig = tab+affordCount()+(qpGain()>=1?'q':'')+BPS.map(b=>bpUnlocked(b)&&G.money>=bpCost(b)).join()+GLOBALS.map(g=>G.money>=gUpCost(g)).join()+PU.map(d=>G.qp>=puCost(d)).join()+qpGain()+TECH.map(d=>G.rp>=techCost(d)).join();
       if(sig!==tabSig){ tabSig=sig; renderTab(); }
     }
