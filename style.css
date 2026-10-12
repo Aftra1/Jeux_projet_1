@@ -213,3 +213,42 @@ html,body{-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
   #tools button.on{border-color:var(--gold);color:var(--gold)}
   #dlg .box2 button{min-height:44px}
 }
+
+/* ---- Finitions v40 (meme direction artistique) ---- */
+html,body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;font-variant-numeric:tabular-nums}
+button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+button{transition:border-color .15s,background-color .15s,color .15s,transform .06s}
+button:hover:not(:disabled){background:#202a42}
+#top button:hover:not(:disabled){background:#222d47}
+/* defilement discret */
+#tabBody,#sel,#shop{scrollbar-width:thin;scrollbar-color:#34405c transparent}
+#tabBody::-webkit-scrollbar,#sel::-webkit-scrollbar{width:6px}
+#tabBody::-webkit-scrollbar-thumb,#sel::-webkit-scrollbar-thumb{background:#34405c;border-radius:3px}
+#tabBody::-webkit-scrollbar-track,#sel::-webkit-scrollbar-track{background:transparent}
+#tabBody{padding-bottom:18px;-webkit-mask-image:linear-gradient(#000 calc(100% - 22px),transparent);mask-image:linear-gradient(#000 calc(100% - 22px),transparent)}
+/* barre d'onglets : tout tient, bords fondus */
+#tabs{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 10px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 10px),transparent)}
+@media(min-width:701px){#tabs button{padding:6px 7px;font-size:11.5px}#tabs{gap:3px}#tabs .bd{margin-left:2px;padding:1px 5px}}
+/* apparition douce des panneaux */
+@keyframes pin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+#side,#sel{animation:pin .18s ease-out}
+#dlg .box2{animation:pin .18s ease-out}
+#dlg{backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+#toast{transition:opacity .25s,transform .25s;border-left:3px solid var(--acc)}
+#toast[style*="opacity: 0"]{transform:translateX(-50%) translateY(6px)}
+#obj,#ctr{border-left:3px solid var(--acc)}
+#ctr{border-left-color:var(--gold)}
+#hint{border-left:3px solid var(--acc)}
+/* en-tetes et listes */
+.box h3{letter-spacing:.2px}
+.item{transition:border-color .2s,background-color .2s}
+.item:hover{background:rgba(255,255,255,.065)}
+.item.lock{filter:saturate(.6)}
+.chip{letter-spacing:.3px}
+#shop button{transition:border-color .15s,background-color .15s,transform .15s}
+#shop button:hover:not(:disabled){background:#202a42;transform:translateY(-2px)}
+#shop button b{letter-spacing:.1px}
+#shop button .c{font-weight:600;font-variant-numeric:tabular-nums}
+#top .stat b{font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+#top .stat small{opacity:.85}
+.up-spec button.on{box-shadow:inset 0 0 0 1px var(--gold)}

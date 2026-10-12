@@ -91,3 +91,6 @@ Reserve aux ecrans etroits ou tactiles, l'interface PC est inchangee.
 - Boutons flottants : zoom +, zoom -, vue d'ensemble, annuler, pause. Boutons et boutique plus gros, marges pour les encoches, vibrations legeres.
 - Definition de rendu plafonnee a x2 pour economiser la batterie.
 - Au doigt (v39) : glisser sur une case deplace la vue ; un appui prolonge (0,4 s) souleve la case, masque le menu d'amelioration et permet de la deplacer (vibration, contour blanc). Un simple toucher ouvre toujours le menu. L'appui prolonge sur une liaison la supprime ; le mode selection reste accessible par le bouton Selection.
+
+## Finitions visuelles (v40)
+Meme direction artistique, details soignes : ombre portee plate sous les noeuds et fin liseré haut, textes de noeuds ajustes a leur largeur (plus de debordement), curseur selon la cible (main, croix sur un port, saisie en deplacement), barre d'onglets qui tient en entier, defilement discret avec fondu en bas des panneaux, apparition douce des panneaux et messages, filet colore sur objectif, contrat et messages, anneaux de focus clavier, anticrenelage et chiffres a chasse fixe.

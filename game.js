@@ -345,6 +345,7 @@ function fmt(v){
   let i=0; while(v>=1000 && i<SUF.length-1){ v/=1000; i++; }
   return v.toFixed(v<10?2:v<100?1:0)+SUF[i];
 }
+const fitTxt = (t,maxW)=>{ if(cx.measureText(t).width<=maxW) return t; while(t.length>2 && cx.measureText(t+'…').width>maxW) t=t.slice(0,-1); return t+'…'; };
 const rrect = (x,y,w,h,r)=>{ cx.beginPath(); cx.moveTo(x+r,y); cx.arcTo(x+w,y,x+w,y+h,r); cx.arcTo(x+w,y+h,x,y+h,r); cx.arcTo(x,y+h,x,y,r); cx.arcTo(x,y,x+w,y,r); cx.closePath(); };
 function packetColor(v){
   return v<10?'#4fd1c5': v<100?'#63b3ed': v<1e3?'#f6c453': v<1e4?'#f6ad55': v<1e5?'#f687b3': v<1e6?'#b794f4':'#ffffff';
@@ -484,7 +485,9 @@ function draw(){
     if(far>0.02) drawNodeFar(n,d,col,busy,far,tm);
     if(det<0.02) continue;
     cx.globalAlpha = det;
+    cx.fillStyle = 'rgba(4,7,14,0.38)'; rrect(n.x,n.y+4,NW,NH,6); cx.fill();
     cx.fillStyle = '#141a2a'; rrect(n.x,n.y,NW,NH,5); cx.fill();
+    cx.fillStyle = 'rgba(255,255,255,0.045)'; cx.fillRect(n.x+5,n.y+1,NW-10,1);
     cx.fillStyle = col; cx.fillRect(n.x,n.y+6,3,NH-12);
     const lift = drag && drag.kind==='node' && drag.n===n.id; cx.strokeStyle = (sel===n.id||lift) ? '#fff' : (busy ? col+'cc' : '#3a4560'); cx.lineWidth = (sel===n.id||lift)?2:1; rrect(n.x,n.y,NW,NH,5); cx.stroke();
     if(msel.has(n.id)){
@@ -501,10 +504,10 @@ function draw(){
     }
     cx.textAlign='left'; cx.textBaseline='middle';
         drawIcon(cx,n.type,n.x+24,n.y+24,10.5,col);
-    cx.font='600 13px system-ui'; cx.fillStyle='#e6ecf8'; cx.fillText(d.name, n.x+42, n.y+18);
+    cx.font='600 13px system-ui'; cx.fillStyle='#e6ecf8'; cx.fillText(fitTxt(d.name,NW-48), n.x+42, n.y+18);
     cx.font='11px system-ui'; cx.fillStyle='#8794b3';
     const buf = n.inb.reduce((s,q)=>s+q.length,0);
-    cx.fillStyle = TIERS[tierOf(n.level)][1]; cx.fillText('Niv. '+(n.level+1)+(n.spec?' · '+SPECS[n.spec].name:'')+(d.ins?'  ·  file '+buf+'/'+bufCap():'  ·  '+(1/timeOf(n)).toFixed(2)+'/s'), n.x+42, n.y+35);
+    cx.fillStyle = TIERS[tierOf(n.level)][1]; cx.fillText(fitTxt('Niv. '+(n.level+1)+(n.spec?' · '+({spd:'Turbo',val:'Rend.',eco:'Éco'})[n.spec]:'')+(d.ins?' · '+buf+'/'+bufCap():' · '+(1/timeOf(n)).toFixed(2)+'/s'), NW-48), n.x+42, n.y+35);
     { const tr = tierOf(n.level), lv10 = n.level%10; cx.fillStyle = '#2a3550'; for(let i=0;i<10;i++) cx.fillRect(n.x+NW-8-(10-i)*7,n.y+NH-21,5,2); cx.fillStyle = TIERS[tr][1]; for(let i=0;i<lv10;i++) cx.fillRect(n.x+NW-8-(10-i)*7,n.y+NH-21,5,2); }
     if(G.money>=upCost(n)){
       const bx = n.x+NW-2, by = n.y+2, pu = 1+0.08*Math.sin(tm*4+n.id);
@@ -810,6 +813,8 @@ cv.addEventListener('pointermove', e=>{
   }
   const w = toWorld(e.clientX,e.clientY);
   hoverPort = findPort(w);
+  if(!drag && e.pointerType==='mouse'){ const hn = hoverPort ? null : findNode(w); const c = hoverPort ? 'crosshair' : hn ? (v_badge(hn,w)?'pointer':'grab') : 'default'; if(cv.style.cursor!==c) cv.style.cursor = c; }
+  if(drag && e.pointerType==='mouse' && drag.kind==='node'){ if(cv.style.cursor!=='grabbing') cv.style.cursor='grabbing'; }
   if(!drag) return;
   if(drag.kind==='link') drag.pos = w;
   else if(drag.kind==='node'){ const n=nodeById(drag.n); n.x=Math.round((w.x-drag.dx)/10)*10; n.y=Math.round((w.y-drag.dy)/10)*10; if(n.x!==drag.x0||n.y!==drag.y0) drag.moved=true; }
