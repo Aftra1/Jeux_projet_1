@@ -768,6 +768,16 @@ cv.addEventListener('pointerdown', e=>{
     drag={kind:'pan',sx:e.clientX,sy:e.clientY,vx:G.view.x,vy:G.view.y}; return;
   }
   const w = toWorld(e.clientX,e.clientY);
+  const mouse = e.pointerType==='mouse';
+  if(mouse && e.button===2){
+    // clic droit : relier (depuis un port de sortie ou n'importe où sur un nœud) ; sur une entrée reliée : détache
+    const pt = findPort(w), n = pt ? null : findNode(w);
+    if(pt && !pt.in){ drag={kind:'link',n:pt.n,o:pt.i,pos:w,rc:true}; }
+    else if(pt && pt.in){ const l = G.links.find(l=>l.b===pt.n && l.bi===pt.i); if(l){ G.links = G.links.filter(x=>x!==l); drag={kind:'link',n:l.a,o:l.ao,pos:w,rc:true}; } }
+    else if(n && DEFS[n.type].outs){ drag={kind:'link',n:n.id,o:0,pos:w,rc:true}; }
+    return;
+  }
+  if(mouse && e.button!==0) return;
   if(msel.size && !e.shiftKey){
     const gh = findNode(w);
     if(gh && msel.has(gh.id)){
@@ -781,7 +791,7 @@ cv.addEventListener('pointerdown', e=>{
     drag = {kind:'box', a:w, b:w, add:e.shiftKey}; return;
   }
   if(msel.size){ msel.clear(); showSel(); }
-  const pt = findPort(w);
+  const pt = mouse ? null : findPort(w);
   if(pt && !pt.in){ drag={kind:'link',n:pt.n,o:pt.i,pos:w}; return; }
   if(pt && pt.in){
     const l = G.links.find(l=>l.b===pt.n && l.bi===pt.i);
@@ -827,8 +837,10 @@ cv.addEventListener('pointermove', e=>{
   }
   else if(drag.kind==='pan'){ G.view.x=drag.vx+e.clientX-drag.sx; G.view.y=drag.vy+e.clientY-drag.sy; }
 });
+let rcDrag = 0;
 function endPointer(e){
   clearTimeout(lpTimer);
+  if(drag && drag.rc) rcDrag = Date.now();
   pointers.delete(e.pointerId); if(pointers.size<2) pinch=null;
   if(drag && drag.kind==='link'){
     const w = toWorld(e.clientX,e.clientY);
@@ -867,7 +879,7 @@ cv.addEventListener('pointerup', endPointer);
 cv.addEventListener('pointercancel', endPointer);
 cv.addEventListener('dblclick', e=>{ const l=findLink(toWorld(e.clientX,e.clientY)); if(l) dropLink(l); });
 cv.addEventListener('auxclick', e=>{ if(e.button===1) e.preventDefault(); });
-cv.addEventListener('contextmenu', e=>{ e.preventDefault(); const l=findLink(toWorld(e.clientX,e.clientY)); if(l) dropLink(l); });
+cv.addEventListener('contextmenu', e=>{ e.preventDefault(); if(Date.now()-rcDrag<250) return; const l=findLink(toWorld(e.clientX,e.clientY)); if(l) dropLink(l); });
 cv.addEventListener('wheel', e=>{
   e.preventDefault();
   const base = zoomT ? zoomT.k : G.view.k;
@@ -1234,7 +1246,7 @@ function renderTab(){
       <div class="row"><button id="oReset" style="color:var(--bad)">Tout effacer</button></div>
       <p>Temps de jeu : ${Math.floor(G.playtime/3600)} h ${Math.floor(G.playtime/60)%60} min · Crédits gagnés au total : ${fmt(G.lifetime)}</p>
       <div class="item"><div><b>Raccourcis</b></div></div>
-      <div class="kb">${[['Molette','Zoom'],['F','Centrer la vue'],['O','Overclock'],['M','Menu'],['B','Schémas'],['D','Dupliquer nœud ou sélection'],['U','Améliorer (Maj : au max)'],['A','Tout améliorer'],['Suppr','Vendre'],['Espace','Pause'],['Double-clic nœud','Sélectionner le même type'],['Ctrl+Z','Annuler (vente, lien, déplacement)'],['Ctrl+A','Tout sélectionner'],['Maj+glisser','Sélection en zone'],['Echap','Fermer / désélectionner']].map(([k,t])=>`<kbd>${k}</kbd><span>${t}</span>`).join('')}</div>
+      <div class="kb">${[['Molette','Zoom'],['F','Centrer la vue'],['O','Overclock'],['M','Menu'],['B','Schémas'],['D','Dupliquer nœud ou sélection'],['U','Améliorer (Maj : au max)'],['A','Tout améliorer'],['Suppr','Vendre'],['Espace','Pause'],['Double-clic nœud','Sélectionner le même type'],['Ctrl+Z','Annuler (vente, lien, déplacement)'],['Ctrl+A','Tout sélectionner'],['Clic gauche','Sélectionner / déplacer / zone'],['Clic droit glissé','Relier des nœuds'],['Clic molette glissé','Déplacer la vue'],['Maj+glisser','Sélection en zone'],['Echap','Fermer / désélectionner']].map(([k,t])=>`<kbd>${k}</kbd><span>${t}</span>`).join('')}</div>
       <p>Double-clic ou clic droit sur un lien pour le supprimer.</p>`;
     const keep = fn=>{ const y=body.scrollTop; fn(); renderTab(); body.scrollTop=y; };
     $('oMute').onclick = ()=>keep(()=>{ G.mute=!G.mute; });
