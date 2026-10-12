@@ -1236,8 +1236,9 @@ function renderTab(){
       <div class="item"><div><b>Raccourcis</b></div></div>
       <div class="kb">${[['Molette','Zoom'],['F','Centrer la vue'],['O','Overclock'],['M','Menu'],['B','Schémas'],['D','Dupliquer nœud ou sélection'],['U','Améliorer (Maj : au max)'],['A','Tout améliorer'],['Suppr','Vendre'],['Espace','Pause'],['Double-clic nœud','Sélectionner le même type'],['Ctrl+Z','Annuler (vente, lien, déplacement)'],['Ctrl+A','Tout sélectionner'],['Maj+glisser','Sélection en zone'],['Echap','Fermer / désélectionner']].map(([k,t])=>`<kbd>${k}</kbd><span>${t}</span>`).join('')}</div>
       <p>Double-clic ou clic droit sur un lien pour le supprimer.</p>`;
-    $('oMute').onclick = ()=>{ G.mute=!G.mute; renderTab(); };
-    $('oSci').onclick = ()=>{ G.sci=!G.sci; renderTab(); };
+    const keep = fn=>{ const y=body.scrollTop; fn(); renderTab(); body.scrollTop=y; };
+    $('oMute').onclick = ()=>keep(()=>{ G.mute=!G.mute; });
+    $('oSci').onclick = ()=>keep(()=>{ G.sci=!G.sci; refreshShop(); if(sel) showSel(); });
     $('oExp').onclick = ()=>{ save(); $('oTxt').value = btoa(unescape(encodeURIComponent(JSON.stringify(serialize())))); $('oTxt').select(); };
     $('oImp').onclick = ()=>{
       try{
