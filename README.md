@@ -55,7 +55,7 @@ Selectionne au moins 2 noeuds puis "Enregistrer schema" : le groupe (noeuds et l
 - Bouton "Ameliorer la sélection" : depense les credits sur les noeuds selectionnes, les moins chers d'abord.
 
 - Clic molette (bouton du milieu) maintenu : deplace la camera.
-- Souris : clic gauche = selectionner / deplacer un noeud / selection en zone sur le vide ; clic droit glisse (depuis un noeud ou un port) = relier ; clic molette maintenu = deplacer la camera. Clic droit sans glisser sur un lien = le supprimer. Au doigt, un glissement deplace toujours la vue et les liens se font depuis les ports.
+- Souris : clic droit = selectionner / deplacer un noeud / selection en zone sur le vide ; clic gauche glisse (depuis un noeud ou un port) = relier ; clic molette maintenu = deplacer la camera. Clic droit sans glisser sur un lien = le supprimer. Au doigt, un glissement deplace toujours la vue et les liens se font depuis les ports.
 
 ## Visuels (v33)
 - Icones vectorielles par type de noeud (noeuds, vue lointaine, boutique), ciel etoile en parallaxe, nebuleuses, vignette.
