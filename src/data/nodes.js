@@ -22,8 +22,12 @@ export const DEFS = {
   sorter:  {name:'Trieur',        label:'TRI', color:'#a3e635', kind:'transform', out:'threshold', params:{thr:{def:10, min:1, label:'Seuil'}}, ins:1, outs:2, cost:1200,  t:0.15, unlock:800, desc:'Envoie les gros fichiers (valeur au-dessus du seuil) vers la sortie du haut, les autres vers le bas.'},
   ai:      {name:'Analyseur IA',  label:'IA',  color:'#fc8181', kind:'transform', mult:5,   ins:1, outs:1, cost:2000,  t:6.0,  unlock:1500, desc:'Valeur ×5. Lent mais puissant.'},
   lab:     {name:'Laboratoire',   label:'LAB', color:'#76e4f7', kind:'sink', reward:'research', ins:3, outs:0, cost:2500,  t:1.5,  unlock:2000, desc:'Absorbe les fichiers et produit des points de recherche. 3 entrées.'},
+  hub:     {name:'Concentrateur', label:'CON', color:'#fda4af', kind:'combine', f:(a,b,c)=>(a+b+c)*1.4, ins:3, outs:1, cost:4000,  t:1.5,  unlock:3000, desc:'Fusionne 3 fichiers : (a + b + c) × 1,4.',
+            icon:'M-9 -7 L0 0 M-9 0 L0 0 M-9 7 L0 0 L9 0 M5 -4 L9 0 L5 4'},
   mega:    {name:'Super Source',  label:'SRC+', color:'#38b2ac', kind:'producer', val:10,  ins:0, outs:1, cost:6000,  t:3.0,  unlock:4000, desc:'Génère des fichiers de valeur 10.'},
   quantum: {name:'Quantique',     label:'QNT', color:'#b794f4', kind:'transform', mult:10,  ins:1, outs:1, cost:40000, t:12.0, unlock:25000, desc:'Valeur ×10. Très lent, très puissant.'},
+  cloud:   {name:'Serveur cloud', label:'CLD', color:'#90cdf4', kind:'sink', reward:'credits', ins:5, outs:0, cost:2e5, t:0.3, unlock:150000, needRs:1, desc:'Envoie les fichiers vers le cloud, deux fois plus vite que l\'Upload. 5 entrées. Réservé aux joueurs ayant fait 1 Reboot.',
+            icon:'M-8 6 L7 6 A4 4 0 0 0 7 -2 A6 6 0 0 0 -4 -4 A5 5 0 0 0 -8 6 Z'},
   sing:    {name:'Singularité',   label:'SNG', color:'#ffffff', kind:'transform', mult:22,  ins:1, outs:1, cost:2e6,   t:30.0, unlock:1e6, needRs:3, desc:'Valeur ×22. Réservé aux joueurs ayant fait 3 Reboots.'},
   neural:  {name:'Réseau neuronal',label:'NET', color:'#f56565', kind:'transform', mult:21,  ins:1, outs:1, cost:1e8,   t:70.0, unlock:4e7, needRs:5, desc:'Valeur ×21. Réservé aux joueurs ayant fait 5 Reboots.'},
   dim:     {name:'Dimension',     label:'DIM', color:'#ed64a6', kind:'transform', mult:20,  ins:1, outs:1, cost:6e9,   t:160.0, unlock:2e9, needRs:8, desc:'Valeur ×20. Réservé aux joueurs ayant fait 8 Reboots.'},
@@ -34,7 +38,7 @@ export const ORDER = Object.keys(DEFS);
 export const COLORS = Object.fromEntries(ORDER.map(t=>[t, DEFS[t].color]));
 export const SPECS = {
   spd:{name:'Turbo', desc:'Vitesse ×1,25', mods:[{stat:'speed', by:flat(1.25)}]},
-  val:{name:'Rendement', desc:'Valeur ×1,25 (sources, Upload)', mods:[{stat:'value', by:flat(1.25)}]},
+  val:{name:'Rendement', desc:'Valeur ×1,25 (sources, Upload, Serveur cloud)', mods:[{stat:'value', by:flat(1.25)}]},
   eco:{name:'Économe', desc:'Améliorations de ce nœud -30 %', mods:[{stat:'cost.upgrade', by:flat(0.7)}]},
 };
 export const TIERS = [['Brut','#8794b3'],['Bronze','#d69e6b'],['Argent','#cbd5e0'],['Or','#f6c453'],['Platine','#76e4f7'],['Diamant','#b794f4'],['Mythique','#f687b3'],['Légende','#ffffff']];
