@@ -74,7 +74,7 @@ async function bundleJs(bridge){
   const r = await esbuild.build({
     stdin: {contents: 'import "./src/main.js";\n' + (bridge ? 'import "pont:global";\n' : ''), resolveDir: ROOT, sourcefile: 'entree.js', loader: 'js'},
     bundle: true, format: 'iife', write: false, charset: 'utf8', minify: false, target: 'es2022',
-    plugins: bridge ? [bridgePlugin] : [], logLevel: 'warning',
+    define: {__TEST__: bridge ? 'true' : 'false'}, plugins: bridge ? [bridgePlugin] : [], logLevel: 'warning',
   });
   return r.outputFiles[0].text;
 }

@@ -359,6 +359,11 @@ const SCENARIOS = {
     expect('ports', ()=>node({ins:2}), 'le genre transform en demande 1 a 1');
     expect('mesure', ()=>measure('filez', 'test'), 'mesure inconnue "filez"');
     expect('mesure type', ()=>measure('count:filtre', 'test'), 'type de noeud inconnu dans la mesure "count:filtre"');
+    // invariant du cache par pas (version de test) : un niveau qui change pendant step() donne une erreur explicite
+    newGame(); const s0 = G.nodes[0]; s0.level = 10; s0.tr = 0; const bump = ()=>{ G.glob.spd++; }; on('tierFx', bump);
+    try{ step(0.05); errs.push('invariant du cache : aucune erreur'); }catch(e){ if(!e.message.includes('pendant un pas')) errs.push('invariant du cache : message inattendu '+e.message); }
+    finally{ handlers.tierFx.splice(handlers.tierFx.indexOf(bump), 1); }
+    newGame();
     if(TECH.length!==nTech || ORDER.length!==nTypes || DEFS.nx || speedOf(n)!==speed0) errs.push('une donnee refusee a laisse une trace');
     return {errs, msgs};
   },

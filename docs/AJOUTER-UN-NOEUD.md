@@ -67,6 +67,24 @@ Un nouveau modificateur se place dans un **groupe**, un emplacement nomme a posi
 
 Le groupe par defaut suffit presque toujours ; `group:'node'` dans le modificateur le change. Dans un groupe, les modificateurs s'appliquent dans l'ordre d'enregistrement (ordre des fichiers de donnees). Groupe inconnu, ou absent de la statistique visee : erreur explicite.
 
+## Invariant du cache par pas
+
+Pendant un pas de simulation (`step`, `src/core/sim.js`), la valeur des modificateurs qui ne dependent que de donnees globales est calculee une seule fois puis reutilisee (`src/core/stats.js`, `beginStep` / `endStep`). Cela suppose que, **pendant un pas**, rien de ce qui suit ne change :
+
+- les niveaux d'ameliorations (`G.glob`, `G.pu`, `G.tech`, et toute autre reserve de niveaux declaree par une source `[reserve, id]`) ;
+- le nombre de succes, les points quantiques totaux (`qpTotal`, donc l'inflation) ;
+- l'Overclock (`G.oc.until`) et l'evenement en cours (`G.ev`).
+
+Aujourd'hui ces valeurs ne changent qu'entre deux pas (achats par l'interface, `evTick`, `contractTick`, `checkAch` dans la boucle de `main.js`).
+
+**Verification** : la version de test (`dist/test.html`, constante `__TEST__` definie par le build) compare une signature de ces valeurs au debut et a la fin de chaque pas ; un ecart leve l'erreur « Invariant du cache par pas viole ». Le test `validation` le prouve (une amelioration achetee pendant un pas). La version publiee ne fait pas cette verification (aucun cout).
+
+**Si un futur contenu doit changer l'une de ces valeurs pendant un pas** (par exemple un noeud qui achete une amelioration, ou un genre qui declenche un evenement quand il traite un fichier) :
+
+1. Solution preferee : differer le changement. Le noeud le note (`G.pending...`) et la boucle de `main.js` l'applique entre deux pas, comme les evenements actuels.
+2. Sinon : invalider le cache au moment du changement, en appelant une fonction du coeur qui incremente l'epoque (`EPOCH++` dans `stats.js`, a exposer sous un nom explicite, par exemple `invalidateStep()`) juste apres la modification, et l'appeler aussi dans la verification de test pour mettre a jour la signature. Verifier ensuite le scenario `exact` : l'ordre des calculs ne change pas, mais les valeurs avant et apres le changement dans le meme pas doivent etre celles attendues.
+3. Ne jamais retirer la verification pour faire passer un test.
+
 ## Limites
 
 - Un **comportement nouveau** (ni produire, ni transformer, ni combiner, ni consommer) demande un genre de plus dans `src/core/kinds.js`, et lui seul.

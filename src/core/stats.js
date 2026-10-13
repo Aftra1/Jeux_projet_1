@@ -21,9 +21,15 @@ const LEVELS = {
 // Cache d'un pas de simulation : pendant step(), les niveaux d'ameliorations, le nombre de succes, les points quantiques,
 // l'Overclock et l'evenement en cours ne changent pas (ils ne changent qu'entre deux pas). La valeur d'un modificateur
 // qui ne depend que d'eux est donc calculee une fois par pas (meme nombre, meme ordre du pli).
-let EPOCH = 0, IN_STEP = false;
-export function beginStep(){ EPOCH++; IN_STEP = true; }
-export function endStep(){ EPOCH++; IN_STEP = false; }
+// Version de test (__TEST__ defini par le build) : l'invariant est verifie, un changement pendant un pas = erreur explicite.
+let EPOCH = 0, IN_STEP = false, SIG = '';
+const CHECK = typeof __TEST__ !== 'undefined' && __TEST__, STORES = new Set();
+const stepSig = ()=>{ let s = achCount()+'|'+G.qpTotal+'|'+G.oc.until+'|'+(G.ev ? G.ev.id+':'+G.ev.until : ''); for(const o of STORES) for(const k in G[o]) s += '|'+o+'.'+k+'='+G[o][k]; return s; };
+export function beginStep(){ EPOCH++; IN_STEP = true; if(CHECK) SIG = stepSig(); }
+export function endStep(done){
+  EPOCH++; IN_STEP = false;
+  if(CHECK && done && stepSig()!==SIG) throw new Error('Invariant du cache par pas viole : un niveau d\'amelioration (ou succes, points quantiques, Overclock, evenement) a change pendant un pas de simulation');
+}
 const GLOBAL_LEVELS = ['ach','qpMult','inflation','one'];
 function cached(v){
   let ep = -1, val;
@@ -31,7 +37,7 @@ function cached(v){
 }
 // Fonction valeur d'un modificateur, specialisee pour les cas courants (un seul appel par modificateur dans le pli) ;
 // meme arithmetique que by.f(niveau). Renvoie undefined quand la condition est fausse (modificateur ignore).
-function valueFn(by, lv, conds, global){ const v = valueFn0(by, lv, conds); return global && (Array.isArray(lv) || GLOBAL_LEVELS.includes(lv)) ? cached(v) : v; }
+function valueFn(by, lv, conds, global){ if(Array.isArray(lv)) STORES.add(lv[0]); const v = valueFn0(by, lv, conds); return global && (Array.isArray(lv) || GLOBAL_LEVELS.includes(lv)) ? cached(v) : v; }
 function valueFn0(by, lv, conds){
   const K = by.K, f = by.f, st = Array.isArray(lv), o = st && lv[0], k = st && lv[1];
   let v;

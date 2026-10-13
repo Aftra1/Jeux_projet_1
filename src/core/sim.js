@@ -63,6 +63,7 @@ function updateLinks(dt){
 }
 export function step(dt){
   beginStep();
+  let done = false;
   try{
     G.playtime += dt;
     updateLinks(dt);
@@ -72,7 +73,8 @@ export function step(dt){
       if(n.tr===undefined) n.tr = tr;
       else if(tr!==n.tr){ if(tr>n.tr) tierUp(n,tr); n.tr = tr; }
     }
-  } finally{ endStep(); }
+    done = true;
+  } finally{ endStep(done); }
 }
 function tierUp(n,tr){
   const col = TIERS[tr][1];
