@@ -209,6 +209,25 @@ const SCENARIOS = {
     return out;
   },
 
+  // une vraie sauvegarde de la version 46 (format v1) se recharge sans perte par le chemin du joueur (localStorage + load)
+  save46(fx){
+    const r = x => typeof x==='number' ? +x.toPrecision(10) : x;
+    const ls = localStorage; for(const k of Object.keys(ls)) if(k.startsWith(KEY)) ls.removeItem(k);
+    const d = JSON.parse(JSON.stringify(fx)); d.savedAt = Date.now(); d.daily = new Date().toISOString().slice(0,10);   // ni gain hors ligne ni bonus quotidien
+    const text = JSON.stringify(d); ls.setItem(KEY, text);
+    const loaded = load();
+    const strip = o => { const c = JSON.parse(JSON.stringify(o)); delete c.savedAt; for(const l of c.links||[]) l.packets = []; return JSON.stringify(c); };
+    const A = JSON.parse(strip(JSON.parse(serializeText()))), B = JSON.parse(strip(d)), diffs = [];
+    const walk = (x,y,p)=>{ if(JSON.stringify(x)===JSON.stringify(y)) return; if(x && y && typeof x==='object' && typeof y==='object'){ for(const k of new Set([...Object.keys(x),...Object.keys(y)])) walk(x[k],y[k],p+'.'+k); } else diffs.push(p); };
+    walk(B, A, ''); const same = diffs.length===0;
+    const out = {loaded, same, diffs, ver:G.ver, nodes:G.nodes.length, links:G.links.length, mine:G.mine.map(b=>b.name), sci:G.sci, view:G.view};
+    Math.__seed(46); for(let i=0;i<600;i++) tick();
+    Object.assign(out, {money:r(G.money), run:r(G.run), files:G.files, rp:r(G.rp), lv:G.nodes.map(n=>n.level)});
+    for(const k of Object.keys(ls)) if(k.startsWith(KEY)) ls.removeItem(k);
+    newGame();
+    return out;
+  },
+
   // le rendu et les panneaux ne levent aucune exception
   smoke(){
     const errs = [];
@@ -239,13 +258,14 @@ const SCENARIOS = {
   await page.goto('file://'+path.join(ROOT,'dist','index.html'));
   await page.waitForFunction(()=>typeof G!=='undefined' && G && G.nodes);
   const fixture = JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures','legacy-v0.json'),'utf8'));
+  const fixture46 = JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures','save-v46.json'),'utf8'));
   const got = {};
   for(const name of Object.keys(SCENARIOS)){
     if((name==='render') !== RENDER) continue;
     const fn = 'function '+SCENARIOS[name].toString();
     // l'horloge est figee pendant un scenario (upSound limite ses sons avec performance.now : sinon le flux aleatoire depend du temps reel)
     got[name] = await page.evaluate(`(function(){ const real = performance.now; let T = 1e6; performance.now = ()=>T; window.tick = ()=>{ T += 50; step(0.05); };
-      try{ return (${fn})(${(name==='legacyFixture'||name==='saveSafety')?JSON.stringify(fixture):''}); } finally{ performance.now = real; } })()`);
+      try{ return (${fn})(${(name==='legacyFixture'||name==='saveSafety')?JSON.stringify(fixture):name==='save46'?JSON.stringify(fixture46):''}); } finally{ performance.now = real; } })()`);
   }
   await browser.close();
 
@@ -253,7 +273,8 @@ const SCENARIOS = {
   let fail = 0;
   const assert = (ok,msg)=>{ if(!ok){ fail++; console.log('  FAIL', msg); } };
   // invariants (independants des instantanes)
-  if(!RENDER){ assert(got.saveRoundtrip.same && got.saveRoundtrip.packetsReset, 'sauvegarde : aller-retour fidele');
+  if(!RENDER){ assert(got.save46.loaded && got.save46.same, 'sauvegarde v46 rechargee sans perte');
+  assert(got.saveRoundtrip.same && got.saveRoundtrip.packetsReset, 'sauvegarde : aller-retour fidele');
   assert(got.smoke.errs.length===0, 'rendu/panneaux sans exception : '+got.smoke.errs.join(' | ')); }
   assert(consoleErrs.length===0, 'aucune erreur de console : '+consoleErrs.join(' | '));
   if(UPDATE){

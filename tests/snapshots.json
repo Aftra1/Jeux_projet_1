@@ -1014,6 +1014,38 @@
    "inb": 0
   }
  },
+ "save46": {
+  "loaded": true,
+  "same": true,
+  "diffs": [],
+  "ver": 1,
+  "nodes": 9,
+  "links": 9,
+  "mine": [
+   "Ligne <principale> & \"test\""
+  ],
+  "sci": true,
+  "view": {
+   "x": -37,
+   "y": 12,
+   "k": 0.8
+  },
+  "money": 500037973.8,
+  "run": 40430.81947,
+  "files": 544,
+  "rp": 0,
+  "lv": [
+   7,
+   11,
+   0,
+   23,
+   0,
+   0,
+   0,
+   0,
+   0
+  ]
+ },
  "smoke": {
   "errs": [],
   "tabs": [
