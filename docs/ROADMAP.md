@@ -48,3 +48,7 @@ Nouveaux noeuds et evenements en donnees, separation des textes (i18n), mode def
 
 - Ordre phase 3 / phase 4.
 - Equilibrage des contrats en fin de partie (a simuler avant de toucher aux chiffres).
+
+## Tests (`npm test`)
+
+`tests/run.js` lance le vrai jeu dans Chromium avec un generateur aleatoire seede et une horloge figee, et compare 7 scenarios a `tests/snapshots.json` : formules (formats, couts, vitesses, modificateurs), une chaine par type de noeud (60 s de jeu), une partie complete avec evenements, contrats, succes et reboot, ameliorations, sauvegarde (aller-retour et sauvegarde ancienne `tests/fixtures/legacy-v0.json`), rendu et panneaux. `npm run test:update` regenere les instantanes : uniquement pour un changement de comportement voulu.

@@ -1,0 +1,9 @@
+{
+  "name": "upload-lab",
+  "private": true,
+  "scripts": {
+    "test": "node tests/run.js",
+    "test:update": "node tests/run.js --update",
+    "perf": "node tools/perf.js"
+  }
+}
