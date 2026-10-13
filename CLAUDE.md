@@ -7,7 +7,7 @@ Ce fichier se suffit a lui-meme : il est relu au debut de chaque session et copi
 - Upload Lab : jeu incremental (gestion, chaine de production) ou l'on relie des noeuds (Source -> Compresseur -> ... -> Upload) sur un canvas pour gagner des credits. Interface en francais, sans emoji.
 - Publie comme Artifact claude.ai (page privee, URL fixe) : un seul fichier HTML qui contient CSS et JS.
 - Depot GitHub `aftra1/jeux_projet_1`, branche de travail `claude/jeu-upload-lab-dnrod3`. Pas de pull request sans demande explicite.
-- Jeu publie : https://claude.ai/artifact/V5QUMQCPDnLTjdGnSA6c5X (version 46).
+- Jeu publie : https://claude.ai/artifact/V5QUMQCPDnLTjdGnSA6c5X (version 47, phase 1).
 - Ce document publie : https://claude.ai/artifact/PXGHM5TAQ9JeCsNnTpSCpE (page privee, republiee au meme lien a chaque mise a jour).
 
 ## Architecture (depuis la phase 1)
@@ -26,7 +26,7 @@ Modules ES dans `src/`, regroupes par esbuild en un seul fichier.
 - Regle verifiee par `npm test` : `core` n'importe ni `ui`, ni `render`, ni `input`, n'utilise aucune API de la page et se charge dans Node. Le core signale messages et effets par `emit(...)` ; l'interface s'abonne dans `main.js`.
 - Aucun fichier ne depasse 200 lignes (le plus gros : `ui/tabs.js`, 196).
 - Pont de compatibilite : le build expose sur `window` chaque nom de premier niveau (comme le script unique de la v46) pour la console, les tests et les outils.
-- Autres fichiers : `index.html` (gabarit), `style.css`, `tests/run.cjs` (tests de caracterisation sur le fichier builde, instantanes `tests/snapshots.json`, empreintes `tests/render.json`, sauvegardes `tests/fixtures/`), `tools/` (build, verification d'architecture, perf, bot), `docs/AUDIT.md`, `docs/ROADMAP.md`.
+- Autres fichiers : `index.html` (gabarit), `style.css`, `tests/run.cjs` (tests de caracterisation sur le fichier builde, instantanes `tests/snapshots.json`, empreintes `tests/render.json`, sauvegardes `tests/fixtures/`), `tools/` (build, verification d'architecture, perf, bot), `docs/AUDIT.md`, `docs/ROADMAP.md`, `docs/PHASE3-CONCEPTION.md`.
 
 Systemes de jeu : 17 types de noeuds, ameliorations par noeud (paliers, specialisations Turbo / Rendement / Econome), ameliorations globales, Reboot quantique (prestige), recherche (Laboratoire), maitrise, contrats, evenements reseau, objectifs, succes, schemas, Overclock, fichier dore.
 
@@ -56,14 +56,18 @@ Sauvegarde : localStorage, cle `uploadlab2`, format versionne (`ver`, migrations
 - Mettre ce fichier a jour a la fin de chaque etape et le republier ; rappeler a l'utilisateur de le copier a l'autre assistant.
 - Bot d'equilibrage : vraies formules du core ; ses chiffres sont informatifs, aucun changement d'equilibrage sans accord.
 - Un fichier qui depasse ~400 lignes est signale avec une proposition de decoupage.
-- Point d'arret obligatoire apres la phase 1 : attendre la validation avant la phase 3.
+- Phase 1 validee et publiee (version 47).
+- Phase 3 : refonte sans changement de gameplay. Si un instantane change, meme d'une fraction infime (virgule flottante), ne PAS le regenerer : s'arreter, expliquer l'ecart (valeur, ampleur, cause) et proposer une solution. Conserver l'ordre actuel des multiplications.
+- Phase 3, preuve finale : un noeud fictif ajoute uniquement dans les donnees des tests, sans autre modification de code ; guide `docs/AJOUTER-UN-NOEUD.md`.
+- Pont de compatibilite : a reserver a une version de test et publier sans pont (plan dans `docs/ROADMAP.md`, non execute).
+- Points d'arret phase 3 : apres la conception (`docs/PHASE3-CONCEPTION.md`), puis en fin de phase (resume, perf avant/apres, preuve du noeud fictif, CLAUDE.md republie).
 
 ## Etat de la feuille de route
 
 - Phase 0, filet de securite : terminee.
-- Phase 1, modules + build esbuild : terminee, en attente de validation (point d'arret). Aucun changement visible pour les joueurs.
+- Phase 1, modules + build esbuild : terminee, validee, publiee (version 47).
 - Phase 2 : n'existe plus.
-- Phase 3, registre de noeuds et statistiques par modificateurs (ajouter un noeud = ajouter une entree de donnees) : prochaine, apres validation.
+- Phase 3, registre de noeuds et statistiques par modificateurs (ajouter un noeud = ajouter une entree de donnees) : conception ecrite (`docs/PHASE3-CONCEPTION.md`), en attente d'accord avant de coder. Derniere etape proposee : publier sans le pont.
 - Phase 4, performance du rendu (cache de sprites, couches) : plus tard ; le budget mobile est deja tenu.
 - Phase 5, contenu : nouveaux noeuds et evenements en donnees, separation des textes.
 
@@ -71,16 +75,16 @@ Performance (rendu logiciel, mobile simule CPU 4x, 300 noeuds) : draw 2,6 a 9 ms
 
 ## Questions ouvertes
 
-1. Validation de la phase 1 avant de lancer la phase 3.
+1. Accord sur la conception de la phase 3 (registre par genres, pli ordonne de modificateurs, courbe de cout, conditions declaratives, textes d'effet) et sur le moment de retirer le pont.
 2. Plus tard : equilibrage des contrats en fin de partie (le seuil +25 % de debit en 90 s devient difficile quand les ameliorations sont rares) ; a simuler avant toute decision.
 3. Ecart du bot apres correction (informatif) : 16 Reboots en 7 h au lieu de 17, premiers Reboots ~1 min plus tard. A garder en tete pour de futurs reglages, aucune action demandee.
 
 ## Journal (5 dernieres modifications)
 
-Avant : visuels, mobile, commandes souris, sauvegarde robuste, gains de performance (phase 0), CLAUDE.md et decisions (publication option A, decoupage valide).
+Avant : visuels, mobile, commandes souris, sauvegarde robuste, gains de performance (phase 0), CLAUDE.md et decisions, build esbuild (identique a l'ancien), harnais de test stabilise.
 
-1. Build esbuild en fichier unique (identique octet pour octet a l'ancien build) ; tests executes sur le fichier builde ; sauvegarde v46 rechargee sans perte (test).
-2. Harnais de test stabilise (instabilite latente : la boucle du jeu tournait entre deux scenarios) ; instantanes regeneres sur le fichier de la v46.
-3. Decoupage en modules : data, core (bus d'evenements, le coeur ne touche plus a l'interface), render, ui, input ; comportement identique.
-4. Achats communs au jeu et au bot ; bot d'equilibrage dans Node avec les vraies formules (corrige : capital de depart applique a tort au run en cours).
-5. Verification automatique de l'architecture dans npm test ; documentation a jour.
+1. Decoupage en modules : data, core (bus d'evenements, le coeur ne touche plus a l'interface), render, ui, input ; comportement identique.
+2. Achats communs au jeu et au bot ; bot d'equilibrage dans Node avec les vraies formules (corrige : capital de depart applique a tort au run en cours).
+3. Verification automatique de l'architecture dans npm test ; documentation a jour.
+4. Phase 1 validee et publiee (version 47).
+5. Conception de la phase 3 (`docs/PHASE3-CONCEPTION.md`) et plan de retrait du pont dans la feuille de route.

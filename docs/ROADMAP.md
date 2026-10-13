@@ -41,7 +41,7 @@ Mesures de `tools/perf.js` (ms, meilleur de 3, rendu logiciel). « mobile 4x » 
 - `game.js` : 1728 -> 1670 lignes (code mort retire).
 - Limites : charge synthetique (chaines de noeuds), rasterisation logicielle, pas de test sur appareil reel. Les empreintes de rendu garantissent que l'image est identique a celle d'avant.
 
-## Phase 1 : modules et build esbuild (terminee, en attente de validation)
+## Phase 1 : modules et build esbuild (terminee, validee, publiee en version 47)
 
 - `src/` : `data/` (4 modules), `core/` (12 modules, sans DOM, chargeable dans Node), `render/` (6), `ui/` (8), `input/` (3), `main.js` (branchements et boucle). Plus gros fichier : `ui/tabs.js`, 196 lignes.
 - Le core signale messages, sons, effets et rafraichissements par un bus synchrone ; les achats (globaux, quantiques, recherche, noeuds, specialisation) sont des fonctions du core appelees par l'interface et par le bot.
@@ -51,12 +51,27 @@ Mesures de `tools/perf.js` (ms, meilleur de 3, rendu logiciel). « mobile 4x » 
 - Bot d'equilibrage (`tools/bot.mjs`) : dans Node, avec les vraies formules ; 7 h simulees en 9 s.
 - Performance : pas de regression mesurable (deux series croisees v46 / phase 1, ecarts dans le bruit d'environ 1 ms). Fichier publie : 129,6 Ko -> 164,8 Ko (pont et exports).
 
-## Phase 3 : registre de noeuds et statistiques par modificateurs
+## Phase 3 : registre de noeuds et statistiques par modificateurs (en cours : conception)
 
-- Registre `NodeType` (`init`, `tick`, `send`, `draw`, ports) : ajouter un noeud = ajouter une entree.
-- `stat('revenue', contexte)` agrege des modificateurs `{source, add, mul}` declares par chaque systeme (evenements, specialisations, maitrise, succes...) ; detail visible par le joueur.
-- Courbe de cout unique parametree ; donnees en JSON pur, formules nommees.
-- Evenements decrits en donnees.
+But : ajouter un noeud ou une source de bonus = ajouter une entree de donnees. Refonte sans changement de gameplay ni d'equilibrage.
+
+- Conception detaillee : `docs/PHASE3-CONCEPTION.md` (en attente d'accord avant tout code).
+- Registre de noeuds par genres (`producer`, `transform`, `combine`, `sink`) ; statistiques = pli ordonne de modificateurs `{stat, op, by, when}` ; une courbe de cout parametree ; conditions de succes et d'objectifs declaratives.
+- Instantanes inchanges : un ecart, meme infime, arrete le travail (pas de regeneration).
+- Preuve : un noeud fictif declare uniquement dans les tests ; guide `docs/AJOUTER-UN-NOEUD.md`.
+
+### Dette : le pont de compatibilite
+
+Le pont expose 282 noms sur `window` (+35 Ko) et contourne l'isolation des modules. Les tests en utilisent environ 80, `tools/perf.cjs` 11 ; le jeu lui-meme n'en depend pas (modules stricts, aucun gestionnaire `onclick="..."` dans le HTML genere).
+
+Plan propose :
+1. Deux sorties de build : `dist/index.html` (version de test, avec pont) et `dist/artifact.html` (publiee, sans pont).
+2. Tous les scenarios continuent sur la version de test.
+3. Une serie « boite noire » tourne sur la version publiee : demarrage, 17 clics d'achat, chargement d'une sauvegarde v46 par localStorage, empreintes de rendu. Elle n'utilise que le DOM, localStorage et un petit `window.__game` explicite (deja present, a completer).
+4. Option separee, a valider : minification (gain de taille a mesurer).
+
+Quand : derniere etape de la phase 3, apres la preuve du noeud fictif. Les noms changent pendant la phase 3, et la phase 4 doit mesurer la performance sur le fichier reellement publie.
+Cout : un commit, quelques heures. Gain : -35 Ko environ. Risque : les tests ne visent plus exactement le fichier publie ; couvert par la serie boite noire.
 
 ## Phase 4 : performance du rendu
 
@@ -68,7 +83,6 @@ Nouveaux noeuds et evenements en donnees, separation des textes (i18n).
 
 ## Questions ouvertes
 
-- Ordre phase 3 / phase 4.
 - Equilibrage des contrats en fin de partie (a simuler avant de toucher aux chiffres).
 
 ## Tests (`npm test`)
