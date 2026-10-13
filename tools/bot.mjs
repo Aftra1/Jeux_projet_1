@@ -8,12 +8,15 @@ import { step } from '../src/core/sim.js';
 import { speedOf, revMult, critChance, seedV, vmult, buyCost, upCost, gUpCost, puCost, techCost, qpGain, unlocked } from '../src/core/economy.js';
 import { doReboot } from '../src/core/prestige.js';
 import { checkObj, checkAch } from '../src/core/progression.js';
+import { evTick } from '../src/core/events.js';
 import { upgradeNode, buyGlobal, buyQuantum, buyTech, chooseSpec } from '../src/core/actions.js';
 import { fmt } from '../src/core/format.js';
 import { DEFS } from '../src/data/nodes.js';
 import { GLOBALS, PU, TECH } from '../src/data/upgrades.js';
 
 const TIERS_LINE = ['boost','encrypt','ai','quantum','sing','neural','dim','omega'];
+// puits de credits autres que l'Upload (remplacent l'Upload en bout de ligne si le gain estime le justifie)
+const SINKS = Object.keys(DEFS).filter(t=>DEFS[t].kind==='sink' && DEFS[t].reward==='credits' && t!=='upload');
 
 export function runBot(hours, opt = {}){
   newGame();
@@ -66,7 +69,7 @@ export function runBot(hours, opt = {}){
     if(acc<per) continue;
     acc=0;
     G.lastRate=(G.run-lastRun)/(per*dt); lastRun=G.run;
-    checkObj(); checkAch(); lastRun=G.run;
+    checkObj(); checkAch(); evTick(); lastRun=G.run;
     const gn=qpGain();
     if(gn>=Math.max(1,Math.ceil(G.qpTotal*(opt.rebootRatio||1))) && t-rebootAt>(opt.minRun||600)){
       log.push({t:Math.round(t/60),ev:'reboot',gaps:mileStats(rebootAt),rev:+revMult().toFixed(1),tech:Object.values(G.tech).join(','),pu:Object.values(G.pu).join(','),glob:Object.values(G.glob).join(','),run:fmt(G.run),gain:gn,qpTotal:G.qpTotal+gn,rate:fmt(G.lastRate)});
@@ -93,6 +96,11 @@ export function runBot(hours, opt = {}){
           const cst=lineCost(['mega']); const sp2=[{type:'mega',level:0}].concat(sp.slice(1));
           const gain=inc(sp2)-base; if(gain>0) c.push({lb:'swap mega',cost:cst,gain,f:()=>{
             G.money-=buyCost('mega'); const old=l.nodes[0], nx=l.nodes[1]; const n=addNode('mega',0,0); removeNode(old); connect(n.id,0,nx.id,0); l.nodes[0]=n; }});
+        }
+        for(const sk of SINKS){ if(sp[sp.length-1].type!=='upload' || !unlocked(sk)) continue;
+          const cst=lineCost([sk]); const sp2=sp.slice(0,-1).concat([{type:sk,level:0}]);
+          const gain=inc(sp2)-base; if(gain>0) c.push({lb:'swap '+sk,cost:cst,gain,f:()=>{
+            G.money-=buyCost(sk); const old=l.nodes[l.nodes.length-1], pv=l.nodes[l.nodes.length-2]; const n=addNode(sk,0,0); removeNode(old); connect(pv.id,0,n.id,0); l.nodes[l.nodes.length-1]=n; }});
         }
       }
       for(const gl of GLOBALS){ if(G.glob[gl.id]>=gl.max) continue;
