@@ -32,6 +32,8 @@ const SCENARIOS = {
     G.run = 3e7; out.gain = qpGain();
     out.qpMult = [0,1,10,100].map(q=>r(qpMult(q)));
     out.mast = [0,199,200,1200,1e6].map(c=>{ G.mast.source = c; delete RKC.source; return mastRank('source'); });
+    G.mast.source = 2000; delete RKC.source; out.rank2 = rankOf('source'); out.speedRank = r(speedOf(n,5)); G.mast = {}; delete RKC.source;
+    newGame(); out.spots = [[0,0],[-280,-40],[170,-40],[-270,-35],[500,500]].map(([x,y])=>freeSpot(x,y)).concat([freeSpot(-280,-40,new Set([G.nodes[0]]))]);
     return out;
   },
 
@@ -41,7 +43,7 @@ const SCENARIOS = {
     const out = {};
     for(const t of ORDER){
       if(t==='source' || t==='upload') continue;
-      newGame(); G.nodes.length = 0; G.links.length = 0; G.nextId = 1;
+      newGame(); G.nodes.length = 0; G.links.length = 0; G.nextId = 1; G.glob.crit = 3;
       Math.__seed(1234);
       const d = DEFS[t];
       const tgt = addNode(t, 0, 0, true); tgt.level = 4;
@@ -62,14 +64,14 @@ const SCENARIOS = {
     const s = G.nodes[0], u = G.nodes[1];
     const c = addNode('compress', -60, -40, true), m = addNode('compress', 60, -40, true);
     G.links.length = 0; connect(s.id,0,c.id,0); connect(c.id,0,m.id,0); connect(m.id,0,u.id,0);
-    G.obj = 3; G.money = 1e9;
+    G.obj = 3; G.money = 1e9; G.glob.crit = 2;
     const snaps = []; let lastRun = 0;
-    for(let i=1;i<=24000;i++){
+    for(let i=1;i<=24800;i++){
       tick();
       if(i%40===0){ G.lastRate = (G.run-lastRun)/2; lastRun = G.run; }   // la boucle de jeu le calcule sur 10 s de revenus ; ici une estimation deterministe
       if(i%4===0){ evTick(); contractTick(); checkAch(); checkObj(); }
-      if(i%1500===0){ upgradeNode(s,1); upgradeNode(c,1); upgradeNode(u,1); }
-      if(i%3000===0) snaps.push({i, money:r(G.money), run:r(G.run), files:G.files, ev:G.ev?G.ev.id:null, evDone:G.evDone, contract:G.contract?{need:r(G.contract.need),reward:r(G.contract.reward)}:null, cDone:G.cDone, cStreak:G.cStreak, cNext:r(G.cNext), evNext:r(G.evNext), ach:Object.keys(G.ach).sort(), obj:G.obj, lv:G.nodes.map(n=>n.level)});
+      if(i%600===0){ upgradeNode(s,1); upgradeNode(c,1); upgradeNode(u,1); }
+      if(i%3100===0) snaps.push({i, money:r(G.money), run:r(G.run), files:G.files, ev:G.ev?G.ev.id:null, evDone:G.evDone, contract:G.contract?{need:r(G.contract.need),reward:r(G.contract.reward)}:null, cDone:G.cDone, cStreak:G.cStreak, cNext:r(G.cNext), evNext:r(G.evNext), ach:Object.keys(G.ach).sort(), obj:G.obj, lv:G.nodes.map(n=>n.level)});
     }
     G.run = 3e7; const gain = qpGain(); doReboot();
     return {snaps, gain, after:{qp:G.qp, qpTotal:G.qpTotal, resets:G.resets, nodes:G.nodes.length, money:r(G.money), run:G.run, hist:G.hist}};

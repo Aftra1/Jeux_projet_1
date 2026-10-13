@@ -107,12 +107,40 @@
    1,
    2,
    5
+  ],
+  "rank2": 2,
+  "speedRank": 3.53808,
+  "spots": [
+   {
+    "x": 80,
+    "y": 60
+   },
+   {
+    "x": -60,
+    "y": -40
+   },
+   {
+    "x": 390,
+    "y": -40
+   },
+   {
+    "x": -50,
+    "y": -30
+   },
+   {
+    "x": 500,
+    "y": 500
+   },
+   {
+    "x": -280,
+    "y": -40
+   }
   ]
  },
  "chains": {
   "compress": {
-   "money": 274,
-   "run": 174,
+   "money": 362,
+   "run": 262,
    "files": 87,
    "rp": 0,
    "playtime": 60,
@@ -144,8 +172,8 @@
    "mast": 90
   },
   "split": {
-   "money": 188,
-   "run": 88,
+   "money": 216,
+   "run": 116,
    "files": 88,
    "rp": 0,
    "playtime": 60,
@@ -185,8 +213,8 @@
    "mast": 90
   },
   "merge": {
-   "money": 326.2,
-   "run": 226.2,
+   "money": 399,
+   "run": 299,
    "files": 87,
    "rp": 0,
    "playtime": 60,
@@ -223,8 +251,8 @@
    "mast": 89
   },
   "encrypt": {
-   "money": 220,
-   "run": 120,
+   "money": 268,
+   "run": 168,
    "files": 40,
    "rp": 0,
    "playtime": 60,
@@ -256,8 +284,8 @@
    "mast": 41
   },
   "boost": {
-   "money": 232,
-   "run": 132,
+   "money": 274,
+   "run": 174,
    "files": 88,
    "rp": 0,
    "playtime": 60,
@@ -289,8 +317,8 @@
    "mast": 90
   },
   "clone": {
-   "money": 274,
-   "run": 174,
+   "money": 346,
+   "run": 246,
    "files": 174,
    "rp": 0,
    "playtime": 60,
@@ -330,8 +358,8 @@
    "mast": 89
   },
   "sorter": {
-   "money": 188,
-   "run": 88,
+   "money": 216,
+   "run": 116,
    "files": 88,
    "rp": 0,
    "playtime": 60,
@@ -371,8 +399,8 @@
    "mast": 90
   },
   "ai": {
-   "money": 200,
-   "run": 100,
+   "money": 260,
+   "run": 160,
    "files": 20,
    "rp": 0,
    "playtime": 60,
@@ -439,8 +467,8 @@
    "mast": 83
   },
   "mega": {
-   "money": 510,
-   "run": 410,
+   "money": 670,
+   "run": 570,
    "files": 41,
    "rp": 0,
    "playtime": 60,
@@ -466,8 +494,8 @@
    "mast": 42
   },
   "quantum": {
-   "money": 200,
-   "run": 100,
+   "money": 280,
+   "run": 180,
    "files": 10,
    "rp": 0,
    "playtime": 60,
@@ -499,8 +527,8 @@
    "mast": 10
   },
   "sing": {
-   "money": 188,
-   "run": 88,
+   "money": 364,
+   "run": 264,
    "files": 4,
    "rp": 0,
    "playtime": 60,
@@ -532,8 +560,8 @@
    "mast": 4
   },
   "neural": {
-   "money": 121,
-   "run": 21,
+   "money": 205,
+   "run": 105,
    "files": 1,
    "rp": 0,
    "playtime": 60,
@@ -634,10 +662,10 @@
  "meta": {
   "snaps": [
    {
-    "i": 3000,
-    "money": 1000000371,
-    "run": 665.84,
-    "files": 162,
+    "i": 3100,
+    "money": 999999327.5,
+    "run": 905.52,
+    "files": 180,
     "ev": null,
     "evDone": 0,
     "contract": null,
@@ -651,24 +679,24 @@
     ],
     "obj": 3,
     "lv": [
-     2,
-     2,
-     2,
+     5,
+     5,
+     5,
      0
     ]
    },
    {
-    "i": 6000,
-    "money": 1000000567,
-    "run": 1524.32,
-    "files": 366,
+    "i": 6200,
+    "money": 999985631.7,
+    "run": 2052.72,
+    "files": 391,
     "ev": "surge",
     "evDone": 1,
     "contract": null,
-    "cDone": 0,
-    "cStreak": 0,
-    "cNext": 308.2,
-    "evNext": 436.3858161,
+    "cDone": 1,
+    "cStreak": 1,
+    "cNext": 319.8,
+    "evNext": 441.5944457,
     "ach": [
      "a1",
      "a2",
@@ -676,159 +704,170 @@
     ],
     "obj": 3,
     "lv": [
-     4,
-     4,
-     4,
+     10,
+     10,
+     10,
      0
     ]
    },
    {
-    "i": 9000,
-    "money": 1000000050,
-    "run": 2321.44,
-    "files": 554,
-    "ev": "sale",
+    "i": 9300,
+    "money": 999830151.4,
+    "run": 3175.36,
+    "files": 584,
+    "ev": "surge",
     "evDone": 2,
     "contract": null,
-    "cDone": 0,
+    "cDone": 1,
     "cStreak": 0,
-    "cNext": 458.2,
-    "evNext": 668.1313936,
+    "cNext": 469.8,
+    "evNext": 694.8233911,
     "ach": [
      "a1",
+     "a12",
      "a2",
      "a5"
     ],
     "obj": 3,
     "lv": [
-     6,
-     6,
-     6,
+     15,
+     15,
+     15,
      0
     ]
    },
    {
-    "i": 12000,
-    "money": 999996896.7,
-    "run": 3156.72,
-    "files": 751,
-    "ev": "sale",
+    "i": 12400,
+    "money": 998190929.8,
+    "run": 4318.8,
+    "files": 791,
+    "ev": "surge",
     "evDone": 2,
     "contract": null,
-    "cDone": 0,
-    "cStreak": 0,
-    "cNext": 608.4,
-    "evNext": 668.1313936,
+    "cDone": 2,
+    "cStreak": 1,
+    "cNext": 639.2,
+    "evNext": 694.8233911,
     "ach": [
      "a1",
+     "a12",
+     "a17",
      "a2",
      "a5"
     ],
     "obj": 3,
     "lv": [
-     8,
-     8,
-     8,
+     20,
+     20,
+     20,
      0
     ]
    },
    {
-    "i": 15000,
-    "money": 999987716.5,
-    "run": 4089.52,
-    "files": 971,
+    "i": 15500,
+    "money": 980991162.6,
+    "run": 5671.6,
+    "files": 997,
     "ev": "surge",
     "evDone": 3,
     "contract": null,
-    "cDone": 0,
-    "cStreak": 0,
-    "cNext": 758.8,
-    "evNext": 903.1399221,
+    "cDone": 3,
+    "cStreak": 2,
+    "cNext": 810,
+    "evNext": 991.0279136,
     "ach": [
      "a1",
+     "a12",
+     "a17",
      "a2",
      "a5"
     ],
     "obj": 3,
     "lv": [
-     10,
-     10,
-     10,
+     25,
+     25,
+     25,
      0
     ]
    },
    {
-    "i": 18000,
-    "money": 999962772.5,
-    "run": 4937.52,
-    "files": 1171,
+    "i": 18600,
+    "money": 680992191.4,
+    "run": 6846.4,
+    "files": 1204,
     "ev": "surge",
     "evDone": 3,
     "contract": null,
-    "cDone": 0,
+    "cDone": 3,
     "cStreak": 0,
-    "cNext": 909.2,
-    "evNext": 903.1399221,
+    "cNext": 960.4,
+    "evNext": 991.0279136,
     "ach": [
      "a1",
+     "a12",
+     "a17",
      "a2",
      "a5"
     ],
     "obj": 3,
     "lv": [
-     12,
-     12,
-     12,
+     31,
+     31,
+     31,
      0
     ]
    },
    {
-    "i": 21000,
-    "money": 999897862.1,
-    "run": 5955.12,
-    "files": 1371,
+    "i": 21700,
+    "money": 85329376.8,
+    "run": 8390.8,
+    "files": 1411,
     "ev": "traffic",
     "evDone": 4,
     "contract": null,
-    "cDone": 0,
+    "cDone": 3,
     "cStreak": 0,
-    "cNext": 1059.6,
-    "evNext": 1223.93152,
+    "cNext": 1110.8,
+    "evNext": 1323.730098,
     "ach": [
      "a1",
+     "a12",
+     "a17",
      "a2",
      "a5"
     ],
     "obj": 3,
     "lv": [
-     14,
-     14,
-     14,
+     34,
+     33,
+     33,
      0
     ]
    },
    {
-    "i": 24000,
-    "money": 999730032.1,
-    "run": 6803.12,
-    "files": 1571,
+    "i": 24800,
+    "money": 85330494.4,
+    "run": 9508.4,
+    "files": 1617,
     "ev": "traffic",
     "evDone": 4,
     "contract": null,
-    "cDone": 0,
+    "cDone": 3,
     "cStreak": 0,
-    "cNext": 1210,
-    "evNext": 1223.93152,
+    "cNext": 1261.2,
+    "evNext": 1323.730098,
     "ach": [
      "a1",
+     "a12",
+     "a17",
      "a2",
      "a5"
     ],
     "obj": 3,
     "lv": [
-     16,
-     16,
-     16,
+     34,
+     33,
+     33,
      0
     ]
    }
@@ -843,7 +882,7 @@
    "run": 0,
    "hist": [
     {
-     "t": 1199.9999999994563,
+     "t": 1239.99999999942,
      "g": 6,
      "run": 30000000
     }
