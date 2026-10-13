@@ -51,7 +51,7 @@ Mesures de `tools/perf.js` (ms, meilleur de 3, rendu logiciel). « mobile 4x » 
 - Bot d'equilibrage (`tools/bot.mjs`) : dans Node, avec les vraies formules ; 7 h simulees en 9 s.
 - Performance : pas de regression mesurable (deux series croisees v46 / phase 1, ecarts dans le bruit d'environ 1 ms). Fichier publie : 129,6 Ko -> 164,8 Ko (pont et exports).
 
-## Phase 3 : registre de noeuds et statistiques par modificateurs (terminee, sauf retrait du pont)
+## Phase 3 : registre de noeuds et statistiques par modificateurs (terminee, validee, publiee en version 48)
 
 But : ajouter un noeud ou une source de bonus = ajouter une entree de donnees. Refonte sans changement de gameplay ni d'equilibrage.
 
@@ -71,13 +71,15 @@ But : ajouter un noeud ou une source de bonus = ajouter une entree de donnees. R
 - Controles : version publiee de la phase 3 comparee a la vraie version 47 : identique sur les 3 cas ; temoin altere (Compresseur x2,0000001) : detecte sur les 3 cas.
 - Taille du fichier publie : 165,2 Ko (version 47, avec pont) -> 168,4 Ko (phase 3, sans pont) ; le pont pesait environ 21 Ko, le code de la phase 3 en ajoute environ 24. Pas de minification (decision).
 
-## Phase 4 : performance du rendu
+- Invariant du cache par pas : documente dans `docs/AJOUTER-UN-NOEUD.md` ; verifie dans la version de test (erreur explicite si un niveau change pendant un pas).
 
-Cache de sprites des corps de noeuds et des largeurs de texte, couches statique/dynamique, mini-carte limitee, `layoutUI` seulement sur changement. Peut commencer des la fin de la phase 1. A prioriser avec la phase 3 apres la phase 0.
+## Phase 5 : contenu (en cours)
 
-## Phase 5 : contenu
+Nouveaux noeuds et evenements en donnees, separation des textes (i18n). Etape 1 : propositions (5 noeuds, 3 evenements, texte de Negociation), en attente du choix de l'utilisateur. Aucune ligne de code de jeu avant ce choix.
 
-Nouveaux noeuds et evenements en donnees, separation des textes (i18n).
+## Plus tard, si besoin : performance du rendu (ancienne phase 4)
+
+Reportee : le budget mobile est tenu (draw 2,4 a 10 ms pour 16 ms). A reprendre seulement si une mesure depasse le budget. Pistes : cache de sprites des corps de noeuds et des largeurs de texte, couches statique/dynamique, mini-carte limitee, `layoutUI` seulement sur changement.
 
 ## Questions ouvertes
 
