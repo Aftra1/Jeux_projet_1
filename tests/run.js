@@ -110,6 +110,28 @@ const SCENARIOS = {
     return {nodes:G.nodes.length, links:G.links.length, money:r(G.money), run:r(G.run), files:G.files, qpTotal:G.qpTotal, ach:Object.keys(G.ach).length};
   },
 
+  // les index id -> noeud et noeud -> lien restent exacts apres chaque type de modification
+  indexes(){
+    const errs = [];
+    const check = label=>{
+      for(const n of G.nodes) if(nodeById(n.id)!==n) errs.push(label+' : nodeById('+n.id+')');
+      if(nodeById(987654)!==undefined) errs.push(label+' : id inconnu');
+      for(const n of G.nodes) for(let o=0;o<2;o++) if(linkFrom(n.id,o)!==G.links.find(l=>l.a===n.id&&l.ao===o)) errs.push(label+' : linkFrom('+n.id+','+o+')');
+    };
+    newGame(); G.money = 1e12; check('depart');
+    const a = addNode('split',0,200), b = addNode('compress',300,200), c = addNode('upload',600,200); check('ajout');
+    connect(G.nodes[0].id,0,a.id,0); connect(a.id,0,b.id,0); connect(a.id,1,c.id,0); check('liens');
+    G.nodes.splice(G.nodes.indexOf(a),1); G.nodes.push(a); check('premier plan');
+    connect(a.id,0,c.id,1); check('remplacement de lien');
+    dropLink(G.links[0]); check('suppression de lien');
+    sell(b); check('vente'); undo(); check('annulation de la vente');
+    msel.add(a.id); msel.add(c.id); sellMany(); check('vente multiple'); undo(); check('annulation multiple'); msel.clear();
+    G.nodes.length = 0; G.links.length = 0; for(let i=0;i<3;i++) addNode('source',i*50,0,true); check('vidage puis ajout');
+    const g = JSON.parse(serializeText()); G = hydrate(g); check('hydrate');
+    newGame(); check('newGame'); G.run = 3e7; doReboot(); check('reboot');
+    return {errs};
+  },
+
   // sauvegarde : version, migration, copie de secours, import hostile, echappement
   saveSafety(fx){
     const R = {}; const ls = localStorage; const wipe = ()=>{ for(const k of Object.keys(ls)) if(k.startsWith(KEY)) ls.removeItem(k); };

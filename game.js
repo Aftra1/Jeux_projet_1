@@ -111,7 +111,14 @@ function addNode(type,x,y,free){
   if(!free) G.bought[type] = (G.bought[type]||0)+1;
   return n;
 }
-const nodeById = id => G.nodes.find(n=>n.id===id);
+// Index id -> noeud, reconstruit quand le tableau change (autre tableau, autre taille, autre premier ou dernier element).
+// Les modifications en place qui gardent ces quatre criteres (ordre des noeuds, par exemple) ne changent pas l'ensemble des noeuds.
+let nmArr = null, nmLen = -1, nmFirst = null, nmLast = null; const nm = new Map();
+function nodeById(id){
+  const a = G.nodes, L = a.length;
+  if(a!==nmArr || L!==nmLen || a[0]!==nmFirst || a[L-1]!==nmLast){ nm.clear(); for(const n of a) nm.set(n.id, n); nmArr = a; nmLen = L; nmFirst = a[0]; nmLast = a[L-1]; }
+  return nm.get(id);
+}
 const achCount = () => Object.keys(G.ach).length;
 const qpMult = q => Math.pow(1 + q, 0.6);   // bonus de revenus des points quantiques (sous-linéaire)
 const BG = 1.28;   // croissance du prix par exemplaire déjà acheté
@@ -177,7 +184,13 @@ function bez(p,t){
 }
 function polyPath(p){ const q=ortho(p); cx.beginPath(); cx.moveTo(q[0].x,q[0].y); for(let i=1;i<q.length;i++) cx.lineTo(q[i].x,q[i].y); }
 const linkPts = l => ctrl(outPort(nodeById(l.a),l.ao), inPort(nodeById(l.b),l.bi));
-const linkFrom = (id,o) => G.links.find(l=>l.a===id && l.ao===o);
+// Index (noeud, sortie) -> lien, meme principe d'invalidation que nodeById ; en cas de doublon le premier lien l'emporte
+let lmArr = null, lmLen = -1, lmFirst = null, lmLast = null; const lm = new Map();
+function linkFrom(id,o){
+  const a = G.links, L = a.length;
+  if(a!==lmArr || L!==lmLen || a[0]!==lmFirst || a[L-1]!==lmLast){ lm.clear(); for(const l of a){ const k = l.a*64+l.ao; if(l.ao<64 && !lm.has(k)) lm.set(k, l); } lmArr = a; lmLen = L; lmFirst = a[0]; lmLast = a[L-1]; }
+  return lm.get(id*64+o);
+}
 
 // Effets (sons, textes) 
 let AC = null, lastBlip = 0;
@@ -464,6 +477,8 @@ function draw(){
   // zone visible en coordonnees monde (marge pour les ombres, ports, bulles et traits)
   const vm = 40/v.k + 24, vx0 = (-W/2-v.x)/v.k - vm, vx1 = (W/2-v.x)/v.k + vm, vy0 = (-H/2-v.y)/v.k - vm, vy1 = (H/2-v.y)/v.k + vm;
 
+  const inSet = new Set(), outSet = new Set();   // ports relies (une passe sur les liens au lieu d'une recherche par port)
+  for(const l of G.links){ inSet.add(l.b*64+l.bi); outSet.add(l.a*64+l.ao); }
   for(const l of G.links){
     const na = nodeById(l.a), nb = nodeById(l.b);
     // un lien est hors ecran si la boite de ses deux extremites (elargie des detours possibles) l'est
@@ -521,8 +536,8 @@ function draw(){
       cx.beginPath(); cx.arc(bx,by,10*pu,0,Math.PI*2); cx.fill();
       cx.strokeStyle = '#0a0e16'; cx.lineWidth = 2.2; cx.beginPath(); cx.moveTo(bx-4,by); cx.lineTo(bx+4,by); cx.moveTo(bx,by-4); cx.lineTo(bx,by+4); cx.stroke();
     }
-    for(let i=0;i<d.ins;i++) port(inPort(n,i), hoverPort&&hoverPort.in&&hoverPort.n===n.id&&hoverPort.i===i, false, col, G.links.some(l=>l.b===n.id&&l.bi===i));
-    for(let i=0;i<d.outs;i++) port(outPort(n,i), hoverPort&&!hoverPort.in&&hoverPort.n===n.id&&hoverPort.i===i, true, col, !!linkFrom(n.id,i));
+    for(let i=0;i<d.ins;i++) port(inPort(n,i), hoverPort&&hoverPort.in&&hoverPort.n===n.id&&hoverPort.i===i, false, col, inSet.has(n.id*64+i));
+    for(let i=0;i<d.outs;i++) port(outPort(n,i), hoverPort&&!hoverPort.in&&hoverPort.n===n.id&&hoverPort.i===i, true, col, outSet.has(n.id*64+i));
     cx.globalAlpha = 1;
   }
   if(drag && drag.kind==='box'){
