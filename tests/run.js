@@ -5,7 +5,10 @@
 const fs = require('fs'), path = require('path'), cp = require('child_process');
 function pw(){ try{ return require('playwright'); }catch(e){ return require(path.join(cp.execSync('npm root -g').toString().trim(),'playwright')); } }
 const { chromium } = pw();
-const ROOT = path.join(__dirname,'..'), SNAP = path.join(__dirname,'snapshots.json');
+const argRoot = (process.argv.find(a=>a.startsWith('--root='))||'').slice(7);
+const ROOT = argRoot ? path.resolve(argRoot) : path.join(__dirname,'..');
+const RENDER = process.argv.includes('--render');   // empreintes de pixels du canvas : propres a la machine (polices), donc hors du `npm test` par defaut
+const SNAP = path.join(__dirname, RENDER ? 'render.json' : 'snapshots.json');
 const UPDATE = process.argv.includes('--update');
 const chromePath = process.env.PW_CHROMIUM || (fs.existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : undefined);
 
@@ -163,6 +166,27 @@ const SCENARIOS = {
     return R;
   },
 
+  // empreintes de pixels du canvas (option --render) : verifie qu'une optimisation de rendu ne change pas l'image
+  render(){
+    newGame(); G.money = 1e9; G.obj = 3; Math.__seed(31);
+    G.nodes.length = 0; G.links.length = 0; G.nextId = 1;
+    const ids = [];
+    for(let i=0;i<48;i++){ const n = addNode(ORDER[i%ORDER.length], (i%8)*230-900, Math.floor(i/8)*140-420, true); n.level = (i*7)%45; ids.push(n); if(i%5===0) n.spec = 'spd'; }
+    for(let i=0;i<47;i++) if(i%8!==7) connect(ids[i].id,0,ids[i+1].id,0);
+    connect(ids[7].id,0,ids[8].id,0); connect(ids[15].id,0,ids[0].id,0); connect(ids[40].id,0,ids[3].id,1);
+    for(let i=0;i<500;i++) tick();
+    const hash = ()=>{ const d = cx.getImageData(0,0,cv.width,cv.height).data; let h = 2166136261; for(let i=0;i<d.length;i+=3){ h = Math.imul(h ^ d[i], 16777619); } return (h>>>0).toString(16); };
+    const out = {};
+    sel = ids[10].id; msel.add(ids[12].id); msel.add(ids[13].id); hoverPort = null;
+    for(const [k,x,y] of [[0.05,0,0],[0.1,-100,60],[0.25,300,-80],[0.4,-500,200],[0.6,-1000,300],[0.6,1200,-100],[1,-300,-100],[1.5,600,300],[2.5,-900,500],[3,0,0]]){
+      G.view.k = k; G.view.x = x; G.view.y = y; zoomT = null; lastDraw = performance.now(); lodPrev = k<0.28?0:k<0.52?1:2; lodFlash = 0;
+      draw(); out['k'+k+'_'+x+'_'+y] = hash();
+    }
+    drag = {kind:'link', n:ids[0].id, o:0, pos:{x:-400,y:-300}}; G.view.k = 0.7; G.view.x = 0; G.view.y = 0; draw(); out.dragLink = hash(); drag = null;
+    drag = {kind:'box', a:{x:-300,y:-200}, b:{x:200,y:150}}; draw(); out.box = hash(); drag = null;
+    return out;
+  },
+
   // le rendu et les panneaux ne levent aucune exception
   smoke(){
     const errs = [];
@@ -195,6 +219,7 @@ const SCENARIOS = {
   const fixture = JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures','legacy-v0.json'),'utf8'));
   const got = {};
   for(const name of Object.keys(SCENARIOS)){
+    if((name==='render') !== RENDER) continue;
     const fn = 'function '+SCENARIOS[name].toString();
     // l'horloge est figee pendant un scenario (upSound limite ses sons avec performance.now : sinon le flux aleatoire depend du temps reel)
     got[name] = await page.evaluate(`(function(){ const real = performance.now; let T = 1e6; performance.now = ()=>T; window.tick = ()=>{ T += 50; step(0.05); };
@@ -206,8 +231,8 @@ const SCENARIOS = {
   let fail = 0;
   const assert = (ok,msg)=>{ if(!ok){ fail++; console.log('  FAIL', msg); } };
   // invariants (independants des instantanes)
-  assert(got.saveRoundtrip.same && got.saveRoundtrip.packetsReset, 'sauvegarde : aller-retour fidele');
-  assert(got.smoke.errs.length===0, 'rendu/panneaux sans exception : '+got.smoke.errs.join(' | '));
+  if(!RENDER){ assert(got.saveRoundtrip.same && got.saveRoundtrip.packetsReset, 'sauvegarde : aller-retour fidele');
+  assert(got.smoke.errs.length===0, 'rendu/panneaux sans exception : '+got.smoke.errs.join(' | ')); }
   assert(consoleErrs.length===0, 'aucune erreur de console : '+consoleErrs.join(' | '));
   if(UPDATE){
     fs.writeFileSync(SNAP, JSON.stringify(got,null,1)+'\n'); console.log('instantanes regeneres :', Object.keys(got).join(', '));

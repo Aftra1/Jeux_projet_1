@@ -4,6 +4,8 @@
   "scripts": {
     "test": "node tests/run.js",
     "test:update": "node tests/run.js --update",
+    "test:render": "node tests/run.js --render",
+    "test:render:update": "node tests/run.js --render --update",
     "perf": "node tools/perf.js"
   }
 }

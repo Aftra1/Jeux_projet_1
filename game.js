@@ -461,9 +461,14 @@ function draw(){
 
   cx.save();
   cx.translate(W/2+v.x, H/2+v.y); cx.scale(v.k,v.k);
+  // zone visible en coordonnees monde (marge pour les ombres, ports, bulles et traits)
+  const vm = 40/v.k + 24, vx0 = (-W/2-v.x)/v.k - vm, vx1 = (W/2-v.x)/v.k + vm, vy0 = (-H/2-v.y)/v.k - vm, vy1 = (H/2-v.y)/v.k + vm;
 
   for(const l of G.links){
-    const p = linkPts(l), na = nodeById(l.a), nb = nodeById(l.b);
+    const na = nodeById(l.a), nb = nodeById(l.b);
+    // un lien est hors ecran si la boite de ses deux extremites (elargie des detours possibles) l'est
+    if(Math.max(na.x,nb.x)+NW+20 < vx0 || Math.min(na.x,nb.x) > vx1 || Math.max(na.y,nb.y)+NH*1.9 < vy0 || Math.min(na.y,nb.y) > vy1) continue;
+    const p = linkPts(l);
     const ca = COLORS[na.type], cb = COLORS[nb.type];
     const ml = Math.max(1, 1.6/v.k);
     cx.lineCap = 'butt'; cx.lineJoin = 'round';
@@ -480,6 +485,7 @@ function draw(){
   }
 
   for(const n of G.nodes){
+    if(n.x+NW < vx0 || n.x > vx1 || n.y+NH < vy0 || n.y > vy1) continue;   // hors ecran
     const d = DEFS[n.type], col = COLORS[n.type];
     const busy = !!n.work || (d.val && n.timer>0);
     if(far>0.02) drawNodeFar(n,d,col,busy,far,tm);
