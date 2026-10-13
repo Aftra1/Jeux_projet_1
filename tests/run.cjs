@@ -262,9 +262,13 @@ const SCENARIOS = {
   const got = {};
   for(const name of Object.keys(SCENARIOS)){
     if((name==='render') !== RENDER) continue;
+    if(process.env.TEST_PAUSE) await page.waitForTimeout(+process.env.TEST_PAUSE);   // laisse tourner la boucle du jeu entre deux scenarios (verification de stabilite)
     const fn = 'function '+SCENARIOS[name].toString();
     // l'horloge est figee pendant un scenario (upSound limite ses sons avec performance.now : sinon le flux aleatoire depend du temps reel)
-    got[name] = await page.evaluate(`(function(){ const real = performance.now; let T = 1e6; performance.now = ()=>T; window.tick = ()=>{ T += 50; step(0.05); };
+    // la boucle du jeu est en pause et les effets visuels remis a zero : sinon le nombre de particules laissees par la boucle
+    // en temps reel entre deux scenarios change le nombre de tirages aleatoires consommes (test instable)
+    got[name] = await page.evaluate(`(function(){ paused = true; parts.length = 0; floats.length = 0; lastBlip = 0; income.length = 0;
+      const real = performance.now; let T = 1e6; performance.now = ()=>T; window.tick = ()=>{ T += 50; step(0.05); };
       try{ return (${fn})(${(name==='legacyFixture'||name==='saveSafety')?JSON.stringify(fixture):name==='save46'?JSON.stringify(fixture46):''}); } finally{ performance.now = real; } })()`);
   }
   await browser.close();
