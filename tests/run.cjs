@@ -80,6 +80,55 @@ const SCENARIOS = {
     return {snaps, gain, after:{qp:G.qp, qpTotal:G.qpTotal, resets:G.resets, nodes:G.nodes.length, money:r(G.money), run:G.run, hist:G.hist}};
   },
 
+  // formules et simulations a la precision complete (aucun arrondi) : le moindre ecart de virgule flottante est detecte
+  exact(){
+    const out = {formulas:[], sims:{}, oc:[]};
+    const setups = [
+      {glob:{rev:0,spd:0,seed:0,buf:0,crit:0}, pu:{spd:0,disc:0,rev:0,off:0}, tech:{trev:0,tspd:0,tseed:0,tcost:0,tup:0,tcrit:0,toc:0,tlab:0}, qp:0, mast:0, ach:0},
+      {glob:{rev:3,spd:2,seed:1,buf:2,crit:3}, pu:{spd:1,disc:2,rev:2,off:1}, tech:{trev:2,tspd:1,tseed:3,tcost:3,tup:2,tcrit:1,toc:2,tlab:3}, qp:12, mast:1500, ach:7},
+      {glob:{rev:41,spd:27,seed:19,buf:6,crit:17}, pu:{spd:13,disc:6,rev:11,off:5}, tech:{trev:23,tspd:19,tseed:22,tcost:10,tup:9,tcrit:10,toc:10,tlab:10}, qp:4321, mast:9e6, ach:33},
+    ];
+    for(const S of setups){
+      newGame();
+      Object.assign(G.glob, S.glob); Object.assign(G.pu, S.pu); Object.assign(G.tech, S.tech); G.qpTotal = S.qp;
+      for(const t of ORDER){ G.mast[t] = S.mast; G.bought[t] = (t.length*3)%11; } for(const k in RKC) delete RKC[k];
+      for(let i=0;i<S.ach;i++) G.ach['x'+i] = true;
+      const n = G.nodes[0], u = G.nodes[1], c = addNode('compress',0,300,true), l = addNode('lab',0,600,true);
+      for(const spec of [undefined,'spd','val','eco']) for(const oc of [0,1]) for(const ev of [null,'surge','traffic','sale']){
+        for(const m of [n,u,c,l]) m.spec = spec;
+        G.oc.until = oc ? G.playtime+10 : 0; G.ev = ev ? {id:ev, until:G.playtime+10} : null;
+        out.formulas.push([
+          [n,u,c,l].map(m=>[0,7,13,44].map(lv=>speedOf(m,lv))), [n,u,c,l].map(m=>[timeOf(m), vmult(m), upCost(m), upCost(m,5), upCost(m,23), bulkCost(m,10), sellVal(m)]),
+          revMult(), critChance(), bufCap(), seedV(DEFS.source), seedV(DEFS.mega), [1,37.5,1e6].map(rpOf), infl(),
+          ORDER.map(t=>[buyCost(t), buyCost(t,3)]), GLOBALS.map(gUpCost), PU.map(puCost), TECH.map(techCost), [0,1,2,5,8].map(startCash),
+          spec===undefined && oc===0 ? BPS.map(bpCost) : 0,
+        ]);
+      }
+      G.ev = null; G.oc = {until:0, ready:0}; G.playtime = 1234.567; useOverclock(); out.oc.push([G.oc.until, G.oc.ready]);
+    }
+    // simulations : chaque type de noeud entre des sources et des uploads, avec ameliorations, Overclock et evenements
+    for(const t of ORDER){
+      if(t==='source' || t==='upload') continue;
+      newGame(); G.nodes.length = 0; G.links.length = 0; G.nextId = 1;
+      Object.assign(G.glob, setups[1].glob); Object.assign(G.tech, setups[1].tech); G.pu.rev = 2; G.pu.spd = 1; G.qpTotal = 12;
+      Math.__seed(4321);
+      const d = DEFS[t], tgt = addNode(t, 0, 0, true); tgt.level = 13; tgt.spec = 'spd'; tgt.thr = 7;
+      for(let i=0;i<d.ins;i++){ const s = addNode(i%2?'mega':'source', -300, i*100, true); s.level = 11; s.spec = 'val'; connect(s.id,0,tgt.id,i); }
+      for(let j=0;j<d.outs;j++){ const v = addNode(j%2?'lab':'upload', 300, j*100, true); v.level = 12; v.spec = j%2?'eco':'val'; connect(tgt.id,j,v.id,0); }
+      for(let i=0;i<900;i++){
+        if(i===200) G.oc.until = G.playtime+15;
+        if(i===400) G.ev = {id:'surge', until:G.playtime+20};
+        if(i===600) G.ev = {id:'traffic', until:G.playtime+20};
+        if(i===450) tgt.thr = 1.5;
+        if(i===700 && d.outs>1) G.links = G.links.filter(k=>!(k.a===tgt.id && k.ao===0));   // sortie debranchee : bascule ou perte
+        tick();
+      }
+      out.sims[t] = [G.money, G.run, G.lifetime, G.files, G.rp, G.rpTotal, G.playtime, G.mast[t]||0, G.nodes.map(m=>[m.work?m.work.v:null, m.work?m.work.rem:null, m.timer, m.inb, m.outq, m.rr]), G.links.map(k=>k.packets)];
+    }
+    newGame();
+    return out;
+  },
+
   // pose de noeuds et ameliorations
   upgrades(){
     const r = x => typeof x==='number' ? +x.toPrecision(10) : x;

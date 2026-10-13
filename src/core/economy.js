@@ -1,38 +1,35 @@
 // Couts, multiplicateurs et formules d'economie (prix, vitesses, revenus, points quantiques, maitrise, schemas).
 import { G } from './state.js';
-import { evActive } from './events.js';
-import { ocActive } from './prestige.js';
 import { DEFS, TIERS } from '../data/nodes.js';
+import { price, stat } from './stats.js';
+import { NODE_GROW, UPGRADE_GROW, tierMult } from '../data/stats.js';
 
-export const techCost = d => Math.ceil(d.base * Math.pow(d.grow, G.tech[d.id]));
+export const techCost = d => price('cost.tech', d.base, d.grow, G.tech[d.id]);
 export const startCash = l => Math.floor((100 + 150 * l * l) * (G ? infl() : 1));
 export const achCount = () => Object.keys(G.ach).length;
 export const qpMult = q => Math.pow(1 + q, 0.6);   // bonus de revenus des points quantiques (sous-linéaire)
-const BG = 1.28;   // croissance du prix par exemplaire déjà acheté
-const CS = 1.5;   // échelle globale des prix (équilibrage)
 export const INFL = 0.9, FREEQ = 2;   // inflation : part du bonus quantique (au-delà des FREEQ premiers points) répercutée sur les prix
 export const infl = () => Math.pow(qpMult(Math.max(0, G.qpTotal - FREEQ)), INFL);
-const saleMult = () => evActive('sale') ? 0.7 : 1;
-export const buyCost = (type,extra=0) => Math.ceil(saleMult() * infl() * CS * DEFS[type].cost * Math.pow(BG, (G.bought[type]||0)+extra) * (1 - 0.05*G.pu.disc) * (1 - 0.02*G.tech.tcost));
+export const buyCost = (type,extra=0) => price('cost.node', DEFS[type].cost, NODE_GROW, (G.bought[type]||0)+extra, {type});
 export const specsFor = n => ('val' in DEFS[n.type] || n.type==='upload') ? ['spd','val','eco'] : ['spd','eco'];
 export const tierOf = lv => Math.min(TIERS.length-1, Math.floor(lv/10));
-export const vmult = n => n.spec==='val' && ('val' in DEFS[n.type] || n.type==='upload') ? 1.25 : 1;
-export const upCost = (n, lvl) => Math.ceil(saleMult() * infl() * CS * DEFS[n.type].cost * 0.8 * Math.pow(1.6, lvl===undefined?n.level:lvl) * (1 - 0.03*G.tech.tup) * (n.spec==='eco'?0.7:1) + 10);
-export const gUpCost = d => Math.ceil(saleMult() * infl() * CS * d.base * Math.pow(d.grow, G.glob[d.id]));
-export const puCost = d => Math.ceil(d.base * Math.pow(d.grow, G.pu[d.id]) * (d.grow===1?1:1));
+export const vmult = n => stat('value', n);
+export const upCost = (n, lvl) => price('cost.upgrade', DEFS[n.type].cost, UPGRADE_GROW, lvl===undefined?n.level:lvl, n);
+export const gUpCost = d => price('cost.global', d.base, d.grow, G.glob[d.id]);
+export const puCost = d => price('cost.quantum', d.base, d.grow, G.pu[d.id]);
 // Maitrise : chaque type de noeud gagne des rangs avec le nombre de fichiers traites (permanent, +4 % de vitesse par rang)
 export const MASTTH = [200,1200,7200,43000,260000,1.5e6,9.3e6,5.6e7];
 const mastRank = type => { const c = G.mast[type]||0; let r=0; while(r<MASTTH.length && c>=MASTTH[r]) r++; return r; };
 export const RKC = {};
 export const rankOf = t => RKC[t]===undefined ? (RKC[t]=mastRank(t)) : RKC[t];
-const lvlMult = lv => Math.pow(1.5, Math.floor(lv/10));   // palier : x1,5 de vitesse tous les 10 niveaux
-export const speedOf = (n,lv=n.level) => (n.spec==='spd'?1.25:1) * (1 + 0.3*lv) * lvlMult(lv) * (1 + 0.04*rankOf(n.type)) * (1 + 0.1*G.glob.spd) * (1 + 0.05*G.pu.spd) * (ocActive()?2:1) * (1 + 0.04*G.tech.tspd) * (evActive('surge')?1.5:1);
+const lvlMult = tierMult;
+export const speedOf = (n,lv=n.level) => stat('speed', n, lv);
 export const timeOf = n => DEFS[n.type].t / speedOf(n);
-export const bufCap = () => 3 + G.glob.buf;
-export const revMult = () => (1 + 0.25*G.glob.rev) * qpMult(G.qpTotal) * (1 + 0.02*achCount()) * (1 + 0.1*G.pu.rev) * (1 + 0.08*G.tech.trev) * (evActive('traffic')?2:1);
-export const critChance = () => 0.03*G.glob.crit + 0.02*G.tech.tcrit;
-export const seedV = def => def.val * (1 + 0.2*G.glob.seed) * (1 + 0.08*G.tech.tseed);
-export const rpOf = v => 0.5*Math.pow(v,0.3)*(1+0.2*G.tech.tlab);
+export const bufCap = () => stat('buffer');
+export const revMult = () => stat('revenue');
+export const critChance = () => stat('crit');
+export const seedV = def => stat('seed', null, 0, def.val);
+export const rpOf = v => stat('research', null, 0, 0.5*Math.pow(v,0.3));
 // Crédits à gagner dans un run pour obtenir g points quantiques : de plus en plus durs à obtenir
 const QPB = 0.1;
 export const qpNeed = g => 1e5*Math.pow(g,2.8)*Math.exp(QPB*Math.min(48, Math.pow(Math.log(1+g),2)));

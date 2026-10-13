@@ -6,6 +6,7 @@ import { RKC } from './economy.js';
 import { ZMAX, ZMIN } from './geometry.js';
 import { DEFS, SPECS } from '../data/nodes.js';
 import { TECH } from '../data/upgrades.js';
+import { stat } from './stats.js';
 
 // Format : JSON dans localStorage. `ver` = version du schema (SAVE_VERSION). Pour changer le format :
 // incrementer SAVE_VERSION et ajouter MIGRATIONS[nouvelle version] = d => d' (transforme une sauvegarde de la version precedente).
@@ -143,7 +144,7 @@ export function load(){
   if(!G.nodes.length) return false;
   const secs = Math.min((Date.now()-G.savedAt)/1000, 3*3600);
   if(secs>30 && G.lastRate>0){
-    const gain = G.lastRate*secs*(0.4+0.08*G.pu.off);
+    const gain = G.lastRate*secs*stat('offline');
     G.money+=gain; G.run+=gain; G.lifetime+=gain;
     setTimeout(()=>emit('toast', `Pendant ton absence (${Math.floor(secs/60)} min) : +${fmt(gain)} crédits`),600);
   }

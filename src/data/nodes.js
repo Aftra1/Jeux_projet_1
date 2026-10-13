@@ -1,4 +1,5 @@
 // Donnees des noeuds : dimensions, types, couleurs, paliers de niveau et specialisations.
+import { flat } from './mods.js';
 export const NW = 160, NH = 70;
 export const DEFS = {
   source:  {name:'Source',        icon:'SRC', ins:0, outs:1, cost:15,    t:1.0,  val:1,    unlock:0,   desc:'Génère un fichier de valeur 1.'},
@@ -21,5 +22,9 @@ export const DEFS = {
 };
 export const ORDER = Object.keys(DEFS);
 export const COLORS = {source:'#4fd1c5',upload:'#f6c453',split:'#9f7aea',compress:'#63b3ed',merge:'#f687b3',encrypt:'#68d391',clone:'#f6ad55',sorter:'#a3e635',boost:'#ecc94b',ai:'#fc8181',mega:'#38b2ac',lab:'#76e4f7',quantum:'#b794f4',sing:'#ffffff',neural:'#f56565',dim:'#ed64a6',omega:'#faf089'};
-export const SPECS = {spd:{name:'Turbo',desc:'Vitesse ×1,25'}, val:{name:'Rendement',desc:'Valeur ×1,25 (sources, Upload)'}, eco:{name:'Économe',desc:'Améliorations de ce nœud -30 %'}};
+export const SPECS = {
+  spd:{name:'Turbo', desc:'Vitesse ×1,25', mods:[{stat:'speed', by:flat(1.25)}]},
+  val:{name:'Rendement', desc:'Valeur ×1,25 (sources, Upload)', mods:[{stat:'value', by:flat(1.25)}]},
+  eco:{name:'Économe', desc:'Améliorations de ce nœud -30 %', mods:[{stat:'cost.upgrade', by:flat(0.7)}]},
+};
 export const TIERS = [['Brut','#8794b3'],['Bronze','#d69e6b'],['Argent','#cbd5e0'],['Or','#f6c453'],['Platine','#76e4f7'],['Diamant','#b794f4'],['Mythique','#f687b3'],['Légende','#ffffff']];
