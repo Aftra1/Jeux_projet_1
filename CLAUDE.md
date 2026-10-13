@@ -10,23 +10,26 @@ Ce fichier se suffit a lui-meme : il est relu au debut de chaque session et copi
 - Jeu publie : https://claude.ai/artifact/V5QUMQCPDnLTjdGnSA6c5X (version 47, phase 1).
 - Ce document publie : https://claude.ai/artifact/PXGHM5TAQ9JeCsNnTpSCpE (page privee, republiee au meme lien a chaque mise a jour).
 
-## Architecture (depuis la phase 1)
+## Architecture (phases 1 et 3)
 
 Modules ES dans `src/`, regroupes par esbuild en un seul fichier.
 
 | Dossier | Contenu |
 |---|---|
-| `src/data/` | Donnees : noeuds (types, couleurs, paliers, specialisations), ameliorations (globales, quantiques, recherche), schemas, evenements |
-| `src/core/` | Logique sans DOM, executable dans Node : `bus` (evenements synchrones), `state` (etat G, noeuds, liens), `economy` (couts, vitesses, revenus), `geometry`, `sim` (simulation), `events` (evenements reseau), `contracts`, `progression` (succes, objectifs), `prestige` (Overclock, Reboot), `actions` (achats, vente, annulation, schemas), `save`, `format` |
+| `src/data/` | Donnees pures : registre des noeuds (`nodes`), ameliorations (`upgrades`), evenements, succes et objectifs (`progression`), ordre des statistiques (`stats`), assistants de modificateurs (`mods`), schemas |
+| `src/core/` | Logique sans DOM, executable dans Node : `bus`, `state` (etat G), `stats` (moteur de statistiques), `kinds` (genres de noeuds), `registry` (verification des donnees, ajout a l'execution), `economy`, `geometry`, `sim`, `events`, `contracts`, `progression` (mesures), `prestige`, `actions`, `save`, `format` |
 | `src/render/` | Canvas : `canvas`, `view` (zoom), `icons`, `effects`, `draw`, `minimap` |
 | `src/ui/` | DOM : `state` (selection, onglet, pause), `dom`, `audio`, `hud`, `shop`, `selection`, `tabs`, `gold` |
 | `src/input/` | `pointer` (souris, tactile), `keyboard`, `hit` |
 | `src/main.js` | Abonnements de l'interface au bus, chargement, sauvegarde automatique, boucle de jeu |
 
-- Regle verifiee par `npm test` : `core` n'importe ni `ui`, ni `render`, ni `input`, n'utilise aucune API de la page et se charge dans Node. Le core signale messages et effets par `emit(...)` ; l'interface s'abonne dans `main.js`.
+- Regles verifiees par `npm test` : `core` n'importe ni `ui`, ni `render`, ni `input`, n'utilise aucune API de la page et se charge dans Node ; `data` n'importe que `data` et ses fonctions ne lisent que leurs arguments. Le core signale messages et effets par `emit(...)` ; l'interface s'abonne dans `main.js`.
+- Statistiques : pli de gauche a droite sur une liste ordonnee de modificateurs (`{stat, by:pct(10), when:'type:x'}`), ordre historique fige dans `data/stats.js`, groupes `@node`, `@upgrade`, `@temporary` pour les nouvelles sources. Couts : une courbe `price` (BASE, GROWTH).
+- Noeuds : un type = une entree de `data/nodes.js` ; genres `producer`, `transform` (sorties next / copy / threshold), `combine`, `sink` (credits / research). Comportement nouveau = un genre de plus dans `core/kinds.js`. Guide : `docs/AJOUTER-UN-NOEUD.md`.
+- Toute donnee inconnue (genre, champ, statistique, operation, condition, groupe, mesure...) = erreur explicite au chargement.
 - Aucun fichier ne depasse 200 lignes (le plus gros : `ui/tabs.js`, 196).
-- Pont de compatibilite : le build expose sur `window` chaque nom de premier niveau (comme le script unique de la v46) pour la console, les tests et les outils.
-- Autres fichiers : `index.html` (gabarit), `style.css`, `tests/run.cjs` (tests de caracterisation sur le fichier builde, instantanes `tests/snapshots.json`, empreintes `tests/render.json`, sauvegardes `tests/fixtures/`), `tools/` (build, verification d'architecture, perf, bot), `docs/AUDIT.md`, `docs/ROADMAP.md`, `docs/PHASE3-CONCEPTION.md`.
+- Build : `dist/artifact.html` et `dist/index.html` = version publiee, sans pont (seul `window.__game`). `dist/test.html` = version de test avec le pont (chaque nom de premier niveau sur `window`), pour les tests et l'outil de perf.
+- Autres fichiers : `index.html` (gabarit), `style.css`, `tests/run.cjs` (tests de caracterisation sur le fichier builde, instantanes `tests/snapshots.json`, empreintes `tests/render.json`, sauvegardes `tests/fixtures/`), `tools/` (build, verification d'architecture, perf, bot), `tests/blackbox.cjs` (version publiee contre version de test), `docs/AUDIT.md`, `docs/ROADMAP.md`, `docs/PHASE3-CONCEPTION.md`, `docs/AJOUTER-UN-NOEUD.md`.
 
 Systemes de jeu : 17 types de noeuds, ameliorations par noeud (paliers, specialisations Turbo / Rendement / Econome), ameliorations globales, Reboot quantique (prestige), recherche (Laboratoire), maitrise, contrats, evenements reseau, objectifs, succes, schemas, Overclock, fichier dore.
 
@@ -34,11 +37,11 @@ Sauvegarde : localStorage, cle `uploadlab2`, format versionne (`ver`, migrations
 
 ## Commandes
 
-- `npm install` puis `npm run build` : produit `dist/artifact.html` (publie) et `dist/index.html` (jouer en local).
-- `npm test` : build, verification d'architecture, 10 scenarios de caracterisation. Doit afficher « tous les tests passent ».
+- `npm install` puis `npm run build` : produit `dist/artifact.html` (publie), `dist/index.html` (jouer en local) et `dist/test.html` (tests).
+- `npm test` : build, verification d'architecture, 16 scenarios de caracterisation (dont `exact` a pleine precision, `save46`, `save47`, `validation`, `fictif`), puis serie boite noire (3 cas). Doit afficher « tous les tests passent » puis « version publiee identique a la version de test ».
 - `npm run test:render` : empreintes de pixels du rendu (propres a la machine). `--root=<dossier>` teste une autre copie.
 - `npm run test:update` : regenere les instantanes, uniquement pour un changement de comportement voulu.
-- `npm run perf` : tableau de performance (bureau et mobile simule, CPU ralenti 4x).
+- `npm run perf` : tableau de performance (bureau et mobile simule, CPU ralenti 4x), dont le pire cas `mixte` (600 noeuds, tous genres et bonus actifs).
 - `node tools/balance.mjs <heures> '<options JSON>' | node tools/table.cjs` : bot d'equilibrage dans Node (option `seed` pour une execution reproductible).
 - `node tools/doc-page.cjs CLAUDE.md <sortie.html>` : page de ce document, republiee au lien ci-dessus.
 - Playwright : `/opt/pw-browsers/chromium` (ou `PW_CHROMIUM`), module trouve via `npm root -g`.
@@ -57,34 +60,36 @@ Sauvegarde : localStorage, cle `uploadlab2`, format versionne (`ver`, migrations
 - Bot d'equilibrage : vraies formules du core ; ses chiffres sont informatifs, aucun changement d'equilibrage sans accord.
 - Un fichier qui depasse ~400 lignes est signale avec une proposition de decoupage.
 - Phase 1 validee et publiee (version 47).
-- Phase 3 : refonte sans changement de gameplay. Si un instantane change, meme d'une fraction infime (virgule flottante), ne PAS le regenerer : s'arreter, expliquer l'ecart (valeur, ampleur, cause) et proposer une solution. Conserver l'ordre actuel des multiplications.
-- Phase 3, preuve finale : un noeud fictif ajoute uniquement dans les donnees des tests, sans autre modification de code ; guide `docs/AJOUTER-UN-NOEUD.md`.
-- Pont de compatibilite : a reserver a une version de test et publier sans pont (plan dans `docs/ROADMAP.md`, non execute).
-- Points d'arret phase 3 : apres la conception (`docs/PHASE3-CONCEPTION.md`), puis en fin de phase (resume, perf avant/apres, preuve du noeud fictif, CLAUDE.md republie).
+- Refontes : si un instantane ou une empreinte change, meme d'une fraction infime (virgule flottante), ne PAS regenerer : s'arreter, expliquer l'ecart (valeur, ampleur, cause), proposer une solution. Conserver l'ordre des calculs.
+- Limite de performance : `step` sous 2 ms a 600 noeuds en mobile simule 4x ; sinon s'arreter et proposer une solution.
+- Statistiques : ordre historique fige ; nouvelles sources dans les groupes. Limite des genres acceptee (comportement nouveau = une fonction dans `core/kinds.js`).
+- Pont retire de la version publiee (fin de phase 3), garde dans la version de test ; pas de minification pour l'instant.
+- Negociation affiche « 10 % » sans signe : garde tel quel, a corriger plus tard.
 
 ## Etat de la feuille de route
 
 - Phase 0, filet de securite : terminee.
 - Phase 1, modules + build esbuild : terminee, validee, publiee (version 47).
 - Phase 2 : n'existe plus.
-- Phase 3, registre de noeuds et statistiques par modificateurs (ajouter un noeud = ajouter une entree de donnees) : conception ecrite (`docs/PHASE3-CONCEPTION.md`), en attente d'accord avant de coder. Derniere etape proposee : publier sans le pont.
+- Phase 3, registre de noeuds et statistiques par modificateurs : terminee (6 commits), en attente de validation et de « ok publie » (aucun changement visible pour les joueurs).
 - Phase 4, performance du rendu (cache de sprites, couches) : plus tard ; le budget mobile est deja tenu.
 - Phase 5, contenu : nouveaux noeuds et evenements en donnees, separation des textes.
 
-Performance (rendu logiciel, mobile simule CPU 4x, 300 noeuds) : draw 2,6 a 9 ms selon la vue (budget 16 ms), step < 0,3 ms. Phase 1 sans regression mesurable.
+Performance (rendu logiciel, mobile simule CPU 4x) : draw 2,4 a 10 ms selon la vue (budget 16 ms), inchange par la phase 3. `step` a 600 noeuds : 0,2-0,4 -> 0,4-0,5 ms (chaines simples), 0,5-0,85 -> 1,05-1,45 ms (pire cas mixte). Fichier publie : 168,4 Ko.
 
 ## Questions ouvertes
 
-1. Accord sur la conception de la phase 3 (registre par genres, pli ordonne de modificateurs, courbe de cout, conditions declaratives, textes d'effet) et sur le moment de retirer le pont.
-2. Plus tard : equilibrage des contrats en fin de partie (le seuil +25 % de debit en 90 s devient difficile quand les ameliorations sont rares) ; a simuler avant toute decision.
-3. Ecart du bot apres correction (informatif) : 16 Reboots en 7 h au lieu de 17, premiers Reboots ~1 min plus tard. A garder en tete pour de futurs reglages, aucune action demandee.
+1. Validation de la phase 3 et « ok publie » (version publiee sans pont ; aucun changement visible pour les joueurs).
+2. Plus tard : texte de Negociation (« 10 % » sans signe) a corriger.
+3. Plus tard : equilibrage des contrats en fin de partie (le seuil +25 % de debit en 90 s devient difficile quand les ameliorations sont rares) ; a simuler avant toute decision.
+4. Ecart du bot apres la phase 1 (informatif) : 16 Reboots en 7 h au lieu de 17. Aucune action demandee.
 
 ## Journal (5 dernieres modifications)
 
-Avant : visuels, mobile, commandes souris, sauvegarde robuste, gains de performance (phase 0), CLAUDE.md et decisions, build esbuild (identique a l'ancien), harnais de test stabilise.
+Avant : visuels, mobile, commandes souris, sauvegarde robuste, phase 0 (perf), CLAUDE.md, phase 1 (modules, build esbuild, bot dans Node), version 47 publiee, conception de la phase 3.
 
-1. Decoupage en modules : data, core (bus d'evenements, le coeur ne touche plus a l'interface), render, ui, input ; comportement identique.
-2. Achats communs au jeu et au bot ; bot d'equilibrage dans Node avec les vraies formules (corrige : capital de depart applique a tort au run en cours).
-3. Verification automatique de l'architecture dans npm test ; documentation a jour.
-4. Phase 1 validee et publiee (version 47).
-5. Conception de la phase 3 (`docs/PHASE3-CONCEPTION.md`) et plan de retrait du pont dans la feuille de route.
+1. Statistiques par modificateurs : moteur (pli ordonne), courbe de cout unique ; scenario de test `exact` a pleine precision (genere sur la version 47).
+2. Succes et objectifs declaratifs, textes d'effet derives, `data/` independant du coeur.
+3. Registre de noeuds par genres, verification des donnees au chargement ; test `save47` (vraie sauvegarde v47).
+4. Preuve : noeud fictif et technologie ajoutes uniquement dans les tests ; guide `docs/AJOUTER-UN-NOEUD.md`.
+5. Performance (facteurs globaux calcules une fois par pas, pire cas dans `npm run perf`) ; puis version publiee sans pont, serie boite noire dans `npm test`.
