@@ -12,7 +12,7 @@ export const GLOBALS = [
 export const PU = [
   {id:'start', name:'Capital de départ',     desc:'Démarre chaque run avec plus de crédits (proportionnel à la hausse des prix)', base:1, grow:2, max:8, eff:(l,h)=>'Crédits de départ : '+h.fmt(h.startCash(l))},
   {id:'spd',   name:'Surcadençage',          desc:'+5 % de vitesse permanente',             base:1, grow:2, max:16, mods:[{stat:'speed', by:pct(5)}]},
-  {id:'disc',  name:'Négociation',           desc:'5 % sur le prix des nœuds',              base:2, grow:2, max:6,  eff:l=>''+l*5+' %', mods:[{stat:'cost.node', by:less(5)}]},
+  {id:'disc',  name:'Négociation',           desc:'-5 % sur le prix des nœuds par niveau', base:2, grow:2, max:6,  mods:[{stat:'cost.node', by:less(5)}]},
   {id:'off',   name:'Serveurs de nuit',      desc:'+8 % de gains hors-ligne (base 40 %, 3 h max)',   base:2, grow:2, max:5,  eff:l=>(40+l*8)+' %', mods:[{stat:'offline', by:addPct(8)}]},
   {id:'rev',   name:'Amplificateur quantique', desc:'+10 % de revenus permanents', base:3, grow:2, max:16, mods:[{stat:'revenue', by:pct(10)}]},
   {id:'auto',  name:'Ingénieur automatique', desc:'Améliore automatiquement tes nœuds',      base:10,grow:1, max:1,  eff:l=>l?'Actif':'—'},
