@@ -41,12 +41,15 @@ Mesures de `tools/perf.js` (ms, meilleur de 3, rendu logiciel). « mobile 4x » 
 - `game.js` : 1728 -> 1670 lignes (code mort retire).
 - Limites : charge synthetique (chaines de noeuds), rasterisation logicielle, pas de test sur appareil reel. Les empreintes de rendu garantissent que l'image est identique a celle d'avant.
 
-## Phase 1 : modules et build esbuild
+## Phase 1 : modules et build esbuild (terminee, en attente de validation)
 
-- Decouper `game.js` en `data/`, `core/` (etat, simulation, economie, sauvegarde), `render/`, `ui/`, `input/`. `core` n'importe ni `ui` ni `render` ; il emet des evenements (`toast`, `float`, `sound`).
-- Build esbuild vers un fichier unique pour l'Artifact (remplace `build.py`). Les imports ES natifs ne fonctionnent pas depuis `file://`.
-- `tools/bot.js` utilise les vraies formules du jeu au lieu d'une copie.
-- JSDoc `@ts-check` sur l'etat et les modules purs.
+- `src/` : `data/` (4 modules), `core/` (12 modules, sans DOM, chargeable dans Node), `render/` (6), `ui/` (8), `input/` (3), `main.js` (branchements et boucle). Plus gros fichier : `ui/tabs.js`, 196 lignes.
+- Le core signale messages, sons, effets et rafraichissements par un bus synchrone ; les achats (globaux, quantiques, recherche, noeuds, specialisation) sont des fonctions du core appelees par l'interface et par le bot.
+- Build esbuild (`tools/build.cjs`) : un seul fichier, `dist/artifact.html`. Un pont genere expose sur `window` les 249 noms de premier niveau de la v46 (console, tests, outils).
+- `npm test` construit, verifie l'architecture (`tools/check-deps.mjs`) puis teste le fichier builde.
+- Equivalence avec la v46 : instantanes regeneres sur le fichier de la v46 puis identiques a chaque commit ; empreintes de rendu identiques ; sauvegarde reelle v46 rechargee sans perte ; 17 clics d'achat identiques ; anciennes batteries identiques.
+- Bot d'equilibrage (`tools/bot.mjs`) : dans Node, avec les vraies formules ; 7 h simulees en 9 s.
+- Performance : pas de regression mesurable (deux series croisees v46 / phase 1, ecarts dans le bruit d'environ 1 ms). Fichier publie : 129,6 Ko -> 164,8 Ko (pont et exports).
 
 ## Phase 3 : registre de noeuds et statistiques par modificateurs
 
@@ -70,6 +73,6 @@ Nouveaux noeuds et evenements en donnees, separation des textes (i18n).
 
 ## Tests (`npm test`)
 
-`tests/run.js` lance le vrai jeu dans Chromium avec un generateur aleatoire seede et une horloge figee, et compare 7 scenarios a `tests/snapshots.json` : formules (formats, couts, vitesses, modificateurs), une chaine par type de noeud (60 s de jeu), une partie complete avec evenements, contrats, succes et reboot, ameliorations, sauvegarde (aller-retour et sauvegarde ancienne `tests/fixtures/legacy-v0.json`), rendu et panneaux. `npm run test:update` regenere les instantanes : uniquement pour un changement de comportement voulu.
+`tests/run.cjs` lance le vrai jeu (fichier builde `dist/index.html`) dans Chromium avec un generateur aleatoire seede et une horloge figee, et compare 7 scenarios a `tests/snapshots.json` : formules (formats, couts, vitesses, modificateurs), une chaine par type de noeud (60 s de jeu), une partie complete avec evenements, contrats, succes et reboot, ameliorations, sauvegarde (aller-retour et sauvegarde ancienne `tests/fixtures/legacy-v0.json`), rendu et panneaux. `npm run test:update` regenere les instantanes : uniquement pour un changement de comportement voulu.
 
 `npm run test:render` compare des empreintes de pixels du canvas (`tests/render.json`) sur 12 vues : utile pour toute optimisation de rendu, mais propre a la machine (polices, anticrenelage), donc hors de `npm test`. `node tests/run.js --render --root=<dossier>` permet de l'executer sur une autre copie du depot pour comparer avant/apres.

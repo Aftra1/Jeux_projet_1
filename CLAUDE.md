@@ -10,33 +10,38 @@ Ce fichier se suffit a lui-meme : il est relu au debut de chaque session et copi
 - Jeu publie : https://claude.ai/artifact/V5QUMQCPDnLTjdGnSA6c5X (version 46).
 - Ce document publie : https://claude.ai/artifact/PXGHM5TAQ9JeCsNnTpSCpE (page privee, republiee au meme lien a chaque mise a jour).
 
-## Architecture actuelle (avant la phase 1)
+## Architecture (depuis la phase 1)
 
-| Fichier | Role |
+Modules ES dans `src/`, regroupes par esbuild en un seul fichier.
+
+| Dossier | Contenu |
 |---|---|
-| `index.html` | Squelette DOM (barre du haut, panneaux, boutique, dialogue), charge `style.css` et `game.js` |
-| `style.css` | Style plat sombre ; bloc mobile `@media(max-width:700px)` |
-| `game.js` | Tout le jeu (~1670 lignes, script classique, etat global `G`) : donnees, economie, simulation, sauvegarde, rendu canvas, interface DOM, entrees souris/tactile |
-| `tests/run.js` | Tests de caracterisation : lance le vrai jeu dans Chromium (Playwright), aleatoire seede, horloge figee, compare a `tests/snapshots.json` |
-| `tests/render.json` | Empreintes de pixels du canvas sur 12 vues (propres a la machine) |
-| `tests/fixtures/legacy-v0.json` | Sauvegarde au format d'avant le versionnage |
-| `tools/perf.js` | Mesure step / draw / sauvegarde (bureau et mobile simule, CPU ralenti 4x) |
-| `tools/bot.js`, `balance.js`, `table.js` | Bot d'equilibrage (joue au meilleur retour sur investissement). Defaut connu : recopie des formules d'economie au lieu d'utiliser celles du jeu (corrige en phase 1) |
-| `docs/AUDIT.md`, `docs/ROADMAP.md` | Audit technique et feuille de route detaillee |
+| `src/data/` | Donnees : noeuds (types, couleurs, paliers, specialisations), ameliorations (globales, quantiques, recherche), schemas, evenements |
+| `src/core/` | Logique sans DOM, executable dans Node : `bus` (evenements synchrones), `state` (etat G, noeuds, liens), `economy` (couts, vitesses, revenus), `geometry`, `sim` (simulation), `events` (evenements reseau), `contracts`, `progression` (succes, objectifs), `prestige` (Overclock, Reboot), `actions` (achats, vente, annulation, schemas), `save`, `format` |
+| `src/render/` | Canvas : `canvas`, `view` (zoom), `icons`, `effects`, `draw`, `minimap` |
+| `src/ui/` | DOM : `state` (selection, onglet, pause), `dom`, `audio`, `hud`, `shop`, `selection`, `tabs`, `gold` |
+| `src/input/` | `pointer` (souris, tactile), `keyboard`, `hit` |
+| `src/main.js` | Abonnements de l'interface au bus, chargement, sauvegarde automatique, boucle de jeu |
 
-Systemes de jeu : 17 types de noeuds, ameliorations par noeud (paliers Brut a Legende, specialisations Turbo / Rendement / Econome), ameliorations globales, Reboot quantique (prestige, points quantiques), recherche (Laboratoire, points de recherche), maitrise par type, contrats, evenements reseau, objectifs, succes, schemas (groupes de noeuds), Overclock, fichier dore.
+- Regle verifiee par `npm test` : `core` n'importe ni `ui`, ni `render`, ni `input`, n'utilise aucune API de la page et se charge dans Node. Le core signale messages et effets par `emit(...)` ; l'interface s'abonne dans `main.js`.
+- Aucun fichier ne depasse 200 lignes (le plus gros : `ui/tabs.js`, 196).
+- Pont de compatibilite : le build expose sur `window` chaque nom de premier niveau (comme le script unique de la v46) pour la console, les tests et les outils.
+- Autres fichiers : `index.html` (gabarit), `style.css`, `tests/run.cjs` (tests de caracterisation sur le fichier builde, instantanes `tests/snapshots.json`, empreintes `tests/render.json`, sauvegardes `tests/fixtures/`), `tools/` (build, verification d'architecture, perf, bot), `docs/AUDIT.md`, `docs/ROADMAP.md`.
 
-Sauvegarde : localStorage, cle `uploadlab2`, format versionne (`ver`, migrations), copie de secours `uploadlab2.bak` (toutes les 5 min, avant reboot et import), sauvegarde illisible conservee (`uploadlab2.unreadable`), validation a l'import.
+Systemes de jeu : 17 types de noeuds, ameliorations par noeud (paliers, specialisations Turbo / Rendement / Econome), ameliorations globales, Reboot quantique (prestige), recherche (Laboratoire), maitrise, contrats, evenements reseau, objectifs, succes, schemas, Overclock, fichier dore.
+
+Sauvegarde : localStorage, cle `uploadlab2`, format versionne (`ver`, migrations), copie de secours `uploadlab2.bak`, sauvegarde illisible conservee, validation a l'import.
 
 ## Commandes
 
-- `npm test` : tests de caracterisation (8 scenarios). Doit afficher « tous les tests passent ».
-- `npm run test:update` : regenere les instantanes. Uniquement pour un changement de comportement voulu et accepte.
-- `npm run test:render` : compare les empreintes de pixels du rendu ; a lancer apres toute modification du rendu. `--root=<dossier>` pour tester une autre copie.
-- `npm run perf` : tableau de performance.
-- `node tools/doc-page.cjs CLAUDE.md <sortie.html>` : page HTML de ce document (rendu + bouton de copie du Markdown), republiee au lien ci-dessus (passer ce lien comme `url` depuis une nouvelle session).
-- Playwright : `/opt/pw-browsers/chromium` (ou variable `PW_CHROMIUM`), module trouve via `npm root -g`.
-- Build actuel de l'Artifact : script Python local hors depot qui concatene `index.html` + `style.css` + `game.js` en un fichier. Remplace par un build esbuild dans le depot en phase 1.
+- `npm install` puis `npm run build` : produit `dist/artifact.html` (publie) et `dist/index.html` (jouer en local).
+- `npm test` : build, verification d'architecture, 10 scenarios de caracterisation. Doit afficher « tous les tests passent ».
+- `npm run test:render` : empreintes de pixels du rendu (propres a la machine). `--root=<dossier>` teste une autre copie.
+- `npm run test:update` : regenere les instantanes, uniquement pour un changement de comportement voulu.
+- `npm run perf` : tableau de performance (bureau et mobile simule, CPU ralenti 4x).
+- `node tools/balance.mjs <heures> '<options JSON>' | node tools/table.cjs` : bot d'equilibrage dans Node (option `seed` pour une execution reproductible).
+- `node tools/doc-page.cjs CLAUDE.md <sortie.html>` : page de ce document, republiee au lien ci-dessus.
+- Playwright : `/opt/pw-browsers/chromium` (ou `PW_CHROMIUM`), module trouve via `npm root -g`.
 
 ## Decisions prises
 
@@ -44,41 +49,38 @@ Sauvegarde : localStorage, cle `uploadlab2`, format versionne (`ver`, migrations
 - Objectifs : ajouter progressivement des noeuds et des evenements ; bonne tenue sur mobile.
 - Un seul fichier final pour l'Artifact, produit par esbuild.
 - Aucun changement de gameplay ou d'equilibrage sans accord explicite.
-- Un commit par etape, message clair. Chiffres avant/apres pour chaque optimisation de performance.
-- Tests d'abord : figer le comportement avant de modifier, verifier les tests par des regressions volontaires.
-- Phase 1 puis phase 3, point d'arret obligatoire apres la phase 1 (resume, chiffres de perf avant/apres, ecart du bot, puis attendre la validation).
+- Un commit par etape, message clair, tests verts a chaque commit. Chiffres avant/apres pour la performance.
+- Tests d'abord : figer le comportement avant de modifier ; verifier les tests par des regressions volontaires.
 - Publication du jeu (option A) : jamais sans « ok publie » de l'utilisateur, avec la liste des changements visibles pour les joueurs fournie avant.
-- Exception : ce document (CLAUDE.md) est republie sans accord, toujours au meme lien, a chaque mise a jour.
+- Exception : ce document est republie sans accord, toujours au meme lien, a chaque mise a jour.
 - Mettre ce fichier a jour a la fin de chaque etape et le republier ; rappeler a l'utilisateur de le copier a l'autre assistant.
-- Bot d'equilibrage : passe sur les vraies formules du core ; ses nouveaux chiffres sont informatifs, aucun changement d'equilibrage sans accord.
-- Phase 1 validee : esbuild en dependance de dev, `"type": "module"`, scripts Node existants en `.cjs`. Un fichier qui depasse ~400 lignes pendant le decoupage est signale avec une proposition.
+- Bot d'equilibrage : vraies formules du core ; ses chiffres sont informatifs, aucun changement d'equilibrage sans accord.
+- Un fichier qui depasse ~400 lignes est signale avec une proposition de decoupage.
+- Point d'arret obligatoire apres la phase 1 : attendre la validation avant la phase 3.
 
 ## Etat de la feuille de route
 
-- Phase 0, filet de securite : terminee (tests, sauvegarde robuste, gains de performance, code mort retire).
-- Phase 1, modules + build esbuild : en cours. Decoupage valide :
-  - `src/data/` : nodes, upgrades, blueprints, events (donnees pures).
-  - `src/core/` (sans DOM, executable dans Node) : bus, state, economy, geometry, sim, events (evenements reseau), contracts, progression (succes et objectifs), prestige (Overclock et Reboot), actions, save, format. Regle : core n'importe ni ui, ni render, ni input.
-  - `src/render/` : canvas, view, icons, draw, effects, minimap.
-  - `src/ui/` : state, dom, audio, hud, shop, selection, tabs, gold. `src/input/` : pointer, keyboard, hit. `src/main.js` : branchements et boucle.
-  - Build esbuild vers un fichier unique ; tests executes sur le fichier builde ; sauvegardes v46 chargees sans perte.
-- Phase 2 : n'existe plus (retiree avec le mode competitif).
-- Phase 3, registre de noeuds et statistiques par modificateurs (ajouter un noeud = ajouter une entree de donnees) : apres validation de la phase 1.
+- Phase 0, filet de securite : terminee.
+- Phase 1, modules + build esbuild : terminee, en attente de validation (point d'arret). Aucun changement visible pour les joueurs.
+- Phase 2 : n'existe plus.
+- Phase 3, registre de noeuds et statistiques par modificateurs (ajouter un noeud = ajouter une entree de donnees) : prochaine, apres validation.
 - Phase 4, performance du rendu (cache de sprites, couches) : plus tard ; le budget mobile est deja tenu.
 - Phase 5, contenu : nouveaux noeuds et evenements en donnees, separation des textes.
 
-Performance actuelle (rendu logiciel, mobile simule CPU 4x, 300 noeuds) : draw 2,6 a 8,6 ms selon la vue (budget 16 ms), step 0,06 ms.
+Performance (rendu logiciel, mobile simule CPU 4x, 300 noeuds) : draw 2,6 a 9 ms selon la vue (budget 16 ms), step < 0,3 ms. Phase 1 sans regression mesurable.
 
 ## Questions ouvertes
 
-1. Plus tard : equilibrage des contrats en fin de partie (le seuil +25 % de debit en 90 s devient difficile quand les ameliorations sont rares) ; a simuler avant toute decision.
+1. Validation de la phase 1 avant de lancer la phase 3.
+2. Plus tard : equilibrage des contrats en fin de partie (le seuil +25 % de debit en 90 s devient difficile quand les ameliorations sont rares) ; a simuler avant toute decision.
+3. Ecart du bot apres correction (informatif) : 16 Reboots en 7 h au lieu de 17, premiers Reboots ~1 min plus tard. A garder en tete pour de futurs reglages, aucune action demandee.
 
 ## Journal (5 dernieres modifications)
 
-Avant : visuels, style plat, ameliorations de noeuds, equilibrage, mobile, commandes souris (gauche : relier, droit : selectionner, molette : deplacer la vue), format des nombres ; audit et feuille de route ; tests de caracterisation ; sauvegarde robuste (version, migrations, copie de secours, validation).
+Avant : visuels, mobile, commandes souris, sauvegarde robuste, gains de performance (phase 0), CLAUDE.md et decisions (publication option A, decoupage valide).
 
-1. Rendu : seuls les noeuds et liens visibles sont dessines (draw mobile 4x a 300 noeuds : 27,3 -> 2,6 ms, image identique).
-2. Index id -> noeud et noeud -> lien (step mobile 4x a 600 noeuds : 1,03 -> 0,21 ms).
-3. Densite de pixels plafonnee a 3 et code mort retire (game.js 1728 -> 1670 lignes). Jeu publie en version 46.
-4. Mode competitif retire definitivement de la feuille de route ; creation de ce fichier.
-5. Decisions : publication option A, decoupage de la phase 1 valide (meta separe en events, contracts, progression, prestige), regle du bot ; ce document publie comme page separee.
+1. Build esbuild en fichier unique (identique octet pour octet a l'ancien build) ; tests executes sur le fichier builde ; sauvegarde v46 rechargee sans perte (test).
+2. Harnais de test stabilise (instabilite latente : la boucle du jeu tournait entre deux scenarios) ; instantanes regeneres sur le fichier de la v46.
+3. Decoupage en modules : data, core (bus d'evenements, le coeur ne touche plus a l'interface), render, ui, input ; comportement identique.
+4. Achats communs au jeu et au bot ; bot d'equilibrage dans Node avec les vraies formules (corrige : capital de depart applique a tort au run en cours).
+5. Verification automatique de l'architecture dans npm test ; documentation a jour.

@@ -1,6 +1,6 @@
 # Upload Lab
 
-Jeu incrémental inspiré d'Upload Labs : construis un réseau de nœuds qui transforme des fichiers, puis uploade-les pour gagner des crédits. Ouvre `index.html` dans un navigateur.
+Jeu incrémental inspiré d'Upload Labs : construis un réseau de nœuds qui transforme des fichiers, puis uploade-les pour gagner des crédits. `npm install` puis `npm run build`, et ouvre `dist/index.html` dans un navigateur.
 
 - Relie les nœuds en glissant d'un port de sortie (rond) vers une entrée. Double-clic / clic droit sur un lien pour le supprimer.
 - 11 types de nœuds débloqués progressivement, améliorations par nœud (×1 / ×10 / Max) et globales.
@@ -105,3 +105,18 @@ Meme direction artistique, details soignes : ombre portee plate sous les noeuds 
 - Un etat de jeu invalide (valeur non numerique, negative ou infinie) n'ecrase pas la derniere bonne sauvegarde.
 - Import : verification de la structure, cles dangereuses ignorees, schemas personnels mal formes retires, message d'erreur explicite. Les noms de schemas sont echappes a l'affichage.
 - Tests : `npm test` (voir docs/ROADMAP.md).
+
+## Architecture (v42, phase 1)
+
+Le jeu est decoupe en modules ES dans `src/`, regroupes par esbuild en un seul fichier (`dist/artifact.html` pour l'Artifact, `dist/index.html` pour jouer en local).
+
+- `src/data/` : donnees (noeuds, ameliorations, schemas, evenements).
+- `src/core/` : logique du jeu, sans DOM, executable dans Node (etat, economie, simulation, evenements, contrats, progression, prestige, actions, sauvegarde). Il signale messages, sons et effets par un bus d'evenements synchrone (`core/bus.js`).
+- `src/render/` : canvas (dessin, vue, icones, effets, mini-carte).
+- `src/ui/` : interface DOM (etat d'interface, panneaux, boutique, sons). `src/input/` : souris, tactile, clavier.
+- `src/main.js` : branchements et boucle de jeu.
+- Regle verifiee par `npm test` : `core` n'importe ni `ui`, ni `render`, ni `input`, et n'utilise aucune API de la page.
+- Pour garder le comportement de la version 46, chaque nom de premier niveau reste accessible sur `window` (console, tests).
+
+Commandes : `npm run build`, `npm test`, `npm run test:render`, `npm run perf`, `node tools/balance.mjs <heures> '<options>' | node tools/table.cjs`.
+
