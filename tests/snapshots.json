@@ -20299,5 +20299,42 @@
    "stat",
    "up"
   ]
+ },
+ "validation": {
+  "errs": [],
+  "msgs": {
+   "condition": "Donnees invalides : type de noeud inconnu dans la condition \"type:filtre\" (modificateur tech.tx)",
+   "statistique": "Donnees invalides : statistique inconnue \"vitesse\" (modificateur tech.tx)",
+   "operation": "Donnees invalides : operation inconnue \"pow\" (modificateur tech.tx, statistique speed)",
+   "groupe": "Donnees invalides : groupe inconnu \"bonus\" (modificateur tech.tx) ; groupes : node, upgrade, temporary",
+   "condition sans noeud": "Donnees invalides : condition \"type:source\" sur la statistique \"revenue\", qui ne concerne pas un noeud (modificateur tech.tx)",
+   "evenement": "Donnees invalides : evenement inconnu dans la condition \"event:soldes\" (modificateur tech.tx)",
+   "champ amelioration": "Donnees invalides : amelioration tech.tx : champ inconnu \"cout\"",
+   "genre": "Donnees invalides : noeud \"nx\" : genre inconnu \"transfrom\" ; genres : producer, transform, combine, sink",
+   "champ noeud": "Donnees invalides : noeud \"nx\" : champ inconnu \"mutl\" (genre transform)",
+   "sortie": "Donnees invalides : noeud \"nx\" : sortie inconnue \"copie\" ; sorties : next, copy, threshold",
+   "recompense": "Donnees invalides : noeud \"nx\" : recompense inconnue \"gold\" ; recompenses : credits, research",
+   "ports": "Donnees invalides : noeud \"nx\" : 2 entree(s) ; le genre transform en demande 1 a 1",
+   "mesure": "Donnees invalides : mesure inconnue \"filez\" ; mesures : files, lifetime, nodes, types, rate, resets, golds, research, playtime, contracts, streak, events, qpTotal, maxLevel, overclocks, techs, count, bought, typesAtRank (test)",
+   "mesure type": "Donnees invalides : type de noeud inconnu dans la mesure \"count:filtre\" (test)"
+  }
+ },
+ "fictif": {
+  "errs": [],
+  "out": {
+   "shop": "Filtre4.50K",
+   "price": 4500,
+   "price2": 5760,
+   "workValue": 1.4,
+   "specs": "spd,eco",
+   "speedRatio": 1.05,
+   "techText": "Filtres fins 1/10+5 % de vitesse des Filtres par niveau+5 %\n          86 RP",
+   "panel": "0.04 s par fichier. Maîtrise : rang 0/8 (18 / 200 fichiers).",
+   "bp": [
+    "source",
+    "filter",
+    "upload"
+   ]
+  }
  }
 }

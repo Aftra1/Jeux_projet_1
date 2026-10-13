@@ -337,6 +337,76 @@ const SCENARIOS = {
     tab = null; $('side').style.display = 'none';
     return {errs, tabs:[...ids].sort()};
   },
+
+  // Validation des donnees : chaque faute de frappe donne une erreur explicite, et une donnee refusee ne laisse aucune trace
+  validation(){
+    const errs = [], msgs = {};
+    const expect = (label, fn, part)=>{ try{ fn(); errs.push(label+' : aucune erreur'); }catch(e){ msgs[label] = e.message; if(!e.message.includes(part)) errs.push(label+' : message inattendu '+e.message); } };
+    const tech = (mods, extra)=>registerUpgrade('tech', Object.assign({id:'tx', name:'Test', desc:'d', base:1, grow:2, max:3, mods}, extra||{}));
+    const node = d=>{ const x = Object.assign({name:'X', label:'X', color:'#fff', desc:'d', kind:'transform', mult:2, ins:1, outs:1, t:1, cost:10, unlock:0}, d); for(const k in x) if(x[k]===undefined) delete x[k]; return registerNode('nx', x); };
+    newGame(); const n = G.nodes[0], speed0 = speedOf(n), nTech = TECH.length, nTypes = ORDER.length;
+    expect('condition', ()=>tech([{stat:'speed', by:pct(5), when:'type:filtre'}]), 'type de noeud inconnu dans la condition "type:filtre"');
+    expect('statistique', ()=>tech([{stat:'vitesse', by:pct(5)}]), 'statistique inconnue "vitesse"');
+    expect('operation', ()=>tech([{stat:'speed', by:pct(5), op:'pow'}]), 'operation inconnue "pow"');
+    expect('groupe', ()=>tech([{stat:'speed', by:pct(5), group:'bonus'}]), 'groupe inconnu "bonus"');
+    expect('condition sans noeud', ()=>tech([{stat:'revenue', by:pct(5), when:'type:source'}]), 'ne concerne pas un noeud');
+    expect('evenement', ()=>tech([{stat:'speed', by:pct(5), when:'event:soldes'}]), 'evenement inconnu');
+    expect('champ amelioration', ()=>tech([], {cout:5}), 'champ inconnu "cout"');
+    expect('genre', ()=>node({kind:'transfrom'}), 'genre inconnu "transfrom"');
+    expect('champ noeud', ()=>node({mutl:2}), 'champ inconnu "mutl"');
+    expect('sortie', ()=>node({out:'copie', outs:2}), 'sortie inconnue "copie"');
+    expect('recompense', ()=>node({kind:'sink', mult:undefined, reward:'gold', ins:1, outs:0}), 'recompense inconnue "gold"');
+    expect('ports', ()=>node({ins:2}), 'le genre transform en demande 1 a 1');
+    expect('mesure', ()=>measure('filez', 'test'), 'mesure inconnue "filez"');
+    expect('mesure type', ()=>measure('count:filtre', 'test'), 'type de noeud inconnu dans la mesure "count:filtre"');
+    if(TECH.length!==nTech || ORDER.length!==nTypes || DEFS.nx || speedOf(n)!==speed0) errs.push('une donnee refusee a laisse une trace');
+    return {errs, msgs};
+  },
+
+  // Preuve : un noeud et une source de bonus ajoutes uniquement par des donnees, sans autre modification du code
+  fictif(){
+    const errs = [], out = {};
+    const ok = (c, m)=>{ if(!c) errs.push(m); };
+    registerNode('filter', {name:'Filtre', label:'FLT', color:'#7dd3fc', desc:'Valeur x1,4, très rapide.',
+      kind:'transform', mult:1.4, ins:1, outs:1, t:0.3, cost:3000, unlock:2500, icon:'M-9 -7 L9 -7 L2 1 L2 8 L-2 8 L-2 1 Z'});
+    registerUpgrade('tech', {id:'tflt', name:'Filtres fins', desc:'+5 % de vitesse des Filtres par niveau', base:45, grow:1.9, max:10,
+      mods:[{stat:'speed', by:pct(5), when:'type:filter'}]});
+    newGame(); Math.__seed(2026); G.money = 1e6; G.obj = 999; buildShop();
+    // boutique : verrouille puis debloque a 2 500 credits gagnes
+    const btn = ()=>document.querySelector('#shop button[data-type="filter"]');
+    G.run = 100; refreshShop(); ok(!unlocked('filter'), 'verrouille au depart');
+    G.run = 2500; refreshShop(); out.shop = btn().textContent; ok(btn().textContent.includes('Filtre') && !btn().disabled, 'bouton de boutique');
+    out.price = buyCost('filter'); btn().click();
+    const f = G.nodes.find(m=>m.type==='filter'); ok(f && G.bought.filter===1, 'achat par la boutique'); out.price2 = buyCost('filter');
+    ok(out.price2 > out.price, 'le prix augmente avec les achats');
+    // chaine Source -> Filtre -> Upload : valeur x1,4
+    const s = G.nodes[0], u = G.nodes[1]; G.links.length = 0; f.x = 0; f.y = -40;
+    connect(s.id,0,f.id,0); connect(f.id,0,u.id,0);
+    let seen = null; for(let i=0;i<400;i++){ tick(); if(f.work && seen===null) seen = f.work.v; }
+    out.workValue = seen; ok(seen===seedV(DEFS.source)*1.4, 'valeur x1,4');
+    ok(G.files>0 && G.mast.filter>0, 'fichiers uploades et maitrise du Filtre');
+    // ameliorations, palier, specialisations
+    upgradeNode(f, 10); ok(f.level===10, 'ameliorations'); out.specs = specsFor(f).join(); ok(chooseSpec(f,'spd') && f.spec==='spd', 'specialisation Turbo');
+    // bonus de recherche : +5 % par niveau sur les Filtres seulement
+    const c = addNode('compress', 0, 300, true); c.level = 10; c.spec = 'spd';
+    const sf = speedOf(f), sc = speedOf(c); G.rp = 1e6; ok(buyTech(TECH.find(d=>d.id==='tflt')), 'achat de la technologie');
+    out.speedRatio = speedOf(f)/sf; ok(speedOf(f)===sf*1.05 && speedOf(c)===sc, 'bonus applique au Filtre seulement');
+    tab = 'res'; $('side').style.display = 'flex'; renderTab(); out.techText = [...document.querySelectorAll('#tabBody .item')].map(e=>e.textContent).find(t=>t.includes('Filtres fins'));
+    ok(out.techText && out.techText.includes('+5 %'), 'onglet Recherche'); tab = null; $('side').style.display = 'none';
+    // panneau, rendu, icone
+    sel = f.id; showSel(); out.panel = $('sel').querySelector('p:nth-of-type(2)').textContent; sel = null; showSel();
+    G.view.k = 1; zoomT = null; lastDraw = performance.now(); lodPrev = 2; lodFlash = 0; draw(); ok(iconImg('filter', COLORS.filter).startsWith('data:image/png'), 'icone');
+    // schema : copie de la chaine
+    const bp = blueprintOf([s,f,u]); out.bp = bp.nodes.map(x=>x[0]); const before = G.nodes.length; buildBp({name:'c', nodes:bp.nodes, links:bp.links}, true);
+    ok(G.nodes.slice(before).map(m=>m.type).join()==='source,filter,upload', 'schema');
+    // sauvegarde puis rechargement
+    save(); const lv = f.level, id = f.id; G = null; load(); const f2 = G.nodes.find(m=>m.id===id);
+    ok(f2 && f2.type==='filter' && f2.level===lv && f2.spec==='spd' && G.tech.tflt===1 && G.bought.filter===2, 'sauvegarde et rechargement');
+    ok(speedOf(f2)===sf*1.05, 'bonus apres rechargement');
+    for(const k of Object.keys(localStorage)) if(k.startsWith(KEY)) localStorage.removeItem(k);
+    newGame();
+    return {errs, out};
+  },
 };
 
 (async()=>{
@@ -365,7 +435,7 @@ const SCENARIOS = {
     // en temps reel entre deux scenarios change le nombre de tirages aleatoires consommes (test instable)
     got[name] = await page.evaluate(`(function(){ paused = true; parts.length = 0; floats.length = 0; lastBlip = 0; income.length = 0;
       const real = performance.now; let T = 1e6; performance.now = ()=>T; window.tick = ()=>{ T += 50; step(0.05); };
-      try{ return (${fn})(${(name==='legacyFixture'||name==='saveSafety')?JSON.stringify(fixture):name==='save46'?JSON.stringify(fixture46):name==='save47'?JSON.stringify(fixture47):''}); } finally{ performance.now = real; } })()`);
+      try{ return (${fn})(${(name==='legacyFixture'||name==='saveSafety')?JSON.stringify(fixture):name==='save46'?JSON.stringify(fixture46):name==='save47'?JSON.stringify(fixture47):''}); } finally{ performance.now = real; lastDraw = real.call(performance); } })()`);   // draw() sous horloge figee : la boucle reprend avec la vraie horloge
   }
   await browser.close();
 
@@ -375,6 +445,8 @@ const SCENARIOS = {
   // invariants (independants des instantanes)
   if(!RENDER){ assert(got.save46.loaded && got.save46.same, 'sauvegarde v46 rechargee sans perte');
   assert(got.save47.loaded && got.save47.same, 'sauvegarde v47 rechargee sans perte');
+  assert(got.validation.errs.length===0, 'validation des donnees : '+got.validation.errs.join(' | '));
+  assert(got.fictif.errs.length===0, 'noeud fictif : '+got.fictif.errs.join(' | '));
   assert(got.saveRoundtrip.same && got.saveRoundtrip.packetsReset, 'sauvegarde : aller-retour fidele');
   assert(got.smoke.errs.length===0, 'rendu/panneaux sans exception : '+got.smoke.errs.join(' | ')); }
   assert(consoleErrs.length===0, 'aucune erreur de console : '+consoleErrs.join(' | '));
