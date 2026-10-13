@@ -4,6 +4,10 @@ import { GLOBALS, PU, TECH } from './data/upgrades.js';
 import { BPS } from './data/blueprints.js';
 import { EVT } from './data/events.js';
 import './main.js';
+// Bus d'evenements synchrone : le coeur du jeu signale (messages, sons, effets, rafraichissements) sans connaitre l'interface
+const handlers = {};
+function on(ev, fn){ (handlers[ev] = handlers[ev] || []).push(fn); }
+function emit(ev, ...args){ const h = handlers[ev]; if(h) for(const f of h) f(...args); }
 const techCost = d => Math.ceil(d.base * Math.pow(d.grow, G.tech[d.id]));
 export const startCash = l => Math.floor((100 + 150 * l * l) * (G ? infl() : 1));   // suit l'inflation des prix
 
@@ -96,7 +100,7 @@ const mastRank = type => { const c = G.mast[type]||0; let r=0; while(r<MASTTH.le
 const RKC = {};   // cache des rangs
 function mastTick(n){
   const t = n.type, r = rankOf(t), c = G.mast[t] = (G.mast[t]||0)+1;
-  if(c===MASTTH[r]){ RKC[t] = r+1; toast('Maîtrise : '+DEFS[t].name+' rang '+(r+1)+' (+4 % de vitesse)'); blip(900,0.2,0.07,'triangle'); }
+  if(c===MASTTH[r]){ RKC[t] = r+1; emit('toast', 'Maîtrise : '+DEFS[t].name+' rang '+(r+1)+' (+4 % de vitesse)'); emit('blip', 900,0.2,0.07,'triangle'); }
 }
 const rankOf = t => RKC[t]===undefined ? (RKC[t]=mastRank(t)) : RKC[t];
 const lvlMult = lv => Math.pow(1.5, Math.floor(lv/10));   // palier : x1,5 de vitesse tous les 10 niveaux
@@ -164,12 +168,15 @@ function floatText(x,y,text,col='#f6c453',size=15){ if(floats.length<60) floats.
 
 // Simulation 
 let income = [];
+function resetIncome(){ income = []; }
+// debit : credits gagnes sur les 10 dernieres secondes
+function updateRate(now){ income = income.filter(e=>now-e.t<10000); G.lastRate = income.reduce((s,e)=>s+e.v,0)/10; }
 function earn(v, n, crit){
   G.money += v; G.run += v; G.lifetime += v;
   income.push({t:performance.now(), v});
-  if(n) floatText(n.x+NW/2, n.y-4, '+'+fmt(v), crit?'#ff9f43':'#f6c453', crit?20:15);
-  upSound(crit);
-  if(n) for(let i=0;i<(crit?10:4);i++) if(parts.length<250) parts.push({x:n.x+NW/2,y:n.y+NH/2,vx:(Math.random()-.5)*160,vy:-40-Math.random()*120,life:1,col:crit?'#ff9f43':'#f6c453'});
+  if(n) emit('float', n.x+NW/2, n.y-4, '+'+fmt(v), crit?'#ff9f43':'#f6c453', crit?20:15);
+  emit('upSound', crit);
+  if(n) emit('earnFx', n, crit);
 }
 
 function trySend(n){
@@ -206,7 +213,7 @@ function updateNode(n,dt){
     }
     if(n.work){
       n.work.rem -= dt;
-      if(n.work.rem<=0){ const r=rpOf(n.work.v); G.rp+=r; G.rpTotal+=r; floatText(n.x+NW/2, n.y-4, '+'+fmt(r)+' RP', '#76e4f7', 13); n.work=null; mastTick(n); }
+      if(n.work.rem<=0){ const r=rpOf(n.work.v); G.rp+=r; G.rpTotal+=r; emit('float', n.x+NW/2, n.y-4, '+'+fmt(r)+' RP', '#76e4f7', 13); n.work=null; mastTick(n); }
     }
   } else if(n.type==='upload'){
     if(!n.work){
@@ -266,10 +273,10 @@ function step(dt){
 }
 function tierUp(n,tr){
   const col = TIERS[tr][1];
-  for(let i=0;i<24;i++) if(parts.length<250){ const a=Math.random()*6.283, sp=60+Math.random()*140; parts.push({x:n.x+NW/2,y:n.y+NH/2,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,col}); }
-  floatText(n.x+NW/2, n.y-6, 'Palier '+TIERS[tr][0], col, 15);
-  blip(660,0.12,0.06,'triangle'); setTimeout(()=>blip(990,0.16,0.06,'triangle'),90);
-  if(tr===1) toast('Palier atteint : vitesse x1,5. Au niveau 10, un nœud peut se spécialiser (sélectionne-le).');
+  emit('tierFx', n, col);
+  emit('float', n.x+NW/2, n.y-6, 'Palier '+TIERS[tr][0], col, 15);
+  emit('blip', 660,0.12,0.06,'triangle'); setTimeout(()=>emit('blip', 990,0.16,0.06,'triangle'),90);
+  if(tr===1) emit('toast', 'Palier atteint : vitesse x1,5. Au niveau 10, un nœud peut se spécialiser (sélectionne-le).');
 }
 
 // Prestige 
@@ -277,15 +284,14 @@ function reboot(){
   const g = qpGain(); if(g<1) return;
   ask(`Reboot quantique ? Tu gagnes ${g} point(s) quantique(s) (revenus x${qpMult(G.qpTotal+g).toFixed(2)} au lieu de x${qpMult(G.qpTotal).toFixed(2)}). Tes nœuds, crédits et améliorations de run sont remis à zéro.`, doReboot);
 }
-function doReboot(){ save(); backupNow(); msel.clear(); G.contract = null; G.ev = null; G.cNext = G.playtime + 60;
+function doReboot(){ save(); backupNow(); emit('rebootStart'); G.contract = null; G.ev = null; G.cNext = G.playtime + 60;
   const g = qpGain(); if(g<1) return;
   G.hist = (G.hist||[]).concat([{t:G.playtime-G.runStart, g, run:G.run}]).slice(-6); G.runStart = G.playtime;
   G.qp += g; G.qpTotal += g; G.resets++;
   blankRun(G);
   addNode('source', -280, -40, true);
   addNode('upload', 180, -40, true);
-  income = []; sel = null; showSel(); renderTab(); buildShop();
-  toast(`Reboot ! +${g} point(s) quantique(s)`);
+  resetIncome(); emit('rebooted', g);
   save();
 }
 
@@ -574,7 +580,7 @@ function connect(a,ao,b,bi){
   if(a===b) return;
   G.links = G.links.filter(l=>!(l.a===a&&l.ao===ao) && !(l.b===b&&l.bi===bi));
   G.links.push({a,ao,b,bi,packets:[]});
-  blip(660,0.07,0.05);
+  emit('blip', 660,0.07,0.05);
 }
 function freeSpot(x,y,skip){
   const gap = 24;
@@ -594,14 +600,14 @@ const bpTypes = b => [...new Set(b.nodes.map(n=>n[0]))];
 const bpUnlocked = b => bpTypes(b).every(unlocked);
 const bpLocked = b => bpTypes(b).filter(t=>!unlocked(t)).map(t=>DEFS[t].name).join(', ');
 function bpCost(b){ const cnt={}; let s=0; for(const [t] of b.nodes){ s+=buyCost(t,cnt[t]||0); cnt[t]=(cnt[t]||0)+1; } return s; }
-function buildBp(b,quiet){
-  if(!bpUnlocked(b)) return;
+// Pose un schema pres du point ctr (coordonnees monde) ; renvoie les noeuds poses, ou null si impossible
+function placeBlueprint(b, ctr){
+  if(!bpUnlocked(b)) return null;
   const c = bpCost(b);
-  if(G.money<c){ toast('Pas assez de crédits'); return; }
+  if(G.money<c){ emit('toast', 'Pas assez de crédits'); return null; }
   const SX = NW+60, SY = NH+40, cols = Math.max(...b.nodes.map(n=>n[1]))+1, rows = Math.max(...b.nodes.map(n=>n[2]))+1;
   const bw = (cols-1)*SX+NW, bh = (rows-1)*SY+NH, gap = 24;
   const free = (px,py)=>!G.nodes.some(m=>px<m.x+NW+gap && px+bw+gap>m.x && py<m.y+NH+gap && py+bh+gap>m.y);
-  const ctr = toWorld(W/2, H/2-40);
   let ox = Math.round((ctr.x-bw/2)/10)*10, oy = Math.round((ctr.y-bh/2)/10)*10, found = free(ox,oy);
   for(let r=1;r<60 && !found;r++) for(let i=0;i<r*8 && !found;i++){
     const a = i/(r*8)*Math.PI*2, px = Math.round((ctr.x-bw/2+Math.cos(a)*r*(bw+gap)*0.5)/10)*10, py = Math.round((ctr.y-bh/2+Math.sin(a)*r*(bh+gap)*0.5)/10)*10;
@@ -610,15 +616,25 @@ function buildBp(b,quiet){
   G.money -= c;
   const made = b.nodes.map(([t,cx_,cy_,th_])=>{ const m = addNode(t, ox+cx_*SX, oy+Math.round(cy_*SY/10)*10); if(th_) m.thr = th_; return m; });
   for(const [a,ao,z,zi] of b.links) connect(made[a].id,ao,made[z].id,zi);
+  return made;
+}
+function buildBp(b,quiet){
+  if(!bpUnlocked(b)) return;
+  const made = placeBlueprint(b, toWorld(W/2, H/2-40));
+  if(!made) return;
   if(!quiet){ sel = null; showSel(); blip(520,0.1,0.06); toast('Schéma posé : '+b.name); }
   if(tab) renderTab();
 }
-function selBp(){
-  const ns = G.nodes.filter(n=>msel.has(n.id));
+// Schema (types, positions relatives en cases, liens internes) d'un groupe de noeuds
+function blueprintOf(ns){
   const SX = NW+60, SY = NH+40, mx = Math.min(...ns.map(n=>n.x)), my = Math.min(...ns.map(n=>n.y));
   const idx = new Map(ns.map((n,i)=>[n.id,i]));
   const links = G.links.filter(l=>idx.has(l.a) && idx.has(l.b)).map(l=>[idx.get(l.a),l.ao,idx.get(l.b),l.bi]);
-  return {name:'Copie', nodes:ns.map(n=>{ const r=[n.type, Math.round((n.x-mx)/SX*100)/100, Math.round((n.y-my)/SY*100)/100]; if(n.type==='sorter' && n.thr) r.push(n.thr); return r; }), links};
+  return {nodes:ns.map(n=>{ const r=[n.type, Math.round((n.x-mx)/SX*100)/100, Math.round((n.y-my)/SY*100)/100]; if(n.type==='sorter' && n.thr) r.push(n.thr); return r; }), links};
+}
+function selBp(){
+  const b = blueprintOf(G.nodes.filter(n=>msel.has(n.id)));
+  return {name:'Copie', nodes:b.nodes, links:b.links};
 }
 function dupSel(){
   if(msel.size<1) return;
@@ -631,18 +647,16 @@ function dupSel(){
   if(!added.length) return;
   msel.clear(); for(const n of added) msel.add(n.id); showSel(); blip(520,0.1,0.06); toast('Copie posée ('+added.length+' nœuds)');
 }
-function saveBp(){
-  const ns = G.nodes.filter(n=>msel.has(n.id));
-  if(ns.length<2){ toast('Sélectionne au moins 2 nœuds'); return; }
-  if((G.mine||[]).length>=20){ toast('20 schémas personnels maximum'); return; }
-  const SX = NW+60, SY = NH+40, mx = Math.min(...ns.map(n=>n.x)), my = Math.min(...ns.map(n=>n.y));
-  const idx = new Map(ns.map((n,i)=>[n.id,i]));
-  const links = G.links.filter(l=>idx.has(l.a) && idx.has(l.b)).map(l=>[idx.get(l.a),l.ao,idx.get(l.b),l.bi]);
+// Enregistre un groupe de noeuds comme schema personnel
+function saveBlueprint(ns){
+  if(ns.length<2){ emit('toast', 'Sélectionne au moins 2 nœuds'); return; }
+  if((G.mine||[]).length>=20){ emit('toast', '20 schémas personnels maximum'); return; }
+  const b = blueprintOf(ns);
   const k = (G.mine.length?Math.max(...G.mine.map(b=>b.k||0)):0)+1;
-  G.mine.push({k, mine:true, name:'Mon schéma '+k, desc:'Schéma personnel : '+ns.length+' nœuds, '+links.length+' liens.',
-    nodes:ns.map(n=>{ const r=[n.type, Math.round((n.x-mx)/SX*100)/100, Math.round((n.y-my)/SY*100)/100]; if(n.type==='sorter' && n.thr) r.push(n.thr); return r; }), links});
-  toast('Schéma enregistré : Mon schéma '+k+' (onglet Schémas)'); blip(700,0.1,0.06); if(tab) renderTab();
+  G.mine.push({k, mine:true, name:'Mon schéma '+k, desc:'Schéma personnel : '+ns.length+' nœuds, '+b.links.length+' liens.', nodes:b.nodes, links:b.links});
+  emit('toast', 'Schéma enregistré : Mon schéma '+k+' (onglet Schémas)'); emit('blip', 700,0.1,0.06); emit('renderTab');
 }
+function saveBp(){ saveBlueprint(G.nodes.filter(n=>msel.has(n.id))); }
 function removeNode(n){ G.links = G.links.filter(l=>l.a!==n.id && l.b!==n.id); G.nodes = G.nodes.filter(x=>x!==n); }
 
 let lastTap = {t:0,x:0,y:0}, lpTimer = 0;
@@ -882,28 +896,33 @@ function sell(n){
   const refund = Math.floor(buyCost(n.type)*0.4);
   pushUndo({node:n, links:G.links.filter(l=>l.a===n.id||l.b===n.id), refund});
   G.money += refund;
-  removeNode(n); sel=null; showSel();
+  removeNode(n); emit('clearSel');
 }
 const sellVal = n => Math.floor(buyCost(n.type)*0.4);
-function sellMany(){
-  const ns = G.nodes.filter(n=>msel.has(n.id));
-  if(!ns.length) return;
+// Vend un groupe de noeuds (annulable) ; renvoie le remboursement
+function sellNodes(ns){
   const ids = new Set(ns.map(n=>n.id));
   const refund = ns.reduce((s,n)=>s+sellVal(n),0);
   pushUndo({multi:ns.map(n=>({node:n})), links:G.links.filter(l=>ids.has(l.a)||ids.has(l.b)), refund});
   G.money += refund;
   G.links = G.links.filter(l=>!ids.has(l.a) && !ids.has(l.b));
   G.nodes = G.nodes.filter(n=>!ids.has(n.id));
+  return refund;
+}
+function sellMany(){
+  const ns = G.nodes.filter(n=>msel.has(n.id));
+  if(!ns.length) return;
+  const refund = sellNodes(ns);
   msel.clear(); showSel(); blip(300,0.12,0.06,'triangle');
   toast(ns.length+' nœuds vendus (+'+fmt(refund)+'). Ctrl+Z pour annuler.');
 }
 function dropLink(l){ pushUndo({links:[l]}); G.links = G.links.filter(x=>x!==l); }
 function undo(){
   const u = undoStack.pop();
-  if(!u){ toast('Rien à annuler'); return; }
-  if(u.move){ for(const o of u.move){ o.n.x=o.x; o.n.y=o.y; } blip(500,0.08,0.05,'triangle'); toast('Déplacement annulé'); return; }
+  if(!u){ emit('toast', 'Rien à annuler'); return; }
+  if(u.move){ for(const o of u.move){ o.n.x=o.x; o.n.y=o.y; } emit('blip', 500,0.08,0.05,'triangle'); emit('toast', 'Déplacement annulé'); return; }
   if(u.node || u.multi){
-    if(G.money<u.refund){ undoStack.push(u); toast('Pas assez de crédits pour annuler'); return; }
+    if(G.money<u.refund){ undoStack.push(u); emit('toast', 'Pas assez de crédits pour annuler'); return; }
     G.money -= u.refund;
     if(u.node) G.nodes.push(u.node); else for(const m of u.multi) G.nodes.push(m.node);
   }
@@ -912,11 +931,16 @@ function undo(){
     G.links = G.links.filter(x=>!(x.a===l.a&&x.ao===l.ao) && !(x.b===l.b&&x.bi===l.bi));
     G.links.push({a:l.a,ao:l.ao,b:l.b,bi:l.bi,packets:[]});
   }
-  blip(500,0.08,0.05,'triangle'); toast('Action annulée');
+  emit('blip', 500,0.08,0.05,'triangle'); emit('toast', 'Action annulée');
+}
+// Achete des ameliorations, toujours la moins chere du groupe, tant que les credits suffisent ; renvoie leur nombre
+function upgradeCheapest(ns){
+  let k=0;
+  for(let i=0;i<500;i++){ const n=ns.reduce((a,b)=>!a||upCost(b)<upCost(a)?b:a,null); if(!n||G.money<upCost(n)) break; G.money-=upCost(n); n.level++; k++; }
+  return k;
 }
 function upgradeAll(){
-  let k=0;
-  for(let i=0;i<500;i++){ const n=G.nodes.reduce((a,b)=>!a||upCost(b)<upCost(a)?b:a,null); if(!n||G.money<upCost(n)) break; G.money-=upCost(n); n.level++; k++; }
+  const k = upgradeCheapest(G.nodes);
   if(k){ toast(k+' amélioration(s) achetée(s)'); blip(780,0.1,0.06,'triangle'); renderTab(); showSel(); }
   else toast('Pas assez de crédits');
 }
@@ -926,11 +950,10 @@ function upgradeNode(n,count){
     const c = upCost(n); if(G.money<c) break;
     G.money -= c; n.level++; done++;
   }
-  if(done){ blip(780,0.1,0.06,'triangle'); showSel(); }
+  if(done){ emit('blip', 780,0.1,0.06,'triangle'); emit('showSel'); }
 }
 function upgradeSel(){
-  const ns = G.nodes.filter(n=>msel.has(n.id)); let k=0;
-  for(let i=0;i<500;i++){ const n=ns.reduce((a,b)=>!a||upCost(b)<upCost(a)?b:a,null); if(!n||G.money<upCost(n)) break; G.money-=upCost(n); n.level++; k++; }
+  const k = upgradeCheapest(G.nodes.filter(n=>msel.has(n.id)));
   if(k){ toast(k+' amélioration(s) sur la sélection'); blip(780,0.1,0.06,'triangle'); showSel(); }
   else toast('Pas assez de crédits');
 }
@@ -1175,7 +1198,7 @@ function renderTab(){
       try{ r = readSave(txt); }catch(e){ toast('Code invalide : '+e.message, 4500); return; }
       save(); adoptGame(r.g); toast('Sauvegarde importée (l\'ancienne partie est dans la copie de secours)', 4500); renderTab();
     };
-    $('oReset').onclick = ()=>ask('Tout effacer, y compris les points quantiques, la copie de secours et les sauvegardes conservées ?', ()=>{ for(const k of [KEY,KEY_BAK,KEY_BAD,KEY_BAD+'.why',KEY+'.v0']) lsDel(k); newGame(); if(W<=700) fitView(); income=[]; sel=null; showSel(); buildShop(); renderTab(); });
+    $('oReset').onclick = ()=>ask('Tout effacer, y compris les points quantiques, la copie de secours et les sauvegardes conservées ?', ()=>{ for(const k of [KEY,KEY_BAK,KEY_BAD,KEY_BAD+'.why',KEY+'.v0']) lsDel(k); newGame(); if(W<=700) fitView(); resetIncome(); sel=null; showSel(); buildShop(); renderTab(); });
   }
 }
 $('bMenu').onclick = ()=>openTab(tab?tab:'up');
@@ -1208,7 +1231,7 @@ $('gold').onclick = ()=>{
 
 // succès
 function checkAch(){
-  for(const a of ACH) if(!G.ach[a.id] && a.t()){ G.ach[a.id]=true; toast('Succès : '+a.name+' (+2 % de revenus)'); blip(990,0.25,0.07,'triangle'); if(tab==='ach') renderTab(); }
+  for(const a of ACH) if(!G.ach[a.id] && a.t()){ G.ach[a.id]=true; emit('toast', 'Succès : '+a.name+' (+2 % de revenus)'); emit('blip', 990,0.25,0.07,'triangle'); emit('achievement', a); }
 }
 
 // Objectifs : r = récompense minimale, s = secondes de revenus actuels (la plus grande des deux est versée)
@@ -1252,7 +1275,7 @@ function checkObj(){
   if(c>=t){
     const r = objReward(o);
     G.money+=r; G.run+=r; G.lifetime+=r; G.obj++;
-    toast('Objectif accompli : '+o.d+' (+'+fmt(r)+' crédits)'); blip(700,0.2,0.07,'triangle');
+    emit('toast', 'Objectif accompli : '+o.d+' (+'+fmt(r)+' crédits)'); emit('blip', 700,0.2,0.07,'triangle');
   }
 }
 function updateObjHud(){
@@ -1278,9 +1301,9 @@ setInterval(()=>{ if(!G) return; hist.push(G.lastRate); if(hist.length>150) hist
 
 // Overclock, vue, minimap
 function useOverclock(){
-  if(G.playtime < G.oc.ready) { toast('Overclock en recharge'); return; }
+  if(G.playtime < G.oc.ready) { emit('toast', 'Overclock en recharge'); return; }
   G.oc.until = G.playtime + 15 + G.tech.toc; G.oc.ready = G.playtime + Math.max(30, 90 - 6*G.tech.toc);
-  blip(300,0.4,0.08,'sawtooth'); toast('Overclock : vitesse x2 pendant 15 s');
+  emit('blip', 300,0.4,0.08,'sawtooth'); emit('toast', 'Overclock : vitesse x2 pendant 15 s');
 }
 function fitView(){
   if(!G.nodes.length) return;
@@ -1427,12 +1450,12 @@ function save(){
   let text; try{ text = serializeText(); }catch(e){ return; }
   const bf = badField(G);
   if(bf){   // ne jamais ecraser une bonne sauvegarde par un etat corrompu
-    if(saveWarn!==bf){ saveWarn = bf; console.error('sauvegarde suspendue : valeur invalide '+bf); toast('Sauvegarde suspendue : valeur invalide ('+bf+')', 5000); }
+    if(saveWarn!==bf){ saveWarn = bf; console.error('sauvegarde suspendue : valeur invalide '+bf); emit('toast', 'Sauvegarde suspendue : valeur invalide ('+bf+')', 5000); }
     return;
   }
   if(Date.now()-lastBak > 300000) backupNow();   // au plus une copie de secours toutes les 5 minutes
   if(lsSet(KEY, text)){ saveWarn = ''; }
-  else if(saveWarn!=='quota'){ saveWarn = 'quota'; toast('Sauvegarde impossible (stockage plein ou bloqué)', 5000); }
+  else if(saveWarn!=='quota'){ saveWarn = 'quota'; emit('toast', 'Sauvegarde impossible (stockage plein ou bloqué)', 5000); }
 }
 // Sauvegarde illisible : on la garde pour pouvoir la recuperer, jamais ecrasee en silence
 function keepUnreadable(raw, why){ if(lsGet(KEY_BAD)!==raw) lsSet(KEY_BAD, raw); lsSet(KEY_BAD+'.why', why); }
@@ -1446,7 +1469,7 @@ function load(){
     const bak = lsGet(KEY_BAK);
     try{ r = bak ? readSave(bak) : null; }catch(e2){ r = null; }
     note = r ? 'Sauvegarde illisible ('+e.message+') : copie de secours restaurée.' : 'Sauvegarde illisible ('+e.message+') : copie conservée dans Options.';
-    setTimeout(()=>toast(note, 6000), 800);
+    setTimeout(()=>emit('toast', note, 6000), 800);
     if(!r) return false;
   }
   if(r.from < SAVE_VERSION) lsSet(KEY+'.v'+r.from, raw);   // ancienne version conservee avant migration
@@ -1456,14 +1479,14 @@ function load(){
   if(secs>30 && G.lastRate>0){
     const gain = G.lastRate*secs*(0.4+0.08*G.pu.off);
     G.money+=gain; G.run+=gain; G.lifetime+=gain;
-    setTimeout(()=>toast(`Pendant ton absence (${Math.floor(secs/60)} min) : +${fmt(gain)} crédits`),600);
+    setTimeout(()=>emit('toast', `Pendant ton absence (${Math.floor(secs/60)} min) : +${fmt(gain)} crédits`),600);
   }
   const today = new Date().toISOString().slice(0,10);
   if(G.daily!==today){
     G.daily = today;
     const r = Math.max(500, G.lastRate*600);
     G.money+=r; G.run+=r; G.lifetime+=r;
-    setTimeout(()=>toast('Bonus quotidien : +'+fmt(r)+' crédits'),3500);
+    setTimeout(()=>emit('toast', 'Bonus quotidien : +'+fmt(r)+' crédits'),3500);
   }
   return true;
 }
@@ -1471,6 +1494,20 @@ setInterval(save, 5000);
 addEventListener('beforeunload', save);
 
 // Boucle 
+// L'interface ecoute le coeur du jeu
+on('toast', toast);
+on('blip', blip);
+on('upSound', upSound);
+on('float', floatText);
+on('showSel', ()=>showSel());
+on('renderTab', ()=>renderTab());
+on('clearSel', ()=>{ sel = null; showSel(); });
+on('achievement', ()=>{ if(tab==='ach') renderTab(); });
+on('rebootStart', ()=>msel.clear());
+on('rebooted', g=>{ sel = null; showSel(); renderTab(); buildShop(); toast(`Reboot ! +${g} point(s) quantique(s)`); });
+on('earnFx', (n,crit)=>{ for(let i=0;i<(crit?10:4);i++) if(parts.length<250) parts.push({x:n.x+NW/2,y:n.y+NH/2,vx:(Math.random()-.5)*160,vy:-40-Math.random()*120,life:1,col:crit?'#ff9f43':'#f6c453'}); });
+on('tierFx', (n,col)=>{ for(let i=0;i<24;i++) if(parts.length<250){ const a=Math.random()*6.283, sp=60+Math.random()*140; parts.push({x:n.x+NW/2,y:n.y+NH/2,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,col}); } });
+
 if(!load()){ newGame(); if(W<=700) fitView(); }
 buildShop();
 let last = performance.now(), uiT = 0, autoT = 0;
@@ -1490,11 +1527,13 @@ function evTick(){
     else if(G.playtime>=G.evNext && !evActive((G.ev||{}).id)){
       const e = EVT[Math.floor(Math.random()*EVT.length)];
       G.evNext = G.playtime + 220 + Math.random()*140; G.evDone++;
-      if(e.dur){ G.ev = {id:e.id, until:G.playtime+e.dur}; toast('Événement : '+e.name+' ('+e.desc+', '+e.dur+' s)'); }
-      else { const r = Math.max(200, G.lastRate*40); G.money+=r; G.run+=r; G.lifetime+=r; toast('Événement : '+e.name+' +'+fmt(r)+' crédits'); }
-      blip(660,0.2,0.07,'triangle');
+      if(e.dur){ G.ev = {id:e.id, until:G.playtime+e.dur}; emit('toast', 'Événement : '+e.name+' ('+e.desc+', '+e.dur+' s)'); }
+      else { const r = Math.max(200, G.lastRate*40); G.money+=r; G.run+=r; G.lifetime+=r; emit('toast', 'Événement : '+e.name+' +'+fmt(r)+' crédits'); }
+      emit('blip', 660,0.2,0.07,'triangle');
     }
   }
+}
+function updateEventHud(){
   const el = $('evS'), on = G.ev && G.playtime<G.ev.until;
   el.style.display = on ? 'block' : 'none';
   if(on){ const e = EVT.find(x=>x.id===G.ev.id); $('evB').textContent = e.name; $('evT').textContent = e.desc+' · '+Math.ceil(G.ev.until-G.playtime)+' s'; }
@@ -1506,16 +1545,19 @@ function contractTick(){
     const got = G.run - c.start, left = c.until - G.playtime;
     if(got>=c.need){
       G.money += c.reward; G.cStreak++; G.cDone++; G.cNext = G.playtime + 100; G.contract = null;
-      toast('Contrat rempli : +'+fmt(c.reward)+' crédits (série '+G.cStreak+')'); blip(760,0.25,0.07,'triangle');
+      emit('toast', 'Contrat rempli : +'+fmt(c.reward)+' crédits (série '+G.cStreak+')'); emit('blip', 760,0.25,0.07,'triangle');
     } else if(left<=0){
-      G.cStreak = 0; G.cNext = G.playtime + 60; G.contract = null; toast('Contrat échoué : série remise à zéro');
+      G.cStreak = 0; G.cNext = G.playtime + 60; G.contract = null; emit('toast', 'Contrat échoué : série remise à zéro');
     }
   } else if(G.playtime>=G.cNext && G.lastRate>0){
     const T = 90, need = Math.ceil(Math.max(100, G.lastRate*T*1.25));
     G.contract = {start:G.run, need, until:G.playtime+T, T, reward:Math.floor(need*0.5*(1+0.1*Math.min(5,G.cStreak)))};
-    toast('Nouveau contrat : gagne '+fmt(need)+' crédits en '+T+' s');
+    emit('toast', 'Nouveau contrat : gagne '+fmt(need)+' crédits en '+T+' s');
   }
-  const el = $('ctr'); c = G.contract;
+}
+function updateContractHud(){
+  if(G.obj<3) return;
+  const el = $('ctr'), c = G.contract;
   if(!c){ el.style.display='none'; return; }
   const got = Math.max(0,G.run-c.start), f = Math.min(1,got/c.need);
   el.style.display='block';
@@ -1538,8 +1580,7 @@ function loop(now){
   uiT += dt;
   if(uiT>0.2){
     uiT=0;
-    income = income.filter(e=>now-e.t<10000);
-    G.lastRate = income.reduce((s,e)=>s+e.v,0)/10;
+    updateRate(now);
     $('money').textContent = fmt(G.money);
     $('rate').textContent = fmt(G.lastRate);
 
@@ -1547,7 +1588,7 @@ function loop(now){
     $('bMenu').classList.toggle('glow', qg>=1);
     $('bMenu').textContent = qg>=1 ? (innerWidth<=700 ? `Menu +${qg}` : `Menu  (+${qg} PQ)`) : "Menu";
     if(G.lastRate>G.bestRate) G.bestRate=G.lastRate;
-    evTick(); contractTick(); refreshShop(); refreshSelButtons(); checkAch(); checkObj(); updateObjHud();
+    evTick(); updateEventHud(); contractTick(); updateContractHud(); refreshShop(); refreshSelButtons(); checkAch(); checkObj(); updateObjHud();
     const oc=$('bOc'), sm=innerWidth<=700;
     if(ocActive()) oc.textContent=(sm?'OC actif ':'Overclock actif : ')+Math.ceil(G.oc.until-G.playtime)+' s';
     else if(G.playtime<G.oc.ready) oc.textContent=(sm?'OC ':'Overclock : ')+Math.ceil(G.oc.ready-G.playtime)+' s';
