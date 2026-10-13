@@ -939,6 +939,78 @@
   "qpTotal": 5,
   "ach": 3
  },
+ "saveSafety": {
+  "written": 1,
+  "legacy": {
+   "loaded": true,
+   "ver": 1,
+   "kept": true,
+   "nodes": 6
+  },
+  "corrupt": {
+   "loaded": false,
+   "kept": true,
+   "why": "texte illisible"
+  },
+  "fallback": {
+   "loaded": true,
+   "nodes": 6,
+   "kept": true
+  },
+  "reject": {
+   "future": "sauvegarde d'une version plus récente du jeu (v99)",
+   "moneyNull": "valeur invalide : money",
+   "moneyNeg": "valeur invalide : money",
+   "noNodes": "liste de nœuds absente",
+   "badLevel": "niveau de nœud invalide",
+   "dupId": "identifiant de nœud invalide",
+   "badPos": "position de nœud invalide",
+   "badLink": "lien invalide",
+   "badPu": "valeur invalide : pu.rev",
+   "array": "format inattendu",
+   "nul": "format inattendu",
+   "junk": "texte illisible",
+   "ok": "ok"
+  },
+  "clean": {
+   "spec": true,
+   "view": {
+    "x": 0,
+    "y": 0,
+    "k": 1
+   },
+   "mine": 1,
+   "name": "<b>ok</b>"
+  },
+  "proto": {
+   "polluted": true,
+   "ctor": false
+  },
+  "xss": {
+   "img": 0,
+   "script": 0,
+   "pwn": true,
+   "text": true
+  },
+  "guard": true,
+  "backup": {
+   "has": true,
+   "sameAsPrev": true,
+   "throttled": true
+  },
+  "export": 777,
+  "minimal": {
+   "view": {
+    "x": 0,
+    "y": 0,
+    "k": 1
+   },
+   "nextId": 5,
+   "money": 0,
+   "bought": {},
+   "inb": 0
+  }
+ },
  "smoke": {
   "errs": [],
   "tabs": [

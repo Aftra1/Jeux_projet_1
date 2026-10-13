@@ -94,3 +94,12 @@ Reserve aux ecrans etroits ou tactiles, l'interface PC est inchangee.
 
 ## Finitions visuelles (v40)
 Meme direction artistique, details soignes : ombre portee plate sous les noeuds et fin liseré haut, textes de noeuds ajustes a leur largeur (plus de debordement), curseur selon la cible (main, croix sur un port, saisie en deplacement), barre d'onglets qui tient en entier, defilement discret avec fondu en bas des panneaux, apparition douce des panneaux et messages, filet colore sur objectif, contrat et messages, anneaux de focus clavier, anticrenelage et chiffres a chasse fixe.
+
+## Sauvegarde (v41)
+
+- Format versionne : champ `ver` (voir `SAVE_VERSION` dans `game.js`). Pour changer le format : incrementer `SAVE_VERSION` et ajouter `MIGRATIONS[n]`.
+- Copie de secours (`uploadlab2.bak`) : la sauvegarde precedente, au plus toutes les 5 minutes, avant chaque reboot et avant chaque import. Restaurable depuis Options.
+- Une sauvegarde illisible n'est jamais ecrasee en silence : elle est conservee (`uploadlab2.unreadable`, affichable depuis Options) et la copie de secours est restauree si elle est valide. Une sauvegarde d'une version plus recente du jeu est traitee de la meme facon. Une ancienne version est conservee (`uploadlab2.v0`) avant migration.
+- Un etat de jeu invalide (valeur non numerique, negative ou infinie) n'ecrase pas la derniere bonne sauvegarde.
+- Import : verification de la structure, cles dangereuses ignorees, schemas personnels mal formes retires, message d'erreur explicite. Les noms de schemas sont echappes a l'affichage.
+- Tests : `npm test` (voir docs/ROADMAP.md).

@@ -317,7 +317,7 @@ function reboot(){
   const g = qpGain(); if(g<1) return;
   ask(`Reboot quantique ? Tu gagnes ${g} point(s) quantique(s) (revenus x${qpMult(G.qpTotal+g).toFixed(2)} au lieu de x${qpMult(G.qpTotal).toFixed(2)}). Tes nœuds, crédits et améliorations de run sont remis à zéro.`, doReboot);
 }
-function doReboot(){ msel.clear(); G.contract = null; G.ev = null; G.cNext = G.playtime + 60; if(G.auto) G.auto.built = {};
+function doReboot(){ save(); backupNow(); msel.clear(); G.contract = null; G.ev = null; G.cNext = G.playtime + 60; if(G.auto) G.auto.built = {};
   const g = qpGain(); if(g<1) return;
   G.hist = (G.hist||[]).concat([{t:G.playtime-G.runStart, g, run:G.run}]).slice(-6); G.runStart = G.playtime;
   G.qp += g; G.qpTotal += g; G.resets++;
@@ -924,7 +924,7 @@ function ask(msg, yes){
   $('dlgYes').onclick=()=>{ d.style.display='none'; yes(); };
   $('dlgNo').onclick=()=>{ d.style.display='none'; };
 }
-function toast(msg){ const t=$('toast'); t.textContent=msg; t.style.opacity=1; clearTimeout(toast.h); toast.h=setTimeout(()=>t.style.opacity=0,2600); }
+function toast(msg,ms=2600){ const t=$('toast'); t.textContent=msg; t.style.opacity=1; clearTimeout(toast.h); toast.h=setTimeout(()=>t.style.opacity=0,ms); }
 const unlocked = type => G.run >= DEFS[type].unlock && (!DEFS[type].needRs || G.resets>=DEFS[type].needRs);
 
 function buildShop(){
@@ -1129,6 +1129,13 @@ function openTab(t){
   if(tab===t){ tab=null; $('side').style.display='none'; return; }
   tab=t; lastPanel='side'; $('side').style.display='flex'; renderTab();
 }
+function bakInfo(){
+  let h = '';
+  const bak = lsGet(KEY_BAK);
+  if(bak){ let t = ''; try{ const d = parseSave(bak); if(isNum(d.savedAt)) t = new Date(d.savedAt).toLocaleString('fr-FR'); }catch(e){} h += `<div class="item"><div><b>Copie de secours</b><p>${t?'Enregistrée le '+esc(t):'Disponible'}</p></div><button id="oBak">Restaurer</button></div>`; }
+  if(lsGet(KEY_BAD)) h += `<div class="item"><div><b>Sauvegarde illisible conservée</b><p>${esc(lsGet(KEY_BAD+'.why')||'')}. Affiche-la dans la zone de texte pour la récupérer.</p></div><button id="oBad">Afficher</button></div>`;
+  return h;
+}
 function renderTab(){
   if(!tab) return;
   const grp = groupOf(tab);
@@ -1175,7 +1182,7 @@ function renderTab(){
     body.innerHTML = `<p>${tab==='bpr' ? 'Schémas qui produisent des points de recherche (Laboratoire).' : 'Schémas qui produisent des crédits (Upload).'} Un clic pose et relie tous les nœuds au centre de l\'écran.</p>` + [[tab==='bpr','']].map(([isLab,title])=>
       BPS.concat(G.mine||[]).filter(b=>bpIsLab(b)===isLab).map(b=>[b,bpCost(b)]).sort((x,y)=>(!!x[0].mine-!!y[0].mine)||x[1]-y[1]).map(([b,c])=>{
         const lock = !bpUnlocked(b), i = BPS.indexOf(b), mi = (G.mine||[]).indexOf(b);
-        return `<div class="item${lock?' lock':!(G.money<c)?' can':''}"><div><b>${b.name}</b> <small>(${b.nodes.length} nœuds)</small><p>${lock?'Nécessite : '+bpLocked(b):b.desc}</p></div>
+        return `<div class="item${lock?' lock':!(G.money<c)?' can':''}"><div><b>${esc(b.name)}</b> <small>(${b.nodes.length} nœuds)</small><p>${lock?'Nécessite : '+bpLocked(b):esc(b.desc)}</p></div>
           ${mi>=0?`<button data-bpd="${mi}" title="Supprimer" style="min-width:0;padding:6px 10px;color:var(--bad)">&times;</button>`:''}<button ${mi>=0?`data-bpm="${mi}"`:`data-bp="${i}"`} ${lock||G.money<c?'disabled':''}>${fmt(c)}</button></div>`;
       }).join('')).join('') + (tab==='bp'?'<p>Astuce : sélectionne des nœuds (bouton Sélection) puis « Enregistrer schéma » pour créer ton propre schéma.</p>':'');
     body.querySelectorAll('button[data-bpm]').forEach(b=>b.onclick=()=>buildBp(G.mine[+b.dataset.bpm]));
@@ -1241,7 +1248,8 @@ function renderTab(){
   } else if(tab==='opt'){
     body.innerHTML = `<div class="item"><div><b>Son</b></div><button id="oMute">${G.mute?'Désactivé':'Activé'}</button></div>
       <div class="item"><div><b>Format des nombres</b><p>${G.sci?'Scientifique (1.23e6)':'Abrégé (1,23M)'}</p></div><button id="oSci">Changer</button></div>
-      <div class="item"><div><b>Sauvegarde</b><p>Exporter / importer ta partie (texte).</p></div></div>
+      <div class="item"><div><b>Sauvegarde</b><p>Exporter / importer ta partie (texte). Une copie de secours est faite toutes les 5 minutes et avant chaque reboot.</p></div></div>
+      ${bakInfo()}
       <textarea id="oTxt" placeholder="Code de sauvegarde…"></textarea>
       <div class="row"><button id="oExp">Exporter</button><button id="oImp">Importer</button></div>
       <div class="row"><button id="oReset" style="color:var(--bad)">Tout effacer</button></div>
@@ -1252,14 +1260,18 @@ function renderTab(){
     const keep = fn=>{ const y=body.scrollTop; fn(); renderTab(); body.scrollTop=y; };
     $('oMute').onclick = ()=>keep(()=>{ G.mute=!G.mute; });
     $('oSci').onclick = ()=>keep(()=>{ G.sci=!G.sci; refreshShop(); if(sel) showSel(); });
-    $('oExp').onclick = ()=>{ save(); $('oTxt').value = btoa(unescape(encodeURIComponent(JSON.stringify(serialize())))); $('oTxt').select(); };
+    if($('oBak')) $('oBak').onclick = ()=>ask('Restaurer la copie de secours ? La partie actuelle devient elle-même la copie de secours.', ()=>{
+      const bak = lsGet(KEY_BAK); let r; try{ r = readSave(bak); }catch(e){ toast('Copie de secours illisible : '+e.message, 4500); return; }
+      save(); adoptGame(r.g); toast('Copie de secours restaurée'); renderTab(); });
+    if($('oBad')) $('oBad').onclick = ()=>{ $('oTxt').value = lsGet(KEY_BAD)||''; $('oTxt').select(); };
+    $('oExp').onclick = ()=>{ save(); $('oTxt').value = btoa(unescape(encodeURIComponent(serializeText()))); $('oTxt').select(); };
     $('oImp').onclick = ()=>{
-      try{
-        const d = JSON.parse(decodeURIComponent(escape(atob($('oTxt').value.trim()))));
-        G = hydrate(d); buildShop(); sel=null; showSel(); toast('Sauvegarde importée'); save();
-      }catch(e){ toast('Code invalide'); }
+      let r;
+      let txt; try{ txt = decodeURIComponent(escape(atob($('oTxt').value.trim()))); }catch(e){ toast('Code invalide : texte illisible', 4500); return; }
+      try{ r = readSave(txt); }catch(e){ toast('Code invalide : '+e.message, 4500); return; }
+      save(); adoptGame(r.g); toast('Sauvegarde importée (l\'ancienne partie est dans la copie de secours)', 4500); renderTab();
     };
-    $('oReset').onclick = ()=>ask('Tout effacer, y compris les points quantiques ?', ()=>{ try{ localStorage.removeItem(KEY); }catch(e){} newGame(); if(W<=700) fitView(); income=[]; sel=null; showSel(); buildShop(); renderTab(); });
+    $('oReset').onclick = ()=>ask('Tout effacer, y compris les points quantiques, la copie de secours et les sauvegardes conservées ?', ()=>{ for(const k of [KEY,KEY_BAK,KEY_BAD,KEY_BAD+'.why',KEY+'.v0']) lsDel(k); newGame(); if(W<=700) fitView(); income=[]; sel=null; showSel(); buildShop(); renderTab(); });
   }
 }
 $('bMenu').onclick = ()=>openTab(tab?tab:'up');
@@ -1400,13 +1412,79 @@ cv.addEventListener('dblclick', e=>{ const nd=findNode(toWorld(e.clientX,e.clien
 cv.addEventListener('dblclick', e=>{ if(!findNode(toWorld(e.clientX,e.clientY)) && !findLink(toWorld(e.clientX,e.clientY))) fitView(); });
 
 // Sauvegarde 
-const KEY = 'uploadlab2';
-function serialize(){ G.savedAt = Date.now(); return JSON.parse(JSON.stringify(G, (k,v)=> k==='packets' ? [] : v)); }
+// Format : JSON dans localStorage. `ver` = version du schema (SAVE_VERSION). Pour changer le format :
+// incrementer SAVE_VERSION et ajouter MIGRATIONS[nouvelle version] = d => d' (transforme une sauvegarde de la version precedente).
+const SAVE_VERSION = 1;
+const KEY = 'uploadlab2', KEY_BAK = KEY+'.bak', KEY_BAD = KEY+'.unreadable';
+const MIGRATIONS = {
+  1: d => d,   // v0 (sans champ ver) -> v1 : structure identique, hydrate() complete les champs manquants
+};
+const esc = x => String(x).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+const lsGet = k => { try{ return localStorage.getItem(k); }catch(e){ return null; } };
+const lsSet = (k,v) => { try{ localStorage.setItem(k,v); return true; }catch(e){ return false; } };
+const lsDel = k => { try{ localStorage.removeItem(k); }catch(e){} };
+const SAVE_NUMS = ['money','run','rp','rpTotal','lifetime','files','qp','qpTotal','resets','golds','playtime','lastRate','bestRate','obj','nextId','cStreak','cDone','cNext','evNext','evDone','runStart','savedAt'];
+const isNum = v => typeof v==='number' && isFinite(v);
+// premier champ numerique invalide de l'etat (null si tout va bien)
+const badField = g => SAVE_NUMS.find(k => g[k]!==undefined && (!isNum(g[k]) || g[k]<0)) || null;
+
+// Texte JSON -> objet, sans les cles dangereuses (__proto__, constructor, prototype)
+function parseSave(text){ return JSON.parse(text, (k,v)=> (k==='__proto__'||k==='constructor'||k==='prototype') ? undefined : v); }
+// Applique les migrations dans l'ordre ; refuse une sauvegarde plus recente que le jeu
+function migrateSave(d){
+  const v0 = Number.isInteger(d.ver) ? d.ver : 0;
+  if(v0 > SAVE_VERSION) throw new Error('sauvegarde d\'une version plus récente du jeu (v'+v0+')');
+  for(let v=v0+1; v<=SAVE_VERSION; v++) d = MIGRATIONS[v](d);
+  d.ver = SAVE_VERSION;
+  return d;
+}
+// Verifie la structure et nettoie ce qui peut l'etre ; renvoie un message d'erreur ou null
+function validateSave(d){
+  if(!d || typeof d!=='object' || Array.isArray(d)) return 'format inattendu';
+  const bf = badField(d); if(bf) return 'valeur invalide : '+bf;
+  if(!Array.isArray(d.nodes)) return 'liste de nœuds absente';
+  if(d.nodes.length>5000 || (d.links && d.links.length>10000)) return 'trop de nœuds ou de liens';
+  const ids = new Set();
+  for(const n of d.nodes){
+    if(!n || typeof n!=='object') return 'nœud invalide';
+    if(!Number.isInteger(n.id) || n.id<1 || ids.has(n.id)) return 'identifiant de nœud invalide';
+    ids.add(n.id);
+    if(!isNum(n.x) || !isNum(n.y) || Math.abs(n.x)>1e6 || Math.abs(n.y)>1e6) return 'position de nœud invalide';
+    if(!Number.isInteger(n.level) || n.level<0 || n.level>10000) return 'niveau de nœud invalide';
+    if(n.spec!==undefined && !SPECS[n.spec]) delete n.spec;
+    if(n.timer!==undefined && !isNum(n.timer)) n.timer = 0;
+    if(n.thr!==undefined && !isNum(n.thr)) delete n.thr;
+  }
+  if(d.links!==undefined){
+    if(!Array.isArray(d.links)) return 'liste de liens invalide';
+    for(const l of d.links) if(!l || !Number.isInteger(l.a) || !Number.isInteger(l.b) || !Number.isInteger(l.ao) || !Number.isInteger(l.bi) || l.ao<0 || l.bi<0) return 'lien invalide';
+  }
+  for(const k of ['pu','glob','tech','mast','bought']){
+    if(d[k]===undefined) continue;
+    if(!d[k] || typeof d[k]!=='object' || Array.isArray(d[k])) return 'section invalide : '+k;
+    for(const x in d[k]) if(!isNum(d[k][x]) || d[k][x]<0) return 'valeur invalide : '+k+'.'+x;
+  }
+  if(d.ach!==undefined && (!d.ach || typeof d.ach!=='object' || Array.isArray(d.ach))) return 'section invalide : ach';
+  if(d.view!==undefined){
+    const v = d.view;
+    if(!v || !isNum(v.x) || !isNum(v.y) || !isNum(v.k)) d.view = {x:0,y:0,k:1};
+    else v.k = Math.max(ZMIN, Math.min(ZMAX, v.k));
+  }
+  // schemas personnels : on garde ceux qui sont bien formes, textes limites (ils sont echappes a l'affichage)
+  if(d.mine!==undefined){
+    const okN = n => Array.isArray(n) && typeof n[0]==='string' && DEFS[n[0]] && isNum(n[1]) && isNum(n[2]) && Math.abs(n[1])<1e3 && Math.abs(n[2])<1e3 && (n[3]===undefined || isNum(n[3]));
+    d.mine = (Array.isArray(d.mine) ? d.mine : []).filter(b => b && Array.isArray(b.nodes) && b.nodes.length>0 && b.nodes.length<=60 && b.nodes.every(okN) &&
+      Array.isArray(b.links) && b.links.every(l=>Array.isArray(l) && l.length===4 && l.every(Number.isInteger) && l[0]>=0 && l[2]>=0 && l[0]<b.nodes.length && l[2]<b.nodes.length)).slice(0,20)
+      .map(b => ({k:Number.isInteger(b.k)?b.k:0, mine:true, name:String(b.name==null?'Schéma':b.name).slice(0,40), desc:String(b.desc==null?'':b.desc).slice(0,120), nodes:b.nodes, links:b.links}));
+  }
+  return null;
+}
 function hydrate(d){
   for(const k in RKC) delete RKC[k];
   const g = Object.assign({rp:0,rpTotal:0,obj:0,daily:'',oc:{until:0,ready:0},lifetime:0,files:0,qp:0,qpTotal:0,resets:0,golds:0,playtime:0,lastRate:0,mute:false,mast:{},contract:null,cStreak:0,cDone:0,cNext:0,ev:null,mine:[],hist:[],runStart:0,evNext:0,evDone:0,bestRate:0,sci:false,auto:{on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1},savedAt:Date.now()}, d);
   g.auto = Object.assign({on:false,nodes:true,glob:true,bp:true,tech:true,oc:true,reboot:false,ratio:1}, g.auto);
   g.mast = g.mast||{};
+  g.view = g.view||{x:0,y:0,k:1}; g.bought = g.bought||{}; g.money = g.money||0; g.run = g.run||0;
   g.ach = g.ach||{}; g.tech = g.tech||{};
   for(const t of TECH) g.tech[t.id] = g.tech[t.id]||0;
   g.pu = Object.assign({start:0,spd:0,disc:0,off:0,auto:0,rev:0}, g.pu);
@@ -1417,30 +1495,73 @@ function hydrate(d){
     n.outq = (n.outq||[]).filter(q=>q && typeof q==='object');
     n.work = n.work && n.work.rem!==undefined ? n.work : null;
   }
+  g.nextId = Math.max(g.nextId||1, ...g.nodes.map(n=>n.id+1));
   g.links = (g.links||[]).filter(l=>g.nodes.some(n=>n.id===l.a) && g.nodes.some(n=>n.id===l.b)).map(l=>Object.assign(l,{packets:[]}));
   return g;
 }
-function save(){ try{ localStorage.setItem(KEY, JSON.stringify(serialize())); }catch(e){} }
+// Texte -> {g, from} : analyse, migration, verification, hydratation. Leve une Error au message lisible.
+function readSave(text){
+  let d; try{ d = parseSave(text); }catch(e){ throw new Error('texte illisible'); }
+  if(!d || typeof d!=='object' || Array.isArray(d)) throw new Error('format inattendu');
+  const from = Number.isInteger(d.ver) ? d.ver : 0;
+  d = migrateSave(d);
+  const err = validateSave(d); if(err) throw new Error(err);
+  return {g:hydrate(d), from};
+}
+// Une seule serialisation JSON (sans les paquets en transit), version et date comprises
+function serializeText(){ return JSON.stringify(Object.assign({}, G, {ver:SAVE_VERSION, savedAt:Date.now()}), (k,v)=> k==='packets' ? [] : v); }
+function serialize(){ return JSON.parse(serializeText()); }
+// Copie de secours : la sauvegarde actuellement stockee (si elle est lisible) devient la copie de secours
+let lastBak = 0;
+function backupNow(){
+  const cur = lsGet(KEY); if(!cur) return;
+  try{ if(validateSave(migrateSave(parseSave(cur)))) return; }catch(e){ return; }
+  if(lsSet(KEY_BAK, cur)) lastBak = Date.now();
+}
+let saveWarn = '';
+function save(){
+  let text; try{ text = serializeText(); }catch(e){ return; }
+  const bf = badField(G);
+  if(bf){   // ne jamais ecraser une bonne sauvegarde par un etat corrompu
+    if(saveWarn!==bf){ saveWarn = bf; console.error('sauvegarde suspendue : valeur invalide '+bf); toast('Sauvegarde suspendue : valeur invalide ('+bf+')', 5000); }
+    return;
+  }
+  if(Date.now()-lastBak > 300000) backupNow();   // au plus une copie de secours toutes les 5 minutes
+  if(lsSet(KEY, text)){ saveWarn = ''; }
+  else if(saveWarn!=='quota'){ saveWarn = 'quota'; toast('Sauvegarde impossible (stockage plein ou bloqué)', 5000); }
+}
+// Sauvegarde illisible : on la garde pour pouvoir la recuperer, jamais ecrasee en silence
+function keepUnreadable(raw, why){ if(lsGet(KEY_BAD)!==raw) lsSet(KEY_BAD, raw); lsSet(KEY_BAD+'.why', why); }
+function adoptGame(g){ backupNow(); G = g; msel.clear(); sel = null; buildShop(); showSel(); save(); }
 function load(){
-  try{
-    const s = localStorage.getItem(KEY); if(!s) return false;
-    const d = JSON.parse(s); if(!d.nodes || !d.nodes.length) return false;
-    G = hydrate(d);
-    const secs = Math.min((Date.now()-G.savedAt)/1000, 3*3600);
-    if(secs>30 && G.lastRate>0){
-      const gain = G.lastRate*secs*(0.4+0.08*G.pu.off);
-      G.money+=gain; G.run+=gain; G.lifetime+=gain;
-      setTimeout(()=>toast(`Pendant ton absence (${Math.floor(secs/60)} min) : +${fmt(gain)} crédits`),600);
-    }
-    const today = new Date().toISOString().slice(0,10);
-    if(G.daily!==today){
-      G.daily = today;
-      const r = Math.max(500, G.lastRate*600);
-      G.money+=r; G.run+=r; G.lifetime+=r;
-      setTimeout(()=>toast('Bonus quotidien : +'+fmt(r)+' crédits'),3500);
-    }
-    return true;
-  }catch(e){ return false; }
+  const raw = lsGet(KEY); if(!raw) return false;
+  let r = null, note = '';
+  try{ r = readSave(raw); }
+  catch(e){
+    keepUnreadable(raw, e.message);
+    const bak = lsGet(KEY_BAK);
+    try{ r = bak ? readSave(bak) : null; }catch(e2){ r = null; }
+    note = r ? 'Sauvegarde illisible ('+e.message+') : copie de secours restaurée.' : 'Sauvegarde illisible ('+e.message+') : copie conservée dans Options.';
+    setTimeout(()=>toast(note, 6000), 800);
+    if(!r) return false;
+  }
+  if(r.from < SAVE_VERSION) lsSet(KEY+'.v'+r.from, raw);   // ancienne version conservee avant migration
+  G = r.g;
+  if(!G.nodes.length) return false;
+  const secs = Math.min((Date.now()-G.savedAt)/1000, 3*3600);
+  if(secs>30 && G.lastRate>0){
+    const gain = G.lastRate*secs*(0.4+0.08*G.pu.off);
+    G.money+=gain; G.run+=gain; G.lifetime+=gain;
+    setTimeout(()=>toast(`Pendant ton absence (${Math.floor(secs/60)} min) : +${fmt(gain)} crédits`),600);
+  }
+  const today = new Date().toISOString().slice(0,10);
+  if(G.daily!==today){
+    G.daily = today;
+    const r = Math.max(500, G.lastRate*600);
+    G.money+=r; G.run+=r; G.lifetime+=r;
+    setTimeout(()=>toast('Bonus quotidien : +'+fmt(r)+' crédits'),3500);
+  }
+  return true;
 }
 setInterval(save, 5000);
 addEventListener('beforeunload', save);

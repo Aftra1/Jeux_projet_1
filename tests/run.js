@@ -107,6 +107,62 @@ const SCENARIOS = {
     return {nodes:G.nodes.length, links:G.links.length, money:r(G.money), run:r(G.run), files:G.files, qpTotal:G.qpTotal, ach:Object.keys(G.ach).length};
   },
 
+  // sauvegarde : version, migration, copie de secours, import hostile, echappement
+  saveSafety(fx){
+    const R = {}; const ls = localStorage; const wipe = ()=>{ for(const k of Object.keys(ls)) if(k.startsWith(KEY)) ls.removeItem(k); };
+    const fxText = JSON.stringify(fx);
+    const tryRead = t=>{ try{ readSave(t); return 'ok'; }catch(e){ return e.message; } };
+    // 1. ecriture versionnee
+    wipe(); newGame(); save();
+    R.written = JSON.parse(ls.getItem(KEY)).ver;
+    // 2. ancienne sauvegarde (sans ver) : migree, ancienne version conservee
+    wipe(); ls.setItem(KEY, fxText); const okLoad = load();
+    R.legacy = {loaded:okLoad, ver:G.ver, kept:ls.getItem(KEY+'.v0')===fxText, nodes:G.nodes.length};
+    // 3. texte illisible sans copie de secours : conserve, partie neuve
+    wipe(); ls.setItem(KEY, '{pas du json'); R.corrupt = {loaded:load(), kept:ls.getItem(KEY_BAD)==='{pas du json', why:ls.getItem(KEY_BAD+'.why')};
+    // 4. principale illisible + copie de secours valide : restauration
+    wipe(); ls.setItem(KEY_BAK, fxText); ls.setItem(KEY, '{"nodes":"x"}'); R.fallback = {loaded:load(), nodes:G.nodes.length, kept:ls.getItem(KEY_BAD)==='{"nodes":"x"}'};
+    // 5. rejets : version future, valeurs invalides, structure
+    const base = ()=>JSON.parse(fxText);
+    const mut = f=>{ const d = base(); f(d); return JSON.stringify(d); };
+    R.reject = {
+      future: tryRead(mut(d=>{ d.ver = 99; })),
+      moneyNull: tryRead(mut(d=>{ d.money = null; })),
+      moneyNeg: tryRead(mut(d=>{ d.money = -5; })),
+      noNodes: tryRead(mut(d=>{ delete d.nodes; })),
+      badLevel: tryRead(mut(d=>{ d.nodes[0].level = 1e9; })),
+      dupId: tryRead(mut(d=>{ d.nodes[1].id = d.nodes[0].id; })),
+      badPos: tryRead(mut(d=>{ d.nodes[0].x = 'a'; })),
+      badLink: tryRead(mut(d=>{ d.links[0].a = 'x'; })),
+      badPu: tryRead(mut(d=>{ d.pu.rev = 'x'; })),
+      array: tryRead('[1,2]'), nul: tryRead('null'), junk: tryRead('abc'),
+      ok: tryRead(fxText),
+    };
+    // 6. nettoyage doux : specialisation inconnue, vue absurde, schemas mal formes
+    const g6 = readSave(mut(d=>{ d.nodes[0].spec = 'hack'; d.view = {x:'a',y:0,k:99}; d.mine = [{name:'<b>ok</b>',desc:'d',nodes:[['source',0,0]],links:[]},{name:'x',nodes:[['inconnu',0,0]],links:[]},{name:'y',nodes:[['source',0,0]],links:[[0,0,5,0]]}]; })).g;
+    R.clean = {spec:g6.nodes[0].spec===undefined, view:g6.view, mine:g6.mine.length, name:g6.mine[0].name};
+    // 7. cles dangereuses ignorees
+    const g7 = readSave(mut(d=>{})) ; const evil = fxText.replace('{', '{"__proto__":{"polluted":1},"constructor":{"x":1},');
+    const g8 = readSave(evil).g; R.proto = {polluted: ({}).polluted===undefined && g8.polluted===undefined, ctor: Object.prototype.hasOwnProperty.call(g8,'constructor')};
+    // 8. echappement dans le DOM (nom de schema hostile)
+    newGame(); G.mine = [{k:1, mine:true, name:'<img src=x onerror="window.__pwn=1">', desc:'<script>window.__pwn=2<\/script>', nodes:[['source',0,0]], links:[]}]; G.run = 1e9; G.obj = 3;
+    tab = 'bp'; $('side').style.display = 'flex'; renderTab();
+    const bd = $('tabBody'); R.xss = {img:bd.querySelectorAll('img').length, script:bd.querySelectorAll('script').length, pwn:window.__pwn===undefined, text:bd.textContent.includes('<img src=x')};
+    tab = null; $('side').style.display = 'none';
+    // 9. un etat invalide n'ecrase pas la sauvegarde
+    wipe(); newGame(); save(); const before = ls.getItem(KEY); G.money = Infinity; save(); R.guard = ls.getItem(KEY)===before; G.money = 5; saveWarn = '';
+    // 10. copie de secours : la sauvegarde precedente est conservee a la premiere ecriture, puis au plus toutes les 5 min
+    wipe(); newGame(); save(); const first = ls.getItem(KEY); lastBak = 0; G.money += 123; save();
+    R.backup = {has:!!ls.getItem(KEY_BAK), sameAsPrev:ls.getItem(KEY_BAK)===first};
+    const bakBefore = ls.getItem(KEY_BAK); G.money += 1; save(); R.backup.throttled = ls.getItem(KEY_BAK)===bakBefore;
+    // 11. aller-retour d'un export (base64) avec import
+    wipe(); newGame(); G.money = 777; const code = btoa(unescape(encodeURIComponent(serializeText()))); const back = readSave(decodeURIComponent(escape(atob(code)))).g; R.export = back.money;
+    // 12. sauvegarde minimale : les champs absents recoivent une valeur par defaut
+    const mn = readSave('{"nodes":[{"id":4,"type":"source","x":0,"y":0,"level":0}]}').g; R.minimal = {view:mn.view, nextId:mn.nextId, money:mn.money, bought:mn.bought, inb:mn.nodes[0].inb.length};
+    wipe(); newGame(); lastBak = 0;
+    return R;
+  },
+
   // le rendu et les panneaux ne levent aucune exception
   smoke(){
     const errs = [];
@@ -142,7 +198,7 @@ const SCENARIOS = {
     const fn = 'function '+SCENARIOS[name].toString();
     // l'horloge est figee pendant un scenario (upSound limite ses sons avec performance.now : sinon le flux aleatoire depend du temps reel)
     got[name] = await page.evaluate(`(function(){ const real = performance.now; let T = 1e6; performance.now = ()=>T; window.tick = ()=>{ T += 50; step(0.05); };
-      try{ return (${fn})(${name==='legacyFixture'?JSON.stringify(fixture):''}); } finally{ performance.now = real; } })()`);
+      try{ return (${fn})(${(name==='legacyFixture'||name==='saveSafety')?JSON.stringify(fixture):''}); } finally{ performance.now = real; } })()`);
   }
   await browser.close();
 
