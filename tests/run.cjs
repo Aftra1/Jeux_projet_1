@@ -359,6 +359,10 @@ const SCENARIOS = {
     expect('ports', ()=>node({ins:2}), 'le genre transform en demande 1 a 1');
     expect('mesure', ()=>measure('filez', 'test'), 'mesure inconnue "filez"');
     expect('mesure type', ()=>measure('count:filtre', 'test'), 'type de noeud inconnu dans la mesure "count:filtre"');
+    for(const [k, v, part] of [['poids', 0, 'poids invalide'], ['champ', 1, 'champ inconnu "poid"']]){
+      EVT.push(k==='poids' ? {id:'ex', name:'X', desc:'d', dur:1, weight:v} : {id:'ex', name:'X', desc:'d', dur:1, poid:v});
+      try{ expect('evenement '+k, ()=>validateAll(), part); } finally{ EVT.pop(); }
+    }
     // invariant du cache par pas (version de test) : un niveau qui change pendant step() donne une erreur explicite
     newGame(); const s0 = G.nodes[0]; s0.level = 10; s0.tr = 0; const bump = ()=>{ G.glob.spd++; }; on('tierFx', bump);
     try{ step(0.05); errs.push('invariant du cache : aucune erreur'); }catch(e){ if(!e.message.includes('pendant un pas')) errs.push('invariant du cache : message inattendu '+e.message); }

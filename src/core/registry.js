@@ -83,7 +83,10 @@ export function validateAll(){
   const e = [];
   for(const id of ORDER){ const x = checkNode(id, DEFS[id]); if(x.length) e.push(...x); else addType(id, DEFS[id]); }
   for(const [s,list] of Object.entries(UPG_LISTS)) for(const d of list) e.push(...checkUpgrade(d, `amelioration ${s}.${d.id}`));
-  for(const ev of EVT) for(const k of Object.keys(ev)) if(!['id','name','desc','dur','mods'].includes(k)) e.push(`evenement ${ev.id} : champ inconnu "${k}"`);
+  for(const ev of EVT){
+    for(const k of Object.keys(ev)) if(!['id','name','desc','dur','weight','mods'].includes(k)) e.push(`evenement ${ev.id} : champ inconnu "${k}"`);
+    if(ev.weight!==undefined && !(ev.weight>0)) e.push(`evenement ${ev.id} : poids invalide "${ev.weight}"`);
+  }
   for(const k in SPECS) for(const f of Object.keys(SPECS[k])) if(!['name','desc','mods'].includes(f)) e.push(`specialisation ${k} : champ inconnu "${f}"`);
   const m = (spec, where, num, k) => { try{ measure(spec, where); }catch(x){ e.push(x.message.replace('Donnees invalides : ','')); } if(typeof num!=='number') e.push(`${where} : nombre "${k}" absent`); };
   for(const a of ACH) m(a.measure, 'succes '+a.id, a.gte, 'gte');
