@@ -7,7 +7,8 @@ import { fitView, zoomAt, zoomT } from '../render/view.js';
 import { G } from '../core/state.js';
 import { undo } from '../core/actions.js';
 import { fmt } from '../core/format.js';
-import { OBJ, objReward } from '../core/progression.js';
+import { objProgress, objReward } from '../core/progression.js';
+import { OBJ } from '../data/progression.js';
 import { useOverclock } from '../core/prestige.js';
 import { EVT } from '../data/events.js';
 
@@ -65,7 +66,7 @@ $('bSel').onclick = ()=>{ setSelMode(!selMode); if(!selMode) msel.clear(); setSe
 export function updateObjHud(){
   const o = OBJ[G.obj], el = $('obj');
   if(!o){ el.style.display='none'; return; }
-  const [c,t] = o.p(), f = Math.max(0,Math.min(1,c/t));
+  const [c,t] = objProgress(o), f = Math.max(0,Math.min(1,c/t));
   el.style.display='block';
   el.innerHTML = `<small>Objectif ${G.obj+1}/${OBJ.length}  -  récompense ${fmt(objReward(o))}</small><div>${o.d}  <span>${fmt(Math.min(c,t))} / ${fmt(t)}</span></div><i style="width:${f*100}%"></i>`;
 }

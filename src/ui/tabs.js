@@ -15,7 +15,8 @@ import { W } from '../render/canvas.js';
 import { fitView } from '../render/view.js';
 import { COLORS, DEFS, ORDER } from '../data/nodes.js';
 import { resetIncome } from '../core/sim.js';
-import { ACH } from '../core/progression.js';
+import { ACH } from '../data/progression.js';
+import { effText } from '../core/stats.js';
 import { BPS } from '../data/blueprints.js';
 import { buyGlobal, buyQuantum, buyTech } from '../core/actions.js';
 
@@ -111,7 +112,7 @@ export function renderTab(){
       <p>${gain<1?'Il faut gagner '+fmt(qpNeed(1))+' crédits dans ce run pour obtenir le premier point.':'Prochain point à '+fmt(qpNeed(gain+1))+' crédits gagnés dans ce run (actuel : '+fmt(G.run)+').'} Les points deviennent de plus en plus difficiles à obtenir, et au-delà de ${FREEQ} points les prix des nœuds suivent en partie le bonus (inflation actuelle : ×${infl().toFixed(2)}).</p>` +
       PU.map(d=>{
         const lv=G.pu[d.id], max=lv>=d.max, c=puCost(d);
-        return `<div class="item${!max&&G.qp>=c?' can':''}"><div><b>${d.name}</b> <small>${lv}/${d.max}</small><p>${d.desc}<br><span class="qp">${lv?d.eff(lv):""}</span></p>${bar(lv,d.max,'var(--qp)')}</div>
+        return `<div class="item${!max&&G.qp>=c?' can':''}"><div><b>${d.name}</b> <small>${lv}/${d.max}</small><p>${d.desc}<br><span class="qp">${lv?effText(d,lv):""}</span></p>${bar(lv,d.max,'var(--qp)')}</div>
           <button data-p="${d.id}" ${max||G.qp<c?'disabled':''}>${max?'MAX':c+' PQ'}</button></div>`;
       }).join('');
     $('bReboot').onclick = reboot;
@@ -124,7 +125,7 @@ export function renderTab(){
       <div class="item"><div><b style="color:#76e4f7">${fmt(G.rp)} RP</b><p>Total produit : ${fmt(G.rpTotal)}</p></div></div>` +
       TECH.map(d=>{
         const lv=G.tech[d.id], max=lv>=d.max, c=techCost(d);
-        return `<div class="item${!max&&G.rp>=c?' can':''}"><div><b>${d.name}</b> <small>${lv}/${d.max}</small><p>${d.desc}<br><span style="color:#76e4f7">${lv?d.eff(lv):""}</span></p>${bar(lv,d.max,'#76e4f7')}</div>
+        return `<div class="item${!max&&G.rp>=c?' can':''}"><div><b>${d.name}</b> <small>${lv}/${d.max}</small><p>${d.desc}<br><span style="color:#76e4f7">${lv?effText(d,lv):""}</span></p>${bar(lv,d.max,'#76e4f7')}</div>
           <button data-r="${d.id}" ${max||G.rp<c?'disabled':''}>${max?'MAX':fmt(c)+' RP'}</button></div>`;
       }).join('');
     body.querySelectorAll('button[data-r]').forEach(b=>b.onclick=()=>{

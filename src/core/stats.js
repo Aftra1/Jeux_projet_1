@@ -2,7 +2,8 @@
 // a partir d'une valeur initiale (acc = acc * v pour 'mul', acc = acc + v pour 'add'). Pas de regroupement ni de cache
 // de produit partiel : l'ordre des operations est exactement celui des formules d'origine (resultat identique au bit pres).
 import { G } from './state.js';
-import { achCount, infl, qpMult, rankOf, specsFor } from './economy.js';
+import { achCount, infl, qpMult, rankOf, specsFor, startCash } from './economy.js';
+import { fmt } from './format.js';
 import { evActive } from './events.js';
 import { ocActive } from './prestige.js';
 import { GROUPS, STATS, SYSTEM_MODS } from '../data/stats.js';
@@ -104,6 +105,9 @@ export function price(name, base, grow, k, n){
 export function statDetail(name, n, x){
   return LISTS[name].filter(m=>m.key && (m.cond===null || m.cond(n,x))).map(m=>[m.key, m.f(m.lvl(n,x))]);
 }
+
+// Texte d'effet d'une amelioration au niveau l : eff explicite, sinon texte de l'assistant du premier modificateur
+export const effText = (d, l) => d.eff ? d.eff(l, {fmt, startCash}) : d.mods && d.mods.length ? d.mods[0].by.text(l) : '';
 
 // Sources du jeu : systeme, ameliorations globales, quantiques, recherche, evenements, specialisations
 const store = (o, k) => (n,x)=>G[o][k];
