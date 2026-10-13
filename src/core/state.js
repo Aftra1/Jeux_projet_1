@@ -4,7 +4,6 @@ import { RKC, startCash } from './economy.js';
 import { TECH } from '../data/upgrades.js';
 import { DEFS } from '../data/nodes.js';
 
-// État 
 export let G = null;
 export function blankRun(g){
   g.money = startCash(g.pu.start); g.run = 0; g.nextId = 1;

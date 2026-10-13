@@ -7,7 +7,6 @@ import { ZMAX, ZMIN } from './geometry.js';
 import { DEFS, SPECS } from '../data/nodes.js';
 import { TECH } from '../data/upgrades.js';
 
-// Sauvegarde 
 // Format : JSON dans localStorage. `ver` = version du schema (SAVE_VERSION). Pour changer le format :
 // incrementer SAVE_VERSION et ajouter MIGRATIONS[nouvelle version] = d => d' (transforme une sauvegarde de la version precedente).
 const SAVE_VERSION = 1;

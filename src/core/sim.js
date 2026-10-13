@@ -11,7 +11,6 @@ function mastTick(n){
   if(c===MASTTH[r]){ RKC[t] = r+1; emit('toast', 'Maîtrise : '+DEFS[t].name+' rang '+(r+1)+' (+4 % de vitesse)'); emit('blip', 900,0.2,0.07,'triangle'); }
 }
 
-// Simulation 
 let income = [];
 export function resetIncome(){ income = []; }
 // debit : credits gagnes sur les 10 dernieres secondes

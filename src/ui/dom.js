@@ -1,5 +1,4 @@
 // Acces au DOM : raccourci $, dialogue de confirmation, message bref (toast).
-// UI 
 export const $ = id => document.getElementById(id);
 export function ask(msg, yes){
   const d=$('dlg'); $('dlgMsg').textContent=msg; d.style.display='flex';

@@ -4,7 +4,8 @@ import { lastDraw, lodFlash, lodPrev, setLastDraw, setLodFlash, setLodPrev, sste
 import { drawIcon } from './icons.js';
 import { floats, parts } from './effects.js';
 import { drawMini } from './minimap.js';
-import { drag, hoverPort, layoutUI, msel, sel, zoomLX, zoomLY } from '../main.js';
+import { drag, hoverPort, msel, sel } from '../ui/state.js';
+import { layoutUI, zoomLX, zoomLY } from '../ui/hud.js';
 import { bez, ctrl, inPort, linkPts, ortho, outPort } from '../core/geometry.js';
 import { G, nodeById } from '../core/state.js';
 import { bufCap, tierOf, timeOf, upCost } from '../core/economy.js';
