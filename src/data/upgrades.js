@@ -1,5 +1,6 @@
 // Donnees des ameliorations : globales (credits), quantiques (prestige) et recherche.
-import { fmt, startCash } from '../main.js';
+import { fmt } from '../core/format.js';
+import { startCash } from '../core/economy.js';
 
 export const GLOBALS = [
   {id:'rev',  name:'Marketing',          desc:'+25 % de revenus par upload',          base:100, grow:2.1, max:60},

@@ -1,147 +1,21 @@
 'use strict';
+import { on } from './core/bus.js';
+import { G, addNode, connect, newGame, nodeById, setG } from './core/state.js';
+import { esc, fmt } from './core/format.js';
+import { FREEQ, MASTTH, achCount, bpCost, bpIsLab, bpLocked, bpUnlocked, bufCap, bulkCost, buyCost, gUpCost, infl, maxAffordable, puCost, qpGain, qpMult, qpNeed, rankOf, revMult, seedV, sellVal, specsFor, speedOf, techCost, tierOf, timeOf, unlocked, upCost } from './core/economy.js';
+import { ZMAX, ZMIN, bez, ctrl, freeSpot, inPort, linkPts, ortho, outPort } from './core/geometry.js';
+import { resetIncome, step, updateRate } from './core/sim.js';
+import { evTick } from './core/events.js';
+import { contractTick } from './core/contracts.js';
+import { ACH, OBJ, checkAch, checkObj, objReward } from './core/progression.js';
+import { doReboot, ocActive, useOverclock } from './core/prestige.js';
+import { blueprintOf, dropLink, placeBlueprint, pushUndo, saveBlueprint, sell, sellNodes, undo, upgradeCheapest, upgradeNode } from './core/actions.js';
+import { KEY, KEY_BAD, KEY_BAK, backupNow, isNum, load, lsDel, lsGet, parseSave, readSave, save, serializeText } from './core/save.js';
 import { COLORS, DEFS, NH, NW, ORDER, SPECS, TIERS } from './data/nodes.js';
 import { GLOBALS, PU, TECH } from './data/upgrades.js';
 import { BPS } from './data/blueprints.js';
 import { EVT } from './data/events.js';
-import './main.js';
-// Bus d'evenements synchrone : le coeur du jeu signale (messages, sons, effets, rafraichissements) sans connaitre l'interface
-const handlers = {};
-function on(ev, fn){ (handlers[ev] = handlers[ev] || []).push(fn); }
-function emit(ev, ...args){ const h = handlers[ev]; if(h) for(const f of h) f(...args); }
-const techCost = d => Math.ceil(d.base * Math.pow(d.grow, G.tech[d.id]));
-export const startCash = l => Math.floor((100 + 150 * l * l) * (G ? infl() : 1));   // suit l'inflation des prix
-
-const ACH = [
-  {id:'a1', name:'Premier upload',   desc:'Uploade 1 fichier',           t:()=>G.files>=1},
-  {id:'a2', name:'Débutant',         desc:'Uploade 100 fichiers',        t:()=>G.files>=100},
-  {id:'a3', name:'Pro du cloud',     desc:'Uploade 5 000 fichiers',      t:()=>G.files>=5000},
-  {id:'a4', name:'Datacenter',       desc:'Uploade 100 000 fichiers',    t:()=>G.files>=1e5},
-  {id:'a5', name:'Premier millier',  desc:'Gagne 1 000 crédits au total',t:()=>G.lifetime>=1e3},
-  {id:'a6', name:'Millionnaire',     desc:'Gagne 1 M de crédits',        t:()=>G.lifetime>=1e6},
-  {id:'a7', name:'Milliardaire',     desc:'Gagne 1 Md de crédits',       t:()=>G.lifetime>=1e9},
-  {id:'a8', name:'Tycoon',           desc:'Gagne 1 T de crédits',        t:()=>G.lifetime>=1e12},
-  {id:'a9', name:'Architecte',       desc:'Pose 10 nœuds en même temps',t:()=>G.nodes.length>=10},
-  {id:'a10',name:'Usine',            desc:'Pose 25 nœuds en même temps',t:()=>G.nodes.length>=25},
-  {id:'a11',name:'Collectionneur',   desc:'Utilise 8 types de nœuds différents', t:()=>new Set(G.nodes.map(n=>n.type)).size>=8},
-  {id:'a12',name:'Rapide',           desc:'Atteins 100 crédits/s',       t:()=>G.lastRate>=100},
-  {id:'a13',name:'Turbo',            desc:'Atteins 10 000 crédits/s',    t:()=>G.lastRate>=1e4},
-  {id:'a14',name:'Renaissance',      desc:'Fais un Reboot quantique',    t:()=>G.resets>=1},
-  {id:'a15',name:'Habitué',          desc:'Fais 5 Reboots',              t:()=>G.resets>=5},
-  {id:'a16',name:'Chanceux',         desc:'Attrape un fichier doré',     t:()=>G.golds>=1},
-  {id:'a18',name:'Chercheur',        desc:'Produis 500 points de recherche', t:()=>G.rpTotal>=500},
-  {id:'a19',name:'Millions de fichiers', desc:'Uploade 1 000 000 de fichiers', t:()=>G.files>=1e6},
-  {id:'a20',name:'Centaine',         desc:'Pose 50 nœuds en même temps', t:()=>G.nodes.length>=50},
-  {id:'a21',name:'Vétéran',          desc:'Fais 15 Reboots',             t:()=>G.resets>=15},
-  {id:'a22',name:'Maître ingénieur', desc:'Un nœud au niveau 50',        t:()=>G.nodes.some(n=>n.level>=49)},
-  {id:'a23',name:'Légende',          desc:'Gagne 1 Qa de crédits',       t:()=>G.lifetime>=1e15},
-  {id:'a24',name:'Sous contrat',     desc:'Remplis 5 contrats',          t:()=>G.cDone>=5},
-  {id:'a25',name:'Entrepreneur',     desc:'Remplis 25 contrats',         t:()=>G.cDone>=25},
-  {id:'a26',name:'Sans faute',       desc:'Série de 5 contrats',         t:()=>G.cStreak>=5},
-  {id:'a27',name:'Apprenti',         desc:'Un nœud au rang de maîtrise 3', t:()=>Object.keys(G.mast).some(t=>rankOf(t)>=3)},
-  {id:'a28',name:'Grand maître',     desc:'Un nœud au rang de maîtrise 8', t:()=>Object.keys(G.mast).some(t=>rankOf(t)>=8)},
-  {id:'a29',name:'Polyvalent',       desc:'4 types de nœuds au rang 2 ou plus', t:()=>Object.keys(G.mast).filter(t=>rankOf(t)>=2).length>=4},
-  {id:'a30',name:'Opportuniste',     desc:'Profite de 5 événements réseau', t:()=>G.evDone>=5},
-  {id:'a31',name:'Chasseur d\'or',   desc:'Attrape 20 fichiers dorés',   t:()=>G.golds>=20},
-  {id:'a32',name:'Marathon',         desc:'Joue 10 heures',              t:()=>G.playtime>=36000},
-  {id:'a33',name:'Hyperdébit',       desc:'Atteins 1 M de crédits/s',    t:()=>G.lastRate>=1e6},
-  {id:'a34',name:'Chaîne de montage',desc:'Série de 15 contrats',        t:()=>G.cStreak>=15},
-  {id:'a17',name:'Ingénieur',        desc:'Un nœud au niveau 20',        t:()=>G.nodes.some(n=>n.level>=19)},
-];
-
-// État 
-let G = null;
-function blankRun(g){
-  g.money = startCash(g.pu.start); g.run = 0; g.nextId = 1;
-  g.nodes = []; g.links = []; g.bought = {};
-  g.glob = {rev:0,spd:0,seed:0,buf:0,crit:0};
-  g.view = {x:0,y:0,k:1};
-}
-function newGame(){
-  for(const k in RKC) delete RKC[k];
-  G = {rp:0, rpTotal:0, tech:{}, lifetime:0, files:0, qp:0, qpTotal:0, resets:0, golds:0, playtime:0, lastRate:0, ach:{}, pu:{start:0,spd:0,disc:0,off:0,auto:0,rev:0}, obj:0, daily:'', oc:{until:0,ready:0}, mute:false, mast:{}, contract:null, cStreak:0, cDone:0, cNext:0, ev:null, mine:[], hist:[], runStart:0, evNext:0, evDone:0, bestRate:0, sci:false, savedAt:Date.now()};
-  for(const t of TECH) G.tech[t.id]=0;
-  blankRun(G);
-  addNode('source', -280, -40, true);
-  addNode('upload', 180, -40, true);
-}
-function addNode(type,x,y,free){
-  const n = {id:G.nextId++, type, x, y, level:0, inb:[], work:null, outq:[], rr:0, timer:0};
-  for(let i=0;i<DEFS[type].ins;i++) n.inb.push([]);
-  G.nodes.push(n);
-  if(!free) G.bought[type] = (G.bought[type]||0)+1;
-  return n;
-}
-// Index id -> noeud, reconstruit quand le tableau change (autre tableau, autre taille, autre premier ou dernier element).
-// Les modifications en place qui gardent ces quatre criteres (ordre des noeuds, par exemple) ne changent pas l'ensemble des noeuds.
-let nmArr = null, nmLen = -1, nmFirst = null, nmLast = null; const nm = new Map();
-function nodeById(id){
-  const a = G.nodes, L = a.length;
-  if(a!==nmArr || L!==nmLen || a[0]!==nmFirst || a[L-1]!==nmLast){ nm.clear(); for(const n of a) nm.set(n.id, n); nmArr = a; nmLen = L; nmFirst = a[0]; nmLast = a[L-1]; }
-  return nm.get(id);
-}
-const achCount = () => Object.keys(G.ach).length;
-const qpMult = q => Math.pow(1 + q, 0.6);   // bonus de revenus des points quantiques (sous-linéaire)
-const BG = 1.28;   // croissance du prix par exemplaire déjà acheté
-const CS = 1.5;   // échelle globale des prix (équilibrage)
-const INFL = 0.9, FREEQ = 2;   // inflation : part du bonus quantique (au-delà des FREEQ premiers points) répercutée sur les prix
-const infl = () => Math.pow(qpMult(Math.max(0, G.qpTotal - FREEQ)), INFL);
-const evActive = id => !!G.ev && G.ev.id===id && G.playtime<G.ev.until;
-const saleMult = () => evActive('sale') ? 0.7 : 1;
-const buyCost = (type,extra=0) => Math.ceil(saleMult() * infl() * CS * DEFS[type].cost * Math.pow(BG, (G.bought[type]||0)+extra) * (1 - 0.05*G.pu.disc) * (1 - 0.02*G.tech.tcost));
-const specsFor = n => ('val' in DEFS[n.type] || n.type==='upload') ? ['spd','val','eco'] : ['spd','eco'];
-const tierOf = lv => Math.min(TIERS.length-1, Math.floor(lv/10));
-const vmult = n => n.spec==='val' && ('val' in DEFS[n.type] || n.type==='upload') ? 1.25 : 1;
-const upCost = (n, lvl) => Math.ceil(saleMult() * infl() * CS * DEFS[n.type].cost * 0.8 * Math.pow(1.6, lvl===undefined?n.level:lvl) * (1 - 0.03*G.tech.tup) * (n.spec==='eco'?0.7:1) + 10);
-const gUpCost = d => Math.ceil(saleMult() * infl() * CS * d.base * Math.pow(d.grow, G.glob[d.id]));
-const puCost = d => Math.ceil(d.base * Math.pow(d.grow, G.pu[d.id]) * (d.grow===1?1:1));
-// Maitrise : chaque type de noeud gagne des rangs avec le nombre de fichiers traites (permanent, +4 % de vitesse par rang)
-const MASTTH = [200,1200,7200,43000,260000,1.5e6,9.3e6,5.6e7];
-const mastRank = type => { const c = G.mast[type]||0; let r=0; while(r<MASTTH.length && c>=MASTTH[r]) r++; return r; };
-const RKC = {};   // cache des rangs
-function mastTick(n){
-  const t = n.type, r = rankOf(t), c = G.mast[t] = (G.mast[t]||0)+1;
-  if(c===MASTTH[r]){ RKC[t] = r+1; emit('toast', 'Maîtrise : '+DEFS[t].name+' rang '+(r+1)+' (+4 % de vitesse)'); emit('blip', 900,0.2,0.07,'triangle'); }
-}
-const rankOf = t => RKC[t]===undefined ? (RKC[t]=mastRank(t)) : RKC[t];
-const lvlMult = lv => Math.pow(1.5, Math.floor(lv/10));   // palier : x1,5 de vitesse tous les 10 niveaux
-const speedOf = (n,lv=n.level) => (n.spec==='spd'?1.25:1) * (1 + 0.3*lv) * lvlMult(lv) * (1 + 0.04*rankOf(n.type)) * (1 + 0.1*G.glob.spd) * (1 + 0.05*G.pu.spd) * (ocActive()?2:1) * (1 + 0.04*G.tech.tspd) * (evActive('surge')?1.5:1);
-const timeOf = n => DEFS[n.type].t / speedOf(n);
-const ocActive = () => G.playtime < G.oc.until;
-const bufCap = () => 3 + G.glob.buf;
-const revMult = () => (1 + 0.25*G.glob.rev) * qpMult(G.qpTotal) * (1 + 0.02*achCount()) * (1 + 0.1*G.pu.rev) * (1 + 0.08*G.tech.trev) * (evActive('traffic')?2:1);
-const critChance = () => 0.03*G.glob.crit + 0.02*G.tech.tcrit;
-const seedV = def => def.val * (1 + 0.2*G.glob.seed) * (1 + 0.08*G.tech.tseed);
-const rpOf = v => 0.5*Math.pow(v,0.3)*(1+0.2*G.tech.tlab);
-// Crédits à gagner dans un run pour obtenir g points quantiques : de plus en plus durs à obtenir
-const QPB = 0.1;
-const qpNeed = g => 1e5*Math.pow(g,2.8)*Math.exp(QPB*Math.min(48, Math.pow(Math.log(1+g),2)));
-const qpGain = () => { let lo=0, hi=1e7; while(hi-lo>1){ const m=Math.floor((lo+hi)/2); if(qpNeed(m)<=G.run) lo=m; else hi=m; } return lo; };
-
-// Géométrie 
-const inPort  = (n,i) => ({x:n.x,    y:n.y + NH*(i+1)/(DEFS[n.type].ins+1)});
-const outPort = (n,i) => ({x:n.x+NW, y:n.y + NH*(i+1)/(DEFS[n.type].outs+1)});
-function ctrl(a,b){ const d=Math.max(60,Math.abs(b.x-a.x)/2); return [a,{x:a.x+d,y:a.y},{x:b.x-d,y:b.y},b]; }
-function ortho(p){
-  const a=p[0], b=p[3];
-  if(b.x >= a.x+28){ const m=Math.round((a.x+b.x)/2); return [a,{x:m,y:a.y},{x:m,y:b.y},b]; }
-  const ym = Math.abs(a.y-b.y)<NH ? Math.max(a.y,b.y)+NH*0.8 : (a.y+b.y)/2;
-  return [a,{x:a.x+14,y:a.y},{x:a.x+14,y:ym},{x:b.x-14,y:ym},{x:b.x-14,y:b.y},b];
-}
-function bez(p,t){
-  const q=ortho(p); let L=0; const ls=[];
-  for(let i=1;i<q.length;i++){ const d=Math.hypot(q[i].x-q[i-1].x,q[i].y-q[i-1].y); ls.push(d); L+=d; }
-  let r=Math.max(0,Math.min(1,t))*L;
-  for(let i=0;i<ls.length;i++){ if(r<=ls[i]||i===ls.length-1){ const f=ls[i]?Math.min(1,r/ls[i]):0; return {x:q[i].x+(q[i+1].x-q[i].x)*f, y:q[i].y+(q[i+1].y-q[i].y)*f}; } r-=ls[i]; }
-}
 function polyPath(p){ const q=ortho(p); cx.beginPath(); cx.moveTo(q[0].x,q[0].y); for(let i=1;i<q.length;i++) cx.lineTo(q[i].x,q[i].y); }
-const linkPts = l => ctrl(outPort(nodeById(l.a),l.ao), inPort(nodeById(l.b),l.bi));
-// Index (noeud, sortie) -> lien, meme principe d'invalidation que nodeById ; en cas de doublon le premier lien l'emporte
-let lmArr = null, lmLen = -1, lmFirst = null, lmLast = null; const lm = new Map();
-function linkFrom(id,o){
-  const a = G.links, L = a.length;
-  if(a!==lmArr || L!==lmLen || a[0]!==lmFirst || a[L-1]!==lmLast){ lm.clear(); for(const l of a){ const k = l.a*64+l.ao; if(l.ao<64 && !lm.has(k)) lm.set(k, l); } lmArr = a; lmLen = L; lmFirst = a[0]; lmLast = a[L-1]; }
-  return lm.get(id*64+o);
-}
 
 // Effets (sons, textes) 
 let AC = null, lastBlip = 0;
@@ -166,133 +40,10 @@ function upSound(big){
 const floats = [], parts = [];
 function floatText(x,y,text,col='#f6c453',size=15){ if(floats.length<60) floats.push({x,y,text,col,size,life:1}); }
 
-// Simulation 
-let income = [];
-function resetIncome(){ income = []; }
-// debit : credits gagnes sur les 10 dernieres secondes
-function updateRate(now){ income = income.filter(e=>now-e.t<10000); G.lastRate = income.reduce((s,e)=>s+e.v,0)/10; }
-function earn(v, n, crit){
-  G.money += v; G.run += v; G.lifetime += v;
-  income.push({t:performance.now(), v});
-  if(n) emit('float', n.x+NW/2, n.y-4, '+'+fmt(v), crit?'#ff9f43':'#f6c453', crit?20:15);
-  emit('upSound', crit);
-  if(n) emit('earnFx', n, crit);
-}
-
-function trySend(n){
-  const q = n.outq[0]; if(!q) return;
-  const d = DEFS[n.type];
-  const order = q.o>=0 ? [q.o] : (d.outs===2 ? [n.rr%2,(n.rr+1)%2] : [0]);
-  for(const o of order){
-    const l = linkFrom(n.id,o);
-    if(!l) continue;
-    const last = l.packets[l.packets.length-1];
-    if(!last || last.t > 0.18){
-      l.packets.push({v:q.v,t:0}); n.outq.shift();
-      if(q.o<0 && d.outs===2 && n.type!=='sorter') n.rr = o+1;
-      return;
-    }
-  }
-  if(q.o>=0 && n.type==='sorter' && !linkFrom(n.id,q.o) && linkFrom(n.id,1-q.o)){ q.o = 1-q.o; return; }   // le trieur se rabat sur l'autre sortie
-  if(q.o>=0 && !linkFrom(n.id,q.o)) n.outq.shift();   // sortie non branchée du clonage : le fichier est perdu
-}
-
-function updateNode(n,dt){
-  const def = DEFS[n.type], t = timeOf(n);
-  if(def.val){                                   // sources
-    if(n.outq.length<2){
-      n.timer += dt;
-      if(n.timer>=t){ n.timer=0; n.outq.push({v:seedV(def)*vmult(n), o:-1}); mastTick(n); }
-    }
-  } else if(n.type==='lab'){
-    if(!n.work){
-      for(let k=0;k<n.inb.length;k++){
-        const i=(n.rr+k)%n.inb.length;
-        if(n.inb[i].length){ n.work = {v:n.inb[i].shift(), rem:t}; n.rr=i+1; break; }
-      }
-    }
-    if(n.work){
-      n.work.rem -= dt;
-      if(n.work.rem<=0){ const r=rpOf(n.work.v); G.rp+=r; G.rpTotal+=r; emit('float', n.x+NW/2, n.y-4, '+'+fmt(r)+' RP', '#76e4f7', 13); n.work=null; mastTick(n); }
-    }
-  } else if(n.type==='upload'){
-    if(!n.work){
-      for(let k=0;k<n.inb.length;k++){
-        const i=(n.rr+k)%n.inb.length;
-        if(n.inb[i].length){ n.work = {v:n.inb[i].shift(), rem:t}; n.rr=i+1; break; }
-      }
-    }
-    if(n.work){
-      n.work.rem -= dt;
-      if(n.work.rem<=0){
-        let v = n.work.v*revMult()*vmult(n), crit = Math.random()<critChance();
-        if(crit) v*=5;
-        earn(v,n,crit); G.files++; n.work=null; mastTick(n);
-      }
-    }
-  } else {
-    if(!n.work && n.outq.length===0){
-      if(n.type==='merge'){
-        if(n.inb[0].length && n.inb[1].length) n.work = {v:(n.inb[0].shift()+n.inb[1].shift())*1.3, rem:t};
-      } else if(n.inb[0].length) n.work = {v:n.inb[0].shift()*(def.mult||1), rem:t};
-    }
-    if(n.work){
-      n.work.rem -= dt;
-      if(n.work.rem<=0){
-        if(n.type==='clone') n.outq.push({v:n.work.v,o:0},{v:n.work.v,o:1});
-        else if(n.type==='sorter') n.outq.push({v:n.work.v,o:n.work.v>=(n.thr||10)?0:1});
-        else n.outq.push({v:n.work.v,o:-1});
-        n.work=null; mastTick(n);
-      }
-    }
-  }
-  trySend(n);
-}
-
-function updateLinks(dt){
-  for(const l of G.links){
-    const b = nodeById(l.b);
-    for(let i=0;i<l.packets.length;i++){
-      const p = l.packets[i];
-      const lim = i===0 ? 1 : l.packets[i-1].t - 0.12;
-      p.t = Math.min(lim, p.t + dt/1.1);
-    }
-    const f = l.packets[0];
-    if(f && f.t>=1 && b.inb[l.bi].length < bufCap()){ b.inb[l.bi].push(f.v); l.packets.shift(); }
-  }
-}
-function step(dt){
-  G.playtime += dt;
-  updateLinks(dt);
-  for(const n of G.nodes){
-    updateNode(n,dt);
-    const tr = tierOf(n.level);
-    if(n.tr===undefined) n.tr = tr;
-    else if(tr!==n.tr){ if(tr>n.tr) tierUp(n,tr); n.tr = tr; }
-  }
-}
-function tierUp(n,tr){
-  const col = TIERS[tr][1];
-  emit('tierFx', n, col);
-  emit('float', n.x+NW/2, n.y-6, 'Palier '+TIERS[tr][0], col, 15);
-  emit('blip', 660,0.12,0.06,'triangle'); setTimeout(()=>emit('blip', 990,0.16,0.06,'triangle'),90);
-  if(tr===1) emit('toast', 'Palier atteint : vitesse x1,5. Au niveau 10, un nœud peut se spécialiser (sélectionne-le).');
-}
-
 // Prestige 
 function reboot(){
   const g = qpGain(); if(g<1) return;
   ask(`Reboot quantique ? Tu gagnes ${g} point(s) quantique(s) (revenus x${qpMult(G.qpTotal+g).toFixed(2)} au lieu de x${qpMult(G.qpTotal).toFixed(2)}). Tes nœuds, crédits et améliorations de run sont remis à zéro.`, doReboot);
-}
-function doReboot(){ save(); backupNow(); emit('rebootStart'); G.contract = null; G.ev = null; G.cNext = G.playtime + 60;
-  const g = qpGain(); if(g<1) return;
-  G.hist = (G.hist||[]).concat([{t:G.playtime-G.runStart, g, run:G.run}]).slice(-6); G.runStart = G.playtime;
-  G.qp += g; G.qpTotal += g; G.resets++;
-  blankRun(G);
-  addNode('source', -280, -40, true);
-  addNode('upload', 180, -40, true);
-  resetIncome(); emit('rebooted', g);
-  save();
 }
 
 // Rendu 
@@ -301,16 +52,6 @@ let W=0,H=0,DPR=1;
 function resize(){ W=innerWidth; DPR=Math.min(window.devicePixelRatio||1, W<=700?2:3); H=innerHeight; cv.width=W*DPR; cv.height=H*DPR; }
 addEventListener('resize',resize); resize();
 const toWorld = (sx,sy)=>({x:(sx-W/2-G.view.x)/G.view.k, y:(sy-H/2-G.view.y)/G.view.k});
-
-const SUF = ['','K','M','B','T','Qa','Qi','Sx','Sp','Oc','No','Dc'];
-export function fmt(v){
-  if(!isFinite(v)) return 'Inf';
-  if(v>=1e39) return v.toExponential(2).replace('e+','e');
-  if(v<1000) return v<10 ? (Math.round(v*10)/10).toString() : Math.floor(v).toString();
-  if(G && G.sci){ const e=Math.floor(Math.log10(v)); return (v/Math.pow(10,e)).toFixed(2)+'e'+e; }
-  let i=0; while(v>=1000 && i<SUF.length-1){ v/=1000; i++; }
-  return v.toFixed(v<10?2:v<100?1:0)+SUF[i];
-}
 const fitTxt = (t,maxW)=>{ if(cx.measureText(t).width<=maxW) return t; while(t.length>2 && cx.measureText(t+'…').width>maxW) t=t.slice(0,-1); return t+'…'; };
 const rrect = (x,y,w,h,r)=>{ cx.beginPath(); cx.moveTo(x+r,y); cx.arcTo(x+w,y,x+w,y+h,r); cx.arcTo(x+w,y+h,x,y+h,r); cx.arcTo(x,y+h,x,y,r); cx.arcTo(x,y,x+w,y,r); cx.closePath(); };
 function packetColor(v){
@@ -318,9 +59,7 @@ function packetColor(v){
 }
 
 let sel = null, drag = null, hoverPort = null;
-const msel = new Set(); let selMode = false;   // selection multiple (vente en masse)
-// Zoom : cible lissée, vitesse de zoom pour les effets, niveaux de détail
-const ZMIN = 0.05, ZMAX = 3;
+const msel = new Set(); let selMode = false;
 let zoomT = null, zoomVel = 0, lastDraw = performance.now(), zoomShow = 0, lodPrev = 0, lodFlash = 0;
 const sstep = (a,b,x)=>{ const t=Math.max(0,Math.min(1,(x-a)/(b-a))); return t*t*(3-2*t); };
 function zoomAt(sx,sy,k){ zoomT = {k:Math.max(ZMIN,Math.min(ZMAX,k)), sx, sy}; zoomShow = 1.6; }
@@ -576,61 +315,12 @@ function findLink(w){
   for(const l of G.links){ const p=linkPts(l); for(let t=0;t<=1;t+=0.04){ const q=bez(p,t); if(Math.hypot(q.x-w.x,q.y-w.y)<r) return l; } }
   return null;
 }
-function connect(a,ao,b,bi){
-  if(a===b) return;
-  G.links = G.links.filter(l=>!(l.a===a&&l.ao===ao) && !(l.b===b&&l.bi===bi));
-  G.links.push({a,ao,b,bi,packets:[]});
-  emit('blip', 660,0.07,0.05);
-}
-function freeSpot(x,y,skip){
-  const gap = 24;
-  const ok = (px,py)=>!G.nodes.some(m=>!(skip&&skip.has(m)) && px<m.x+NW+gap && px+NW+gap>m.x && py<m.y+NH+gap && py+NH+gap>m.y);
-  x = Math.round(x/10)*10; y = Math.round(y/10)*10;
-  if(ok(x,y)) return {x,y};
-  for(let r=1;r<40;r++){
-    for(let i=0;i<r*8;i++){
-      const a = i/(r*8)*Math.PI*2, px = Math.round((x+Math.cos(a)*r*(NW+gap)*0.6)/10)*10, py = Math.round((y+Math.sin(a)*r*(NH+gap)*0.9)/10)*10;
-      if(ok(px,py)) return {x:px,y:py};
-    }
-  }
-  return {x,y};
-}
-const bpIsLab = b => b.nodes.some(n=>n[0]==='lab');
-const bpTypes = b => [...new Set(b.nodes.map(n=>n[0]))];
-const bpUnlocked = b => bpTypes(b).every(unlocked);
-const bpLocked = b => bpTypes(b).filter(t=>!unlocked(t)).map(t=>DEFS[t].name).join(', ');
-function bpCost(b){ const cnt={}; let s=0; for(const [t] of b.nodes){ s+=buyCost(t,cnt[t]||0); cnt[t]=(cnt[t]||0)+1; } return s; }
-// Pose un schema pres du point ctr (coordonnees monde) ; renvoie les noeuds poses, ou null si impossible
-function placeBlueprint(b, ctr){
-  if(!bpUnlocked(b)) return null;
-  const c = bpCost(b);
-  if(G.money<c){ emit('toast', 'Pas assez de crédits'); return null; }
-  const SX = NW+60, SY = NH+40, cols = Math.max(...b.nodes.map(n=>n[1]))+1, rows = Math.max(...b.nodes.map(n=>n[2]))+1;
-  const bw = (cols-1)*SX+NW, bh = (rows-1)*SY+NH, gap = 24;
-  const free = (px,py)=>!G.nodes.some(m=>px<m.x+NW+gap && px+bw+gap>m.x && py<m.y+NH+gap && py+bh+gap>m.y);
-  let ox = Math.round((ctr.x-bw/2)/10)*10, oy = Math.round((ctr.y-bh/2)/10)*10, found = free(ox,oy);
-  for(let r=1;r<60 && !found;r++) for(let i=0;i<r*8 && !found;i++){
-    const a = i/(r*8)*Math.PI*2, px = Math.round((ctr.x-bw/2+Math.cos(a)*r*(bw+gap)*0.5)/10)*10, py = Math.round((ctr.y-bh/2+Math.sin(a)*r*(bh+gap)*0.5)/10)*10;
-    if(free(px,py)){ ox=px; oy=py; found=true; }
-  }
-  G.money -= c;
-  const made = b.nodes.map(([t,cx_,cy_,th_])=>{ const m = addNode(t, ox+cx_*SX, oy+Math.round(cy_*SY/10)*10); if(th_) m.thr = th_; return m; });
-  for(const [a,ao,z,zi] of b.links) connect(made[a].id,ao,made[z].id,zi);
-  return made;
-}
 function buildBp(b,quiet){
   if(!bpUnlocked(b)) return;
   const made = placeBlueprint(b, toWorld(W/2, H/2-40));
   if(!made) return;
   if(!quiet){ sel = null; showSel(); blip(520,0.1,0.06); toast('Schéma posé : '+b.name); }
   if(tab) renderTab();
-}
-// Schema (types, positions relatives en cases, liens internes) d'un groupe de noeuds
-function blueprintOf(ns){
-  const SX = NW+60, SY = NH+40, mx = Math.min(...ns.map(n=>n.x)), my = Math.min(...ns.map(n=>n.y));
-  const idx = new Map(ns.map((n,i)=>[n.id,i]));
-  const links = G.links.filter(l=>idx.has(l.a) && idx.has(l.b)).map(l=>[idx.get(l.a),l.ao,idx.get(l.b),l.bi]);
-  return {nodes:ns.map(n=>{ const r=[n.type, Math.round((n.x-mx)/SX*100)/100, Math.round((n.y-my)/SY*100)/100]; if(n.type==='sorter' && n.thr) r.push(n.thr); return r; }), links};
 }
 function selBp(){
   const b = blueprintOf(G.nodes.filter(n=>msel.has(n.id)));
@@ -647,17 +337,7 @@ function dupSel(){
   if(!added.length) return;
   msel.clear(); for(const n of added) msel.add(n.id); showSel(); blip(520,0.1,0.06); toast('Copie posée ('+added.length+' nœuds)');
 }
-// Enregistre un groupe de noeuds comme schema personnel
-function saveBlueprint(ns){
-  if(ns.length<2){ emit('toast', 'Sélectionne au moins 2 nœuds'); return; }
-  if((G.mine||[]).length>=20){ emit('toast', '20 schémas personnels maximum'); return; }
-  const b = blueprintOf(ns);
-  const k = (G.mine.length?Math.max(...G.mine.map(b=>b.k||0)):0)+1;
-  G.mine.push({k, mine:true, name:'Mon schéma '+k, desc:'Schéma personnel : '+ns.length+' nœuds, '+b.links.length+' liens.', nodes:b.nodes, links:b.links});
-  emit('toast', 'Schéma enregistré : Mon schéma '+k+' (onglet Schémas)'); emit('blip', 700,0.1,0.06); emit('renderTab');
-}
 function saveBp(){ saveBlueprint(G.nodes.filter(n=>msel.has(n.id))); }
-function removeNode(n){ G.links = G.links.filter(l=>l.a!==n.id && l.b!==n.id); G.nodes = G.nodes.filter(x=>x!==n); }
 
 let lastTap = {t:0,x:0,y:0}, lpTimer = 0;
 const hitR = () => touchMode ? 1.7 : 1;    // zones de toucher agrandies au doigt
@@ -852,7 +532,6 @@ function ask(msg, yes){
   $('dlgNo').onclick=()=>{ d.style.display='none'; };
 }
 function toast(msg,ms=2600){ const t=$('toast'); t.textContent=msg; t.style.opacity=1; clearTimeout(toast.h); toast.h=setTimeout(()=>t.style.opacity=0,ms); }
-const unlocked = type => G.run >= DEFS[type].unlock && (!DEFS[type].needRs || G.resets>=DEFS[type].needRs);
 
 function buildShop(){
   $('shop').innerHTML = '';
@@ -890,25 +569,6 @@ function refreshShop(){
     } else b.style.display = 'none';
   }
 }
-const undoStack = [];
-function pushUndo(u){ undoStack.push(u); if(undoStack.length>20) undoStack.shift(); }
-function sell(n){
-  const refund = Math.floor(buyCost(n.type)*0.4);
-  pushUndo({node:n, links:G.links.filter(l=>l.a===n.id||l.b===n.id), refund});
-  G.money += refund;
-  removeNode(n); emit('clearSel');
-}
-const sellVal = n => Math.floor(buyCost(n.type)*0.4);
-// Vend un groupe de noeuds (annulable) ; renvoie le remboursement
-function sellNodes(ns){
-  const ids = new Set(ns.map(n=>n.id));
-  const refund = ns.reduce((s,n)=>s+sellVal(n),0);
-  pushUndo({multi:ns.map(n=>({node:n})), links:G.links.filter(l=>ids.has(l.a)||ids.has(l.b)), refund});
-  G.money += refund;
-  G.links = G.links.filter(l=>!ids.has(l.a) && !ids.has(l.b));
-  G.nodes = G.nodes.filter(n=>!ids.has(n.id));
-  return refund;
-}
 function sellMany(){
   const ns = G.nodes.filter(n=>msel.has(n.id));
   if(!ns.length) return;
@@ -916,41 +576,10 @@ function sellMany(){
   msel.clear(); showSel(); blip(300,0.12,0.06,'triangle');
   toast(ns.length+' nœuds vendus (+'+fmt(refund)+'). Ctrl+Z pour annuler.');
 }
-function dropLink(l){ pushUndo({links:[l]}); G.links = G.links.filter(x=>x!==l); }
-function undo(){
-  const u = undoStack.pop();
-  if(!u){ emit('toast', 'Rien à annuler'); return; }
-  if(u.move){ for(const o of u.move){ o.n.x=o.x; o.n.y=o.y; } emit('blip', 500,0.08,0.05,'triangle'); emit('toast', 'Déplacement annulé'); return; }
-  if(u.node || u.multi){
-    if(G.money<u.refund){ undoStack.push(u); emit('toast', 'Pas assez de crédits pour annuler'); return; }
-    G.money -= u.refund;
-    if(u.node) G.nodes.push(u.node); else for(const m of u.multi) G.nodes.push(m.node);
-  }
-  for(const l of u.links){
-    if(!nodeById(l.a) || !nodeById(l.b)) continue;
-    G.links = G.links.filter(x=>!(x.a===l.a&&x.ao===l.ao) && !(x.b===l.b&&x.bi===l.bi));
-    G.links.push({a:l.a,ao:l.ao,b:l.b,bi:l.bi,packets:[]});
-  }
-  emit('blip', 500,0.08,0.05,'triangle'); emit('toast', 'Action annulée');
-}
-// Achete des ameliorations, toujours la moins chere du groupe, tant que les credits suffisent ; renvoie leur nombre
-function upgradeCheapest(ns){
-  let k=0;
-  for(let i=0;i<500;i++){ const n=ns.reduce((a,b)=>!a||upCost(b)<upCost(a)?b:a,null); if(!n||G.money<upCost(n)) break; G.money-=upCost(n); n.level++; k++; }
-  return k;
-}
 function upgradeAll(){
   const k = upgradeCheapest(G.nodes);
   if(k){ toast(k+' amélioration(s) achetée(s)'); blip(780,0.1,0.06,'triangle'); renderTab(); showSel(); }
   else toast('Pas assez de crédits');
-}
-function upgradeNode(n,count){
-  let done=0;
-  while(done<count){
-    const c = upCost(n); if(G.money<c) break;
-    G.money -= c; n.level++; done++;
-  }
-  if(done){ emit('blip', 780,0.1,0.06,'triangle'); emit('showSel'); }
 }
 function upgradeSel(){
   const k = upgradeCheapest(G.nodes.filter(n=>msel.has(n.id)));
@@ -964,8 +593,6 @@ function togglePause(){
   if(!p){ p = document.createElement('div'); p.id='pauseB'; p.textContent='PAUSE  (Espace pour reprendre)'; p.style.cssText='position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:var(--glass);border:1px solid var(--acc);border-radius:12px;padding:12px 22px;font-size:18px;letter-spacing:1px;pointer-events:none;z-index:6;display:none'; document.body.appendChild(p); }
   p.style.display = paused ? 'block' : 'none';
 }
-function bulkCost(n,count){ let s=0; for(let i=0;i<count;i++) s+=upCost(n,n.level+i); return s; }
-function maxAffordable(n){ let c=0,s=0; while(c<500){ const u=upCost(n,n.level+c); if(s+u>G.money) break; s+=u; c++; } return c; }
 
 function showMulti(){
   const box = $('sel'), ns = G.nodes.filter(n=>msel.has(n.id));
@@ -1228,56 +855,6 @@ $('gold').onclick = ()=>{
   $('gold').style.display='none'; goldLife=0;
   blip(880,0.2,0.08,'triangle'); toast('Fichier doré ! +'+fmt(r)+' crédits');
 };
-
-// succès
-function checkAch(){
-  for(const a of ACH) if(!G.ach[a.id] && a.t()){ G.ach[a.id]=true; emit('toast', 'Succès : '+a.name+' (+2 % de revenus)'); emit('blip', 990,0.25,0.07,'triangle'); emit('achievement', a); }
-}
-
-// Objectifs : r = récompense minimale, s = secondes de revenus actuels (la plus grande des deux est versée)
-const cnt = t => G.nodes.filter(n=>n.type===t).length;
-const OBJ = [
-  {d:'Uploade 10 fichiers',               p:()=>[G.files,10],           r:30},
-  {d:'Achète un Compresseur',             p:()=>[G.bought.compress||0,1], r:40},
-  {d:'Gagne 300 crédits au total',        p:()=>[G.lifetime,300],       r:100},
-  {d:'Pose 6 nœuds',                      p:()=>[G.nodes.length,6],     r:150},
-  {d:'Monte un nœud au niveau 5',         p:()=>[Math.max(...G.nodes.map(n=>n.level+1)),5], r:250},
-  {d:'Atteins 10 crédits par seconde',    p:()=>[G.lastRate,10],        r:300, s:30},
-  {d:'Utilise une Fusion',                p:()=>[cnt('merge'),1],       r:400, s:30},
-  {d:'Gagne 5 000 crédits au total',      p:()=>[G.lifetime,5e3],       r:500, s:30},
-  {d:'Active un Overclock',               p:()=>[G.oc.until>0?1:0,1],   r:600, s:30},
-  {d:'Construis un Laboratoire',          p:()=>[cnt('lab'),1],         r:800, s:30},
-  {d:'Achète une technologie',            p:()=>[Object.values(G.tech).reduce((a,b)=>a+b,0),1], r:1000, s:30},
-  {d:'Atteins 200 crédits par seconde',   p:()=>[G.lastRate,200],       r:1500, s:45},
-  {d:'Pose 15 nœuds',                     p:()=>[G.nodes.length,15],    r:2000, s:45},
-  {d:'Fais ton premier Reboot quantique', p:()=>[G.resets,1],           r:2000, s:60},
-  {d:'Atteins 5 points quantiques au total', p:()=>[G.qpTotal,5],       r:3000, s:60},
-  {d:'Gagne 1 M de crédits au total',     p:()=>[G.lifetime,1e6],       r:3000, s:60},
-  {d:'Construis une Singularité',         p:()=>[cnt('sing'),1],        r:5000, s:60},
-  {d:'Atteins 100 000 crédits par seconde', p:()=>[G.lastRate,1e5],     r:1e5, s:60},
-  {d:'Atteins 25 points quantiques au total', p:()=>[G.qpTotal,25],     r:1e5, s:75},
-  {d:'Gagne 1 Md de crédits au total',    p:()=>[G.lifetime,1e9],       r:1e6, s:75},
-  {d:'Construis un Réseau neuronal',      p:()=>[cnt('neural'),1],      r:1e6, s:75},
-  {d:'Atteins 100 points quantiques au total', p:()=>[G.qpTotal,100],   r:1e6, s:90},
-  {d:'Atteins 1 Md de crédits par seconde', p:()=>[G.lastRate,1e9],     r:1e9, s:90},
-  {d:'Construis une Dimension',           p:()=>[cnt('dim'),1],         r:1e9, s:90},
-  {d:'Atteins 500 points quantiques au total', p:()=>[G.qpTotal,500],   r:1e9, s:90},
-  {d:'Gagne 1 T de crédits au total',     p:()=>[G.lifetime,1e12],      r:1e9, s:90},
-  {d:'Construis un nœud Oméga',           p:()=>[cnt('omega'),1],       r:1e10, s:120},
-  {d:'Atteins 2 000 points quantiques au total', p:()=>[G.qpTotal,2000], r:1e10, s:120},
-  {d:'Gagne 1 Qa de crédits au total',    p:()=>[G.lifetime,1e15],      r:1e12, s:120},
-  {d:'Atteins 10 000 points quantiques au total', p:()=>[G.qpTotal,1e4], r:1e12, s:150},
-];
-const objReward = o => Math.max(o.r, (o.s||0)*G.lastRate);
-function checkObj(){
-  const o = OBJ[G.obj]; if(!o) return;
-  const [c,t] = o.p();
-  if(c>=t){
-    const r = objReward(o);
-    G.money+=r; G.run+=r; G.lifetime+=r; G.obj++;
-    emit('toast', 'Objectif accompli : '+o.d+' (+'+fmt(r)+' crédits)'); emit('blip', 700,0.2,0.07,'triangle');
-  }
-}
 function updateObjHud(){
   const o = OBJ[G.obj], el = $('obj');
   if(!o){ el.style.display='none'; return; }
@@ -1298,13 +875,6 @@ function drawSpark(){
   x.fillStyle='#8794b3'; x.font='18px system-ui'; x.fillText('max '+fmt(mx)+' / s',8,18);
 }
 setInterval(()=>{ if(!G) return; hist.push(G.lastRate); if(hist.length>150) hist.shift(); if(tab==='stat') drawSpark(); }, 2000);
-
-// Overclock, vue, minimap
-function useOverclock(){
-  if(G.playtime < G.oc.ready) { emit('toast', 'Overclock en recharge'); return; }
-  G.oc.until = G.playtime + 15 + G.tech.toc; G.oc.ready = G.playtime + Math.max(30, 90 - 6*G.tech.toc);
-  emit('blip', 300,0.4,0.08,'sawtooth'); emit('toast', 'Overclock : vitesse x2 pendant 15 s');
-}
 function fitView(){
   if(!G.nodes.length) return;
   let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
@@ -1337,159 +907,7 @@ mini.addEventListener('pointerdown', e=>{
 $('bOc').onclick = useOverclock;
 cv.addEventListener('dblclick', e=>{ const nd=findNode(toWorld(e.clientX,e.clientY)); if(nd){ msel.clear(); for(const m of G.nodes) if(m.type===nd.type) msel.add(m.id); sel=null; showSel(); toast(msel.size+' nœud(s) du même type'); } });
 cv.addEventListener('dblclick', e=>{ if(!findNode(toWorld(e.clientX,e.clientY)) && !findLink(toWorld(e.clientX,e.clientY))) fitView(); });
-
-// Sauvegarde 
-// Format : JSON dans localStorage. `ver` = version du schema (SAVE_VERSION). Pour changer le format :
-// incrementer SAVE_VERSION et ajouter MIGRATIONS[nouvelle version] = d => d' (transforme une sauvegarde de la version precedente).
-const SAVE_VERSION = 1;
-const KEY = 'uploadlab2', KEY_BAK = KEY+'.bak', KEY_BAD = KEY+'.unreadable';
-const MIGRATIONS = {
-  1: d => d,   // v0 (sans champ ver) -> v1 : structure identique, hydrate() complete les champs manquants
-};
-const esc = x => String(x).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
-const lsGet = k => { try{ return localStorage.getItem(k); }catch(e){ return null; } };
-const lsSet = (k,v) => { try{ localStorage.setItem(k,v); return true; }catch(e){ return false; } };
-const lsDel = k => { try{ localStorage.removeItem(k); }catch(e){} };
-const SAVE_NUMS = ['money','run','rp','rpTotal','lifetime','files','qp','qpTotal','resets','golds','playtime','lastRate','bestRate','obj','nextId','cStreak','cDone','cNext','evNext','evDone','runStart','savedAt'];
-const isNum = v => typeof v==='number' && isFinite(v);
-// premier champ numerique invalide de l'etat (null si tout va bien)
-const badField = g => SAVE_NUMS.find(k => g[k]!==undefined && (!isNum(g[k]) || g[k]<0)) || null;
-
-// Texte JSON -> objet, sans les cles dangereuses (__proto__, constructor, prototype)
-function parseSave(text){ return JSON.parse(text, (k,v)=> (k==='__proto__'||k==='constructor'||k==='prototype') ? undefined : v); }
-// Applique les migrations dans l'ordre ; refuse une sauvegarde plus recente que le jeu
-function migrateSave(d){
-  const v0 = Number.isInteger(d.ver) ? d.ver : 0;
-  if(v0 > SAVE_VERSION) throw new Error('sauvegarde d\'une version plus récente du jeu (v'+v0+')');
-  for(let v=v0+1; v<=SAVE_VERSION; v++) d = MIGRATIONS[v](d);
-  d.ver = SAVE_VERSION;
-  return d;
-}
-// Verifie la structure et nettoie ce qui peut l'etre ; renvoie un message d'erreur ou null
-function validateSave(d){
-  if(!d || typeof d!=='object' || Array.isArray(d)) return 'format inattendu';
-  const bf = badField(d); if(bf) return 'valeur invalide : '+bf;
-  if(!Array.isArray(d.nodes)) return 'liste de nœuds absente';
-  if(d.nodes.length>5000 || (d.links && d.links.length>10000)) return 'trop de nœuds ou de liens';
-  const ids = new Set();
-  for(const n of d.nodes){
-    if(!n || typeof n!=='object') return 'nœud invalide';
-    if(!Number.isInteger(n.id) || n.id<1 || ids.has(n.id)) return 'identifiant de nœud invalide';
-    ids.add(n.id);
-    if(!isNum(n.x) || !isNum(n.y) || Math.abs(n.x)>1e6 || Math.abs(n.y)>1e6) return 'position de nœud invalide';
-    if(!Number.isInteger(n.level) || n.level<0 || n.level>10000) return 'niveau de nœud invalide';
-    if(n.spec!==undefined && !SPECS[n.spec]) delete n.spec;
-    if(n.timer!==undefined && !isNum(n.timer)) n.timer = 0;
-    if(n.thr!==undefined && !isNum(n.thr)) delete n.thr;
-  }
-  if(d.links!==undefined){
-    if(!Array.isArray(d.links)) return 'liste de liens invalide';
-    for(const l of d.links) if(!l || !Number.isInteger(l.a) || !Number.isInteger(l.b) || !Number.isInteger(l.ao) || !Number.isInteger(l.bi) || l.ao<0 || l.bi<0) return 'lien invalide';
-  }
-  for(const k of ['pu','glob','tech','mast','bought']){
-    if(d[k]===undefined) continue;
-    if(!d[k] || typeof d[k]!=='object' || Array.isArray(d[k])) return 'section invalide : '+k;
-    for(const x in d[k]) if(!isNum(d[k][x]) || d[k][x]<0) return 'valeur invalide : '+k+'.'+x;
-  }
-  if(d.ach!==undefined && (!d.ach || typeof d.ach!=='object' || Array.isArray(d.ach))) return 'section invalide : ach';
-  if(d.view!==undefined){
-    const v = d.view;
-    if(!v || !isNum(v.x) || !isNum(v.y) || !isNum(v.k)) d.view = {x:0,y:0,k:1};
-    else v.k = Math.max(ZMIN, Math.min(ZMAX, v.k));
-  }
-  // schemas personnels : on garde ceux qui sont bien formes, textes limites (ils sont echappes a l'affichage)
-  if(d.mine!==undefined){
-    const okN = n => Array.isArray(n) && typeof n[0]==='string' && DEFS[n[0]] && isNum(n[1]) && isNum(n[2]) && Math.abs(n[1])<1e3 && Math.abs(n[2])<1e3 && (n[3]===undefined || isNum(n[3]));
-    d.mine = (Array.isArray(d.mine) ? d.mine : []).filter(b => b && Array.isArray(b.nodes) && b.nodes.length>0 && b.nodes.length<=60 && b.nodes.every(okN) &&
-      Array.isArray(b.links) && b.links.every(l=>Array.isArray(l) && l.length===4 && l.every(Number.isInteger) && l[0]>=0 && l[2]>=0 && l[0]<b.nodes.length && l[2]<b.nodes.length)).slice(0,20)
-      .map(b => ({k:Number.isInteger(b.k)?b.k:0, mine:true, name:String(b.name==null?'Schéma':b.name).slice(0,40), desc:String(b.desc==null?'':b.desc).slice(0,120), nodes:b.nodes, links:b.links}));
-  }
-  return null;
-}
-function hydrate(d){
-  for(const k in RKC) delete RKC[k];
-  const g = Object.assign({rp:0,rpTotal:0,obj:0,daily:'',oc:{until:0,ready:0},lifetime:0,files:0,qp:0,qpTotal:0,resets:0,golds:0,playtime:0,lastRate:0,mute:false,mast:{},contract:null,cStreak:0,cDone:0,cNext:0,ev:null,mine:[],hist:[],runStart:0,evNext:0,evDone:0,bestRate:0,sci:false,savedAt:Date.now()}, d);
-  delete g.auto;   // ancien pilote automatique, retire
-  g.mast = g.mast||{};
-  g.view = g.view||{x:0,y:0,k:1}; g.bought = g.bought||{}; g.money = g.money||0; g.run = g.run||0;
-  g.ach = g.ach||{}; g.tech = g.tech||{};
-  for(const t of TECH) g.tech[t.id] = g.tech[t.id]||0;
-  g.pu = Object.assign({start:0,spd:0,disc:0,off:0,auto:0,rev:0}, g.pu);
-  g.glob = Object.assign({rev:0,spd:0,seed:0,buf:0,crit:0}, g.glob);
-  g.nodes = (g.nodes||[]).filter(n=>DEFS[n.type]);
-  for(const n of g.nodes){
-    n.inb = Array.from({length:DEFS[n.type].ins},(_,i)=>(n.inb&&n.inb[i])||[]);
-    n.outq = (n.outq||[]).filter(q=>q && typeof q==='object');
-    n.work = n.work && n.work.rem!==undefined ? n.work : null;
-  }
-  g.nextId = Math.max(g.nextId||1, ...g.nodes.map(n=>n.id+1));
-  g.links = (g.links||[]).filter(l=>g.nodes.some(n=>n.id===l.a) && g.nodes.some(n=>n.id===l.b)).map(l=>Object.assign(l,{packets:[]}));
-  return g;
-}
-// Texte -> {g, from} : analyse, migration, verification, hydratation. Leve une Error au message lisible.
-function readSave(text){
-  let d; try{ d = parseSave(text); }catch(e){ throw new Error('texte illisible'); }
-  if(!d || typeof d!=='object' || Array.isArray(d)) throw new Error('format inattendu');
-  const from = Number.isInteger(d.ver) ? d.ver : 0;
-  d = migrateSave(d);
-  const err = validateSave(d); if(err) throw new Error(err);
-  return {g:hydrate(d), from};
-}
-// Une seule serialisation JSON (sans les paquets en transit), version et date comprises
-function serializeText(){ return JSON.stringify(Object.assign({}, G, {ver:SAVE_VERSION, savedAt:Date.now()}), (k,v)=> k==='packets' ? [] : v); }
-function serialize(){ return JSON.parse(serializeText()); }
-// Copie de secours : la sauvegarde actuellement stockee (si elle est lisible) devient la copie de secours
-let lastBak = 0;
-function backupNow(){
-  const cur = lsGet(KEY); if(!cur) return;
-  try{ if(validateSave(migrateSave(parseSave(cur)))) return; }catch(e){ return; }
-  if(lsSet(KEY_BAK, cur)) lastBak = Date.now();
-}
-let saveWarn = '';
-function save(){
-  let text; try{ text = serializeText(); }catch(e){ return; }
-  const bf = badField(G);
-  if(bf){   // ne jamais ecraser une bonne sauvegarde par un etat corrompu
-    if(saveWarn!==bf){ saveWarn = bf; console.error('sauvegarde suspendue : valeur invalide '+bf); emit('toast', 'Sauvegarde suspendue : valeur invalide ('+bf+')', 5000); }
-    return;
-  }
-  if(Date.now()-lastBak > 300000) backupNow();   // au plus une copie de secours toutes les 5 minutes
-  if(lsSet(KEY, text)){ saveWarn = ''; }
-  else if(saveWarn!=='quota'){ saveWarn = 'quota'; emit('toast', 'Sauvegarde impossible (stockage plein ou bloqué)', 5000); }
-}
-// Sauvegarde illisible : on la garde pour pouvoir la recuperer, jamais ecrasee en silence
-function keepUnreadable(raw, why){ if(lsGet(KEY_BAD)!==raw) lsSet(KEY_BAD, raw); lsSet(KEY_BAD+'.why', why); }
-function adoptGame(g){ backupNow(); G = g; msel.clear(); sel = null; buildShop(); showSel(); save(); }
-function load(){
-  const raw = lsGet(KEY); if(!raw) return false;
-  let r = null, note = '';
-  try{ r = readSave(raw); }
-  catch(e){
-    keepUnreadable(raw, e.message);
-    const bak = lsGet(KEY_BAK);
-    try{ r = bak ? readSave(bak) : null; }catch(e2){ r = null; }
-    note = r ? 'Sauvegarde illisible ('+e.message+') : copie de secours restaurée.' : 'Sauvegarde illisible ('+e.message+') : copie conservée dans Options.';
-    setTimeout(()=>emit('toast', note, 6000), 800);
-    if(!r) return false;
-  }
-  if(r.from < SAVE_VERSION) lsSet(KEY+'.v'+r.from, raw);   // ancienne version conservee avant migration
-  G = r.g;
-  if(!G.nodes.length) return false;
-  const secs = Math.min((Date.now()-G.savedAt)/1000, 3*3600);
-  if(secs>30 && G.lastRate>0){
-    const gain = G.lastRate*secs*(0.4+0.08*G.pu.off);
-    G.money+=gain; G.run+=gain; G.lifetime+=gain;
-    setTimeout(()=>emit('toast', `Pendant ton absence (${Math.floor(secs/60)} min) : +${fmt(gain)} crédits`),600);
-  }
-  const today = new Date().toISOString().slice(0,10);
-  if(G.daily!==today){
-    G.daily = today;
-    const r = Math.max(500, G.lastRate*600);
-    G.money+=r; G.run+=r; G.lifetime+=r;
-    setTimeout(()=>emit('toast', 'Bonus quotidien : +'+fmt(r)+' crédits'),3500);
-  }
-  return true;
-}
+function adoptGame(g){ backupNow(); setG(g); msel.clear(); sel = null; buildShop(); showSel(); save(); }
 setInterval(save, 5000);
 addEventListener('beforeunload', save);
 
@@ -1520,40 +938,10 @@ function hintText0(){
   if(G.lifetime<100) return 'Clique sur un nœud pour l\'améliorer. Plus de nœuds + plus de niveaux = plus de crédits !';
   return 'Astuce : plusieurs Sources, des Diviseurs et des Fusions te permettent de paralléliser. De nouveaux nœuds se débloquent en gagnant des crédits.';
 }
-// Contrats : "gagne X credits avant la fin du temps", recompense proportionnelle au revenu, serie de reussites
-function evTick(){
-  if(G.obj>=3 && G.lastRate>0){
-    if(!G.evNext) G.evNext = G.playtime + 200;
-    else if(G.playtime>=G.evNext && !evActive((G.ev||{}).id)){
-      const e = EVT[Math.floor(Math.random()*EVT.length)];
-      G.evNext = G.playtime + 220 + Math.random()*140; G.evDone++;
-      if(e.dur){ G.ev = {id:e.id, until:G.playtime+e.dur}; emit('toast', 'Événement : '+e.name+' ('+e.desc+', '+e.dur+' s)'); }
-      else { const r = Math.max(200, G.lastRate*40); G.money+=r; G.run+=r; G.lifetime+=r; emit('toast', 'Événement : '+e.name+' +'+fmt(r)+' crédits'); }
-      emit('blip', 660,0.2,0.07,'triangle');
-    }
-  }
-}
 function updateEventHud(){
   const el = $('evS'), on = G.ev && G.playtime<G.ev.until;
   el.style.display = on ? 'block' : 'none';
   if(on){ const e = EVT.find(x=>x.id===G.ev.id); $('evB').textContent = e.name; $('evT').textContent = e.desc+' · '+Math.ceil(G.ev.until-G.playtime)+' s'; }
-}
-function contractTick(){
-  if(G.obj<3) return;
-  let c = G.contract;
-  if(c){
-    const got = G.run - c.start, left = c.until - G.playtime;
-    if(got>=c.need){
-      G.money += c.reward; G.cStreak++; G.cDone++; G.cNext = G.playtime + 100; G.contract = null;
-      emit('toast', 'Contrat rempli : +'+fmt(c.reward)+' crédits (série '+G.cStreak+')'); emit('blip', 760,0.25,0.07,'triangle');
-    } else if(left<=0){
-      G.cStreak = 0; G.cNext = G.playtime + 60; G.contract = null; emit('toast', 'Contrat échoué : série remise à zéro');
-    }
-  } else if(G.playtime>=G.cNext && G.lastRate>0){
-    const T = 90, need = Math.ceil(Math.max(100, G.lastRate*T*1.25));
-    G.contract = {start:G.run, need, until:G.playtime+T, T, reward:Math.floor(need*0.5*(1+0.1*Math.min(5,G.cStreak)))};
-    emit('toast', 'Nouveau contrat : gagne '+fmt(need)+' crédits en '+T+' s');
-  }
 }
 function updateContractHud(){
   if(G.obj<3) return;
