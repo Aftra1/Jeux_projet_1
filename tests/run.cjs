@@ -209,6 +209,28 @@ const SCENARIOS = {
     return out;
   },
 
+  // achats par l'interface (clics reels sur les boutons) : boutique, ameliorations globales, quantiques, recherche, specialisations
+  uiClicks(){
+    newGame(); G.money = 1e7; G.qp = 50; G.rp = 5000; G.run = 1e6; G.obj = 999; buildShop(); refreshShop();
+    const snap = extra=>JSON.stringify({m:Math.round(G.money), qp:G.qp, rp:G.rp, glob:G.glob, pu:G.pu, tech:G.tech, n:G.nodes.map(n=>[n.type,n.x,n.y,n.level,n.spec||'']), b:G.bought, sel})+(extra||'');
+    const click = q=>{ const el = document.querySelector(q); if(!el) return 'absent:'+q; el.click(); return snap(); };
+    const out = [];
+    for(const t of ['compress','compress','split','boost']) out.push(click('#shop button[data-type="'+t+'"]'));
+    tab = 'up'; $('side').style.display = 'flex'; renderTab();
+    for(const g of ['rev','spd','rev']) out.push(click('button[data-g="'+g+'"]'));
+    tab = 'qp'; renderTab();
+    for(const d of ['spd','rev','start']) out.push(click('button[data-p="'+d+'"]'));
+    tab = 'res'; renderTab();
+    for(const d of [...document.querySelectorAll('button[data-r]')].slice(0,3).map(b=>b.dataset.r)) out.push(click('button[data-r="'+d+'"]'));
+    tab = null; $('side').style.display = 'none';
+    const n = G.nodes[2]; n.level = 12; sel = n.id; showSel();
+    out.push(click('[data-spec="spd"]')); showSel(); out.push(click('[data-spec="eco"]'));
+    G.money = 5; showSel(); out.push(click('[data-spec="spd"]')+$('toast').textContent);
+    G.money = 1; out.push(click('#shop button[data-type="compress"]')+$('toast').textContent);
+    sel = null; showSel(); newGame();
+    return out;
+  },
+
   // une vraie sauvegarde de la version 46 (format v1) se recharge sans perte par le chemin du joueur (localStorage + load)
   save46(fx){
     const r = x => typeof x==='number' ? +x.toPrecision(10) : x;

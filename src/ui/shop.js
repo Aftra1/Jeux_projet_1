@@ -10,6 +10,7 @@ import { freeSpot } from '../core/geometry.js';
 import { COLORS, DEFS, NH, NW, ORDER } from '../data/nodes.js';
 import { iconImg } from '../render/icons.js';
 import { fmt } from '../core/format.js';
+import { buyNode } from '../core/actions.js';
 
 const shopEl = document.getElementById('shop');
 shopEl.addEventListener('wheel', e=>{
@@ -28,10 +29,9 @@ export function buildShop(){
       if(!unlocked(type)) return;
       const c = buyCost(type);
       if(G.money<c){ toast('Pas assez de crédits'); return; }
-      G.money -= c;
       const w = toWorld(W/2, H/2 - 40);
       const sp = freeSpot(w.x-NW/2, w.y-NH/2);
-      const n = addNode(type, sp.x, sp.y);
+      const n = buyNode(type, sp.x, sp.y);
       setSel(n.id); showSel(); blip(520,0.08,0.05);
     };
     $('shop').appendChild(b);

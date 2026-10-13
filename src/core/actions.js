@@ -1,7 +1,7 @@
 // Actions du joueur sur la partie : vendre, annuler, ameliorer, poser et enregistrer des schemas.
 import { emit } from './bus.js';
 import { G, addNode, connect, nodeById, removeNode } from './state.js';
-import { bpCost, bpUnlocked, buyCost, sellVal, upCost } from './economy.js';
+import { bpCost, bpUnlocked, buyCost, gUpCost, puCost, sellVal, techCost, unlocked, upCost } from './economy.js';
 import { NH, NW } from '../data/nodes.js';
 
 // Pose un schema pres du point ctr (coordonnees monde) ; renvoie les noeuds poses, ou null si impossible
@@ -87,3 +87,13 @@ export function upgradeNode(n,count){
   }
   if(done){ emit('blip', 780,0.1,0.06,'triangle'); emit('showSel'); }
 }
+
+// Achats (communs a l'interface et au bot d'equilibrage) : renvoient vrai si l'achat a eu lieu
+export function buyGlobal(g){ const c = gUpCost(g); if(G.money>=c && G.glob[g.id]<g.max){ G.money-=c; G.glob[g.id]++; return true; } return false; }
+export function buyQuantum(d){ const c = puCost(d); if(G.qp>=c && G.pu[d.id]<d.max){ G.qp-=c; G.pu[d.id]++; return true; } return false; }
+export function buyTech(d){ const c = techCost(d); if(G.rp>=c && G.tech[d.id]<d.max){ G.rp-=c; G.tech[d.id]++; return true; } return false; }
+// Achete un noeud et le pose en (x, y) ; renvoie le noeud, ou null (verrouille ou credits insuffisants)
+export function buyNode(type, x, y){ if(!unlocked(type)) return null; const c = buyCost(type); if(G.money<c) return null; G.money -= c; return addNode(type, x, y); }
+// Specialisation : gratuite la premiere fois, puis 4 fois le prix d'une amelioration
+export const specCost = n => n.spec ? upCost(n)*4 : 0;
+export function chooseSpec(n, k){ if(n.spec===k) return false; const c = specCost(n); if(G.money<c) return false; G.money -= c; n.spec = k; return true; }

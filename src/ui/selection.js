@@ -6,7 +6,7 @@ import { renderTab } from './tabs.js';
 import { $, toast } from './dom.js';
 import { H, W, toWorld } from '../render/canvas.js';
 import { MASTTH, bpCost, bpLocked, bpUnlocked, bulkCost, buyCost, maxAffordable, rankOf, revMult, seedV, sellVal, specsFor, speedOf, tierOf, timeOf, unlocked, upCost } from '../core/economy.js';
-import { blueprintOf, placeBlueprint, saveBlueprint, sell, sellNodes, upgradeCheapest, upgradeNode } from '../core/actions.js';
+import { blueprintOf, chooseSpec, placeBlueprint, saveBlueprint, sell, sellNodes, upgradeCheapest, upgradeNode } from '../core/actions.js';
 import { G, addNode, nodeById } from '../core/state.js';
 import { fmt } from '../core/format.js';
 import { freeSpot } from '../core/geometry.js';
@@ -102,9 +102,8 @@ export function showSel(){
   $('buM').onclick = ()=>upgradeNode(n,maxAffordable(n));
   for(const bt of box.querySelectorAll('[data-spec]')) bt.onclick = ()=>{
     const k = bt.dataset.spec; if(n.spec===k) return;
-    const c = n.spec ? upCost(n)*4 : 0;
-    if(G.money<c){ toast('Pas assez de crédits'); return; }
-    G.money -= c; n.spec = k; blip(700,0.12,0.06,'triangle'); toast('Spécialisation : '+SPECS[k].name); showSel();
+    if(!chooseSpec(n, k)){ toast('Pas assez de crédits'); return; }
+    blip(700,0.12,0.06,'triangle'); toast('Spécialisation : '+SPECS[k].name); showSel();
   };
   $('bDis').onclick = ()=>{ G.links = G.links.filter(l=>l.a!==n.id && l.b!==n.id); };
   $('bSell').onclick = ()=>sell(n);

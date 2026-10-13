@@ -17,6 +17,7 @@ import { COLORS, DEFS, ORDER } from '../data/nodes.js';
 import { resetIncome } from '../core/sim.js';
 import { ACH } from '../core/progression.js';
 import { BPS } from '../data/blueprints.js';
+import { buyGlobal, buyQuantum, buyTech } from '../core/actions.js';
 
 export function reboot(){
   const g = qpGain(); if(g<1) return;
@@ -98,8 +99,8 @@ export function renderTab(){
     }).join('');
     $('upAll').onclick = upgradeAll;
     body.querySelectorAll('button[data-g]').forEach(b=>b.onclick=()=>{
-      const g=GLOBALS.find(x=>x.id===b.dataset.g), c=gUpCost(g);
-      if(G.money>=c && G.glob[g.id]<g.max){ G.money-=c; G.glob[g.id]++; blip(780,0.1,0.06,'triangle'); renderTab(); showSel(); }
+      const g=GLOBALS.find(x=>x.id===b.dataset.g);
+      if(buyGlobal(g)){ blip(780,0.1,0.06,'triangle'); renderTab(); showSel(); }
     });
   } else if(tab==='qp'){
     const gain=qpGain();
@@ -115,8 +116,8 @@ export function renderTab(){
       }).join('');
     $('bReboot').onclick = reboot;
     body.querySelectorAll('button[data-p]').forEach(b=>b.onclick=()=>{
-      const d=PU.find(x=>x.id===b.dataset.p), c=puCost(d);
-      if(G.qp>=c && G.pu[d.id]<d.max){ G.qp-=c; G.pu[d.id]++; renderTab(); }
+      const d=PU.find(x=>x.id===b.dataset.p);
+      if(buyQuantum(d)) renderTab();
     });
   } else if(tab==='res'){
     body.innerHTML = `<p>Les points de recherche (RP) sont produits par les <b>Laboratoires</b> à partir des fichiers qu'ils reçoivent. Les technologies sont <b>permanentes</b>, même après un Reboot.</p>
@@ -127,8 +128,8 @@ export function renderTab(){
           <button data-r="${d.id}" ${max||G.rp<c?'disabled':''}>${max?'MAX':fmt(c)+' RP'}</button></div>`;
       }).join('');
     body.querySelectorAll('button[data-r]').forEach(b=>b.onclick=()=>{
-      const d=TECH.find(x=>x.id===b.dataset.r), c=techCost(d);
-      if(G.rp>=c && G.tech[d.id]<d.max){ G.rp-=c; G.tech[d.id]++; blip(780,0.1,0.06,'triangle'); renderTab(); showSel(); }
+      const d=TECH.find(x=>x.id===b.dataset.r);
+      if(buyTech(d)){ blip(780,0.1,0.06,'triangle'); renderTab(); showSel(); }
     });
   } else if(tab==='stat'){
     body.innerHTML = `<p>Crédits par seconde sur les dernières minutes :</p><canvas id="spark" width="600" height="220" style="position:static;width:100%;height:110px;background:#0a0e16;border-radius:8px"></canvas>
