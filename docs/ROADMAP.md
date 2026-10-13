@@ -14,7 +14,7 @@ La numerotation des phases est conservee ; il n'y a plus de phase 2 (simulation 
 - Les « 20+ noeuds, 5 univers » etaient des hypotheses de depart, pas des engagements. La structure doit seulement permettre d'ajouter noeuds et evenements un par un sans toucher au reste.
 - Aucun changement de gameplay ou d'equilibrage sans accord explicite.
 - Ordre : phase 1 puis phase 3, avec un point d'arret obligatoire apres la phase 1 (validation avant de continuer).
-- Publication de l'Artifact : regle en attente de decision (voir CLAUDE.md) ; d'ici la, aucune publication sans accord.
+- Publication du jeu : jamais sans « ok publie » de l'utilisateur, liste des changements visibles fournie avant (CLAUDE.md, lui, est republie librement).
 
 ## Phase 0 : filet de securite (terminee)
 
