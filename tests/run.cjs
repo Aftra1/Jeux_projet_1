@@ -336,8 +336,11 @@ const SCENARIOS = {
     for(const v of Object.values(SUBS)) for(const x of v) ids.add(x[0]);
     for(const id of ids){ try{ tab = id; $('side').style.display = 'flex'; renderTab(); }catch(e){ errs.push('tab '+id+': '+e.message); } }
     try{ sel = G.nodes[2].id; showSel(); sel = null; showSel(); }catch(e){ errs.push('sel: '+e.message); }
+    // textes des ameliorations quantiques au niveau 2 (description et effet affiches)
+    for(const d of PU) G.pu[d.id] = Math.min(2, d.max); tab = 'qp'; renderTab();
+    const qpTexts = [...document.querySelectorAll('#tabBody .item')].map(e=>e.textContent.replace(/\s+/g,' ').trim());
     tab = null; $('side').style.display = 'none';
-    return {errs, tabs:[...ids].sort()};
+    return {errs, tabs:[...ids].sort(), qpTexts};
   },
 
   // Validation des donnees : chaque faute de frappe donne une erreur explicite, et une donnee refusee ne laisse aucune trace

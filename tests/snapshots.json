@@ -21577,6 +21577,16 @@
    "res",
    "stat",
    "up"
+  ],
+  "qpTexts": [
+   "0 point(s) disponible(s)Total : 0 · Reboots : 0 · Bonus : ×1.00",
+   "Run en cours : 0 minRendement actuel : 0.0 PQ / min",
+   "Capital de départ 2/8Démarre chaque run avec plus de crédits (proportionnel à la hausse des prix)Crédits de départ : 700 4 PQ",
+   "Surcadençage 2/16+5 % de vitesse permanente+10 % 4 PQ",
+   "Négociation 2/65 % sur le prix des nœuds10 % 8 PQ",
+   "Serveurs de nuit 2/5+8 % de gains hors-ligne (base 40 %, 3 h max)56 % 8 PQ",
+   "Amplificateur quantique 2/16+10 % de revenus permanents+20 % 12 PQ",
+   "Ingénieur automatique 1/1Améliore automatiquement tes nœudsActif MAX"
   ]
  },
  "validation": {
