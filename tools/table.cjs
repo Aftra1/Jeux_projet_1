@@ -1,4 +1,4 @@
-// Résume la sortie de balance.js : une ligne par reboot
+// Résume la sortie de balance.cjs : une ligne par reboot
 const lines = require('fs').readFileSync(0,'utf8').split('\n').filter(Boolean).map(l=>{try{return JSON.parse(l)}catch(e){return null}}).filter(Boolean);
 let prev = 0;
 for (const l of lines) {

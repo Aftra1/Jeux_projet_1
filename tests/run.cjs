@@ -1,7 +1,7 @@
 // Tests de caracterisation : executent le vrai jeu dans Chromium (Playwright) avec un generateur aleatoire seede,
 // et comparent des instantanes (tests/snapshots.json) au comportement actuel.
-//   node tests/run.js            verifie
-//   node tests/run.js --update   regenere les instantanes (a ne faire que pour un changement voulu)
+//   node tests/run.cjs            verifie
+//   node tests/run.cjs --update   regenere les instantanes (a ne faire que pour un changement voulu)
 const fs = require('fs'), path = require('path'), cp = require('child_process');
 function pw(){ try{ return require('playwright'); }catch(e){ return require(path.join(cp.execSync('npm root -g').toString().trim(),'playwright')); } }
 const { chromium } = pw();
@@ -236,7 +236,7 @@ const SCENARIOS = {
     Math.random = ()=>{ a = (a + 0x6D2B79F5)>>>0; let t = a; t = mul(t ^ (t>>>15), t|1); t ^= t + mul(t ^ (t>>>7), t|61); return ((t ^ (t>>>14))>>>0)/4294967296; };
     try{ localStorage.clear(); }catch(e){}
   });
-  await page.goto('file://'+path.join(ROOT,'index.html'));
+  await page.goto('file://'+path.join(ROOT,'dist','index.html'));
   await page.waitForFunction(()=>typeof G!=='undefined' && G && G.nodes);
   const fixture = JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures','legacy-v0.json'),'utf8'));
   const got = {};

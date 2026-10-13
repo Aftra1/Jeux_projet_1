@@ -1,4 +1,4 @@
-// Bot d'équilibrage : joue le jeu en accéléré (appelé via Playwright, voir tools/balance.js)
+// Bot d'équilibrage : joue le jeu en accéléré (appelé via Playwright, voir tools/balance.cjs)
 // Il choisit chaque achat au meilleur retour sur investissement estimé.
 window.runBot = function(hours, opt){
   const unlockedB = unlocked;
