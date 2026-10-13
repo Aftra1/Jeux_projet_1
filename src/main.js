@@ -1,22 +1,27 @@
 'use strict';
-import { on } from './core/bus.js';
+import { $, ask, toast } from './ui/dom.js';
+import { H, W, cv, toWorld } from './render/canvas.js';
+import { fitView, setZoomShow, setZoomT, zoomAt, zoomShow, zoomT } from './render/view.js';
+import { iconImg } from './render/icons.js';
+import { floatText, floats, parts } from './render/effects.js';
+import { draw } from './render/draw.js';
 import { G, addNode, connect, newGame, nodeById, setG } from './core/state.js';
+import { FREEQ, MASTTH, achCount, bpCost, bpIsLab, bpLocked, bpUnlocked, bulkCost, buyCost, gUpCost, infl, maxAffordable, puCost, qpGain, qpMult, qpNeed, rankOf, revMult, seedV, sellVal, specsFor, speedOf, techCost, tierOf, timeOf, unlocked, upCost } from './core/economy.js';
+import { doReboot, ocActive, useOverclock } from './core/prestige.js';
+import { ZMAX, ZMIN, bez, freeSpot, inPort, linkPts, outPort } from './core/geometry.js';
+import { COLORS, DEFS, NH, NW, ORDER, SPECS, TIERS } from './data/nodes.js';
+import { blueprintOf, dropLink, placeBlueprint, pushUndo, saveBlueprint, sell, sellNodes, undo, upgradeCheapest, upgradeNode } from './core/actions.js';
 import { esc, fmt } from './core/format.js';
-import { FREEQ, MASTTH, achCount, bpCost, bpIsLab, bpLocked, bpUnlocked, bufCap, bulkCost, buyCost, gUpCost, infl, maxAffordable, puCost, qpGain, qpMult, qpNeed, rankOf, revMult, seedV, sellVal, specsFor, speedOf, techCost, tierOf, timeOf, unlocked, upCost } from './core/economy.js';
-import { ZMAX, ZMIN, bez, ctrl, freeSpot, inPort, linkPts, ortho, outPort } from './core/geometry.js';
+import { GLOBALS, PU, TECH } from './data/upgrades.js';
+import { KEY, KEY_BAD, KEY_BAK, backupNow, isNum, load, lsDel, lsGet, parseSave, readSave, save, serializeText } from './core/save.js';
 import { resetIncome, step, updateRate } from './core/sim.js';
+import { ACH, OBJ, checkAch, checkObj, objReward } from './core/progression.js';
+import { BPS } from './data/blueprints.js';
+import { on } from './core/bus.js';
+import { EVT } from './data/events.js';
 import { evTick } from './core/events.js';
 import { contractTick } from './core/contracts.js';
-import { ACH, OBJ, checkAch, checkObj, objReward } from './core/progression.js';
-import { doReboot, ocActive, useOverclock } from './core/prestige.js';
-import { blueprintOf, dropLink, placeBlueprint, pushUndo, saveBlueprint, sell, sellNodes, undo, upgradeCheapest, upgradeNode } from './core/actions.js';
-import { KEY, KEY_BAD, KEY_BAK, backupNow, isNum, load, lsDel, lsGet, parseSave, readSave, save, serializeText } from './core/save.js';
-import { COLORS, DEFS, NH, NW, ORDER, SPECS, TIERS } from './data/nodes.js';
-import { GLOBALS, PU, TECH } from './data/upgrades.js';
-import { BPS } from './data/blueprints.js';
-import { EVT } from './data/events.js';
-function polyPath(p){ const q=ortho(p); cx.beginPath(); cx.moveTo(q[0].x,q[0].y); for(let i=1;i<q.length;i++) cx.lineTo(q[i].x,q[i].y); }
-
+import './render/minimap.js';
 // Effets (sons, textes) 
 let AC = null, lastBlip = 0;
 function audio(){ if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return AC; }
@@ -37,8 +42,6 @@ function upSound(big){
   const k = PENTA[Math.floor(Math.random()*5)] + (big?12:0);
   blip(440*Math.pow(2,k/12), 0.1, big?0.07:0.035);
 }
-const floats = [], parts = [];
-function floatText(x,y,text,col='#f6c453',size=15){ if(floats.length<60) floats.push({x,y,text,col,size,life:1}); }
 
 // Prestige 
 function reboot(){
@@ -46,75 +49,15 @@ function reboot(){
   ask(`Reboot quantique ? Tu gagnes ${g} point(s) quantique(s) (revenus x${qpMult(G.qpTotal+g).toFixed(2)} au lieu de x${qpMult(G.qpTotal).toFixed(2)}). Tes nœuds, crédits et améliorations de run sont remis à zéro.`, doReboot);
 }
 
-// Rendu 
-const cv = document.getElementById('c'), cx = cv.getContext('2d');
-let W=0,H=0,DPR=1;
-function resize(){ W=innerWidth; DPR=Math.min(window.devicePixelRatio||1, W<=700?2:3); H=innerHeight; cv.width=W*DPR; cv.height=H*DPR; }
-addEventListener('resize',resize); resize();
-const toWorld = (sx,sy)=>({x:(sx-W/2-G.view.x)/G.view.k, y:(sy-H/2-G.view.y)/G.view.k});
-const fitTxt = (t,maxW)=>{ if(cx.measureText(t).width<=maxW) return t; while(t.length>2 && cx.measureText(t+'…').width>maxW) t=t.slice(0,-1); return t+'…'; };
-const rrect = (x,y,w,h,r)=>{ cx.beginPath(); cx.moveTo(x+r,y); cx.arcTo(x+w,y,x+w,y+h,r); cx.arcTo(x+w,y+h,x,y+h,r); cx.arcTo(x,y+h,x,y,r); cx.arcTo(x,y,x+w,y,r); cx.closePath(); };
-function packetColor(v){
-  return v<10?'#4fd1c5': v<100?'#63b3ed': v<1e3?'#f6c453': v<1e4?'#f6ad55': v<1e5?'#f687b3': v<1e6?'#b794f4':'#ffffff';
-}
-
-let sel = null, drag = null, hoverPort = null;
-const msel = new Set(); let selMode = false;
-let zoomT = null, zoomVel = 0, lastDraw = performance.now(), zoomShow = 0, lodPrev = 0, lodFlash = 0;
-const sstep = (a,b,x)=>{ const t=Math.max(0,Math.min(1,(x-a)/(b-a))); return t*t*(3-2*t); };
-function zoomAt(sx,sy,k){ zoomT = {k:Math.max(ZMIN,Math.min(ZMAX,k)), sx, sy}; zoomShow = 1.6; }
-function stepZoom(dt){
-  const v = G.view, k0 = v.k;
-  if(zoomT){
-    const w = toWorld(zoomT.sx,zoomT.sy), e = Math.log(zoomT.k/v.k);
-    if(Math.abs(e) < 0.002) v.k = zoomT.k; else v.k *= Math.exp(e*(1-Math.exp(-dt*11)));
-    v.x = zoomT.sx - W/2 - w.x*v.k; v.y = zoomT.sy - H/2 - w.y*v.k;
-    if(v.k === zoomT.k) zoomT = null;
-  }
-  const inst = dt>0 ? Math.log(v.k/k0)/dt : 0;
-  zoomVel += (inst - zoomVel)*Math.min(1,dt*10);
-  if(Math.abs(zoomVel) < 0.02) zoomVel = 0;
-  zoomShow = Math.max(0, zoomShow - dt);
-}
-// Icones vectorielles (dessinees dans un carre de -10 a 10)
-const ICONS = {
-  source:  c=>{ c.beginPath(); for(let i=0;i<6;i++){ const a=i*Math.PI/3-Math.PI/6; c.lineTo(Math.cos(a)*9,Math.sin(a)*9); } c.closePath(); c.stroke(); c.beginPath(); c.arc(0,0,3,0,7); c.fill(); },
-  upload:  c=>{ c.beginPath(); c.moveTo(-8,5); c.bezierCurveTo(-11,5,-11,-1,-6,-1); c.bezierCurveTo(-6,-7,3,-8,4,-2); c.bezierCurveTo(10,-3,11,5,6,5); c.closePath(); c.stroke(); c.beginPath(); c.moveTo(0,8); c.lineTo(0,0); c.moveTo(-3,3); c.lineTo(0,0); c.lineTo(3,3); c.stroke(); },
-  compress:c=>{ c.beginPath(); c.moveTo(-9,-4); c.lineTo(-3,0); c.lineTo(-9,4); c.moveTo(9,-4); c.lineTo(3,0); c.lineTo(9,4); c.moveTo(0,-8); c.lineTo(0,8); c.stroke(); },
-  split:   c=>{ c.beginPath(); c.moveTo(-9,0); c.lineTo(-2,0); c.bezierCurveTo(2,0,2,-6,6,-6); c.lineTo(9,-6); c.moveTo(-2,0); c.bezierCurveTo(2,0,2,6,6,6); c.lineTo(9,6); c.stroke(); c.beginPath(); c.arc(9,-6,1.6,0,7); c.arc(9,6,1.6,0,7); c.fill(); },
-  merge:   c=>{ c.beginPath(); c.moveTo(-9,-6); c.lineTo(-6,-6); c.bezierCurveTo(-2,-6,-2,0,2,0); c.lineTo(9,0); c.moveTo(-9,6); c.lineTo(-6,6); c.bezierCurveTo(-2,6,-2,0,2,0); c.stroke(); c.beginPath(); c.arc(-9,-6,1.6,0,7); c.arc(-9,6,1.6,0,7); c.fill(); },
-  encrypt: c=>{ c.beginPath(); c.rect(-6,-1,12,9); c.stroke(); c.beginPath(); c.moveTo(-3.5,-1); c.lineTo(-3.5,-4); c.arc(0,-4,3.5,Math.PI,0); c.lineTo(3.5,-1); c.stroke(); c.beginPath(); c.arc(0,3.5,1.5,0,7); c.fill(); },
-  boost:   c=>{ c.beginPath(); c.moveTo(3,-10); c.lineTo(-6,2); c.lineTo(-0.5,2); c.lineTo(-3,10); c.lineTo(6,-2); c.lineTo(0.5,-2); c.closePath(); c.fill(); },
-  clone:   c=>{ c.beginPath(); c.rect(-9,-9,11,11); c.stroke(); c.beginPath(); c.rect(-2,-2,11,11); c.stroke(); },
-  sorter:  c=>{ c.beginPath(); c.moveTo(-9,-8); c.lineTo(9,-8); c.lineTo(2,0); c.lineTo(2,8); c.lineTo(-2,6); c.lineTo(-2,0); c.closePath(); c.stroke(); },
-  ai:      c=>{ c.beginPath(); c.rect(-5,-5,10,10); c.stroke(); for(const p of [-3,3]){ c.beginPath(); c.moveTo(p,-5); c.lineTo(p,-9); c.moveTo(p,5); c.lineTo(p,9); c.moveTo(-5,p); c.lineTo(-9,p); c.moveTo(5,p); c.lineTo(9,p); c.stroke(); } c.beginPath(); c.arc(0,0,2,0,7); c.fill(); },
-  lab:     c=>{ c.beginPath(); c.moveTo(-3,-9); c.lineTo(3,-9); c.moveTo(-2,-9); c.lineTo(-2,-2); c.lineTo(-8,8); c.lineTo(8,8); c.lineTo(2,-2); c.lineTo(2,-9); c.stroke(); c.beginPath(); c.moveTo(-5,3); c.lineTo(5,3); c.stroke(); },
-  mega:    c=>{ c.beginPath(); for(let i=0;i<10;i++){ const a=i*Math.PI/5-Math.PI/2, r=i%2?4:10; c.lineTo(Math.cos(a)*r,Math.sin(a)*r); } c.closePath(); c.fill(); },
-  quantum: c=>{ for(let i=0;i<3;i++){ c.save(); c.rotate(i*Math.PI/3); c.beginPath(); c.ellipse(0,0,10,3.8,0,0,7); c.stroke(); c.restore(); } c.beginPath(); c.arc(0,0,2,0,7); c.fill(); },
-  sing:    c=>{ c.beginPath(); for(let i=0;i<40;i++){ const a=i*0.5, r=0.5+i*0.23; c.lineTo(Math.cos(a)*r,Math.sin(a)*r); } c.stroke(); },
-  neural:  c=>{ const P=[[-8,-6],[-8,0],[-8,6],[0,-4],[0,4],[8,0]]; c.beginPath(); for(const a of P.slice(0,3)) for(const b of P.slice(3,5)){ c.moveTo(a[0],a[1]); c.lineTo(b[0],b[1]); } for(const b of P.slice(3,5)){ c.moveTo(b[0],b[1]); c.lineTo(8,0); } c.stroke(); c.beginPath(); for(const p of P){ c.moveTo(p[0]+2,p[1]); c.arc(p[0],p[1],2,0,7); } c.fill(); },
-  dim:     c=>{ c.beginPath(); c.moveTo(0,-9); c.lineTo(8,-4.5); c.lineTo(8,4.5); c.lineTo(0,9); c.lineTo(-8,4.5); c.lineTo(-8,-4.5); c.closePath(); c.moveTo(-8,-4.5); c.lineTo(0,0); c.lineTo(8,-4.5); c.moveTo(0,0); c.lineTo(0,9); c.stroke(); },
-  omega:   c=>{ c.beginPath(); c.moveTo(-9,8); c.lineTo(-4,8); c.bezierCurveTo(-8,4,-8,-9,0,-9); c.bezierCurveTo(8,-9,8,4,4,8); c.lineTo(9,8); c.stroke(); }
-};
-function drawIcon(c, type, x, y, s, col){
-  const f = ICONS[type]; if(!f) return;
-  c.save(); c.translate(x,y); c.scale(s/10,s/10);
-  c.strokeStyle = col; c.fillStyle = col; c.lineWidth = 1.7*(10/s>1.4?1.4:1); c.lineCap = 'round'; c.lineJoin = 'round';
-  f(c); c.restore();
-}
-const iconURL = {};
-function iconImg(type, col){
-  if(iconURL[type]) return iconURL[type];
-  const o = document.createElement('canvas'); o.width = o.height = 48; const c = o.getContext('2d');
-  drawIcon(c, type, 24, 24, 20, col); return iconURL[type] = o.toDataURL();
-}
+export let sel = null, drag = null, hoverPort = null;
+export const msel = new Set(); let selMode = false;
 
 // Mise en page : les elements d'interface ne se superposent jamais
-let lastPanel = '', zoomLX = 0, zoomLY = 0;
+export let lastPanel = '', zoomLX = 0, zoomLY = 0;
 const lay = {};
 function setSt(el, k, v){ const key = el.id+k; if(lay[key]!==v){ lay[key]=v; el.style[k]=v; } }
 const shown = el => el.style.display!=='none' && getComputedStyle(el).display!=='none';
-function layoutUI(){
+export function layoutUI(){
   const mob = W<=700, top = $('top'), side = $('side'), selB = $('sel'), shop = $('shop');
   const pt = Math.round(top.getBoundingClientRect().bottom) + 2;
   const shopTop = Math.round(shop.getBoundingClientRect().top) + 26;
@@ -147,153 +90,6 @@ function layoutUI(){
   const tt = $('toast'); setSt(tt,'left',cxm+'px'); setSt(tt,'maxWidth',Math.max(200,fw)+'px'); setSt(tt,'bottom',base+'px');
   base += tt.offsetHeight+8;
   zoomLX = cxm; zoomLY = H-base-34;
-}
-function draw(){
-  layoutUI();
-  const now = performance.now(), dt = Math.min(0.1,(now-lastDraw)/1000); lastDraw = now;
-  stepZoom(dt);
-  const v = G.view, tm = now/1000;
-  // niveau de détail : 0 = vue lointaine, 1 = vue détaillée
-  const det = sstep(0.28,0.52,v.k), far = 1-det;
-  const lod = v.k<0.28 ? 0 : v.k<0.52 ? 1 : 2;
-  if(lod!==lodPrev){ lodFlash = 1; lodPrev = lod; }
-  lodFlash = Math.max(0, lodFlash - dt*2.2);
-  cx.setTransform(DPR,0,0,DPR,0,0);
-  cx.clearRect(0,0,W,H);
-  cx.fillStyle = '#212a3e'; cx.fillRect(0,0,W,H);
-
-  cx.save();
-  cx.translate(W/2+v.x, H/2+v.y); cx.scale(v.k,v.k);
-  // zone visible en coordonnees monde (marge pour les ombres, ports, bulles et traits)
-  const vm = 40/v.k + 24, vx0 = (-W/2-v.x)/v.k - vm, vx1 = (W/2-v.x)/v.k + vm, vy0 = (-H/2-v.y)/v.k - vm, vy1 = (H/2-v.y)/v.k + vm;
-
-  const inSet = new Set(), outSet = new Set();   // ports relies (une passe sur les liens au lieu d'une recherche par port)
-  for(const l of G.links){ inSet.add(l.b*64+l.bi); outSet.add(l.a*64+l.ao); }
-  for(const l of G.links){
-    const na = nodeById(l.a), nb = nodeById(l.b);
-    // un lien est hors ecran si la boite de ses deux extremites (elargie des detours possibles) l'est
-    if(Math.max(na.x,nb.x)+NW+20 < vx0 || Math.min(na.x,nb.x) > vx1 || Math.max(na.y,nb.y)+NH*1.9 < vy0 || Math.min(na.y,nb.y) > vy1) continue;
-    const p = linkPts(l);
-    const ca = COLORS[na.type], cb = COLORS[nb.type];
-    const ml = Math.max(1, 1.6/v.k);
-    cx.lineCap = 'butt'; cx.lineJoin = 'round';
-    cx.lineWidth = Math.max(2, ml); cx.strokeStyle = ca+'cc'; polyPath(p); cx.stroke();
-    for(const k of l.packets){
-      const q = bez(p,k.t), c = packetColor(k.v), r = Math.max(4, 2/v.k);
-      cx.fillStyle = c; cx.fillRect(q.x-r,q.y-r,r*2,r*2);
-    }
-  }
-  if(drag && drag.kind==='link'){
-    const a = outPort(nodeById(drag.n), drag.o), p = ctrl(a,drag.pos);
-    cx.strokeStyle='#4fd1c5'; cx.setLineDash([6,4]); cx.lineWidth=3;
-    polyPath(p); cx.stroke(); cx.setLineDash([]);
-  }
-
-  for(const n of G.nodes){
-    if(n.x+NW < vx0 || n.x > vx1 || n.y+NH < vy0 || n.y > vy1) continue;   // hors ecran
-    const d = DEFS[n.type], col = COLORS[n.type];
-    const busy = !!n.work || (d.val && n.timer>0);
-    if(far>0.02) drawNodeFar(n,d,col,busy,far,tm);
-    if(det<0.02) continue;
-    cx.globalAlpha = det;
-    cx.fillStyle = 'rgba(4,7,14,0.38)'; rrect(n.x,n.y+4,NW,NH,6); cx.fill();
-    cx.fillStyle = '#141a2a'; rrect(n.x,n.y,NW,NH,5); cx.fill();
-    cx.fillStyle = 'rgba(255,255,255,0.045)'; cx.fillRect(n.x+5,n.y+1,NW-10,1);
-    cx.fillStyle = col; cx.fillRect(n.x,n.y+6,3,NH-12);
-    const lift = drag && drag.kind==='node' && drag.n===n.id; cx.strokeStyle = (sel===n.id||lift) ? '#fff' : (busy ? col+'cc' : '#3a4560'); cx.lineWidth = (sel===n.id||lift)?2:1; rrect(n.x,n.y,NW,NH,5); cx.stroke();
-    if(msel.has(n.id)){
-      cx.fillStyle = '#f6c45322'; rrect(n.x,n.y,NW,NH,5); cx.fill();
-      cx.strokeStyle = '#f6c453'; cx.lineWidth = 2; cx.setLineDash([8,6]); rrect(n.x-4,n.y-4,NW+8,NH+8,7); cx.stroke(); cx.setLineDash([]);
-    }
-    // progression
-    let pr = 0;
-    if(n.work) pr = 1 - n.work.rem/timeOf(n); else if(d.val) pr = n.timer/timeOf(n);
-    cx.fillStyle = '#00000055'; rrect(n.x+10,n.y+NH-12,NW-20,4,2); cx.fill();
-    const pw = Math.max(5,(NW-20)*Math.max(0,Math.min(1,pr)));
-    if(pr>0){
-      cx.fillStyle = col; rrect(n.x+10,n.y+NH-12,pw,4,2); cx.fill();
-    }
-    cx.textAlign='left'; cx.textBaseline='middle';
-        drawIcon(cx,n.type,n.x+24,n.y+24,10.5,col);
-    cx.font='600 13px system-ui'; cx.fillStyle='#e6ecf8'; cx.fillText(fitTxt(d.name,NW-48), n.x+42, n.y+18);
-    cx.font='11px system-ui'; cx.fillStyle='#8794b3';
-    const buf = n.inb.reduce((s,q)=>s+q.length,0);
-    cx.fillStyle = TIERS[tierOf(n.level)][1]; cx.fillText(fitTxt('Niv. '+(n.level+1)+(n.spec?' · '+({spd:'Turbo',val:'Rend.',eco:'Éco'})[n.spec]:'')+(d.ins?' · '+buf+'/'+bufCap():' · '+(1/timeOf(n)).toFixed(2)+'/s'), NW-48), n.x+42, n.y+35);
-    { const tr = tierOf(n.level), lv10 = n.level%10; cx.fillStyle = '#2a3550'; for(let i=0;i<10;i++) cx.fillRect(n.x+NW-8-(10-i)*7,n.y+NH-21,5,2); cx.fillStyle = TIERS[tr][1]; for(let i=0;i<lv10;i++) cx.fillRect(n.x+NW-8-(10-i)*7,n.y+NH-21,5,2); }
-    if(G.money>=upCost(n)){
-      const bx = n.x+NW-2, by = n.y+2, pu = 1+0.08*Math.sin(tm*4+n.id);
-      cx.fillStyle = '#68d391';
-      cx.beginPath(); cx.arc(bx,by,10*pu,0,Math.PI*2); cx.fill();
-      cx.strokeStyle = '#0a0e16'; cx.lineWidth = 2.2; cx.beginPath(); cx.moveTo(bx-4,by); cx.lineTo(bx+4,by); cx.moveTo(bx,by-4); cx.lineTo(bx,by+4); cx.stroke();
-    }
-    for(let i=0;i<d.ins;i++) port(inPort(n,i), hoverPort&&hoverPort.in&&hoverPort.n===n.id&&hoverPort.i===i, false, col, inSet.has(n.id*64+i));
-    for(let i=0;i<d.outs;i++) port(outPort(n,i), hoverPort&&!hoverPort.in&&hoverPort.n===n.id&&hoverPort.i===i, true, col, outSet.has(n.id*64+i));
-    cx.globalAlpha = 1;
-  }
-  if(drag && drag.kind==='box'){
-    const bx=Math.min(drag.a.x,drag.b.x), by=Math.min(drag.a.y,drag.b.y), bw=Math.abs(drag.a.x-drag.b.x), bh=Math.abs(drag.a.y-drag.b.y);
-    cx.fillStyle='#f6c4531a'; cx.fillRect(bx,by,bw,bh); cx.strokeStyle='#f6c453'; cx.lineWidth=Math.max(1.5,1.5/v.k); cx.strokeRect(bx,by,bw,bh);
-  }
-  for(const f of floats){
-    cx.globalAlpha = Math.max(0,f.life); cx.fillStyle=f.col; cx.font=`700 ${f.size}px system-ui`; cx.textAlign='center';
-    cx.fillText(f.text, f.x, f.y - (1-f.life)*40);
-  }
-  for(const q of parts){ cx.globalAlpha=Math.max(0,q.life); cx.fillStyle=q.col; cx.beginPath(); cx.arc(q.x,q.y,2.5,0,Math.PI*2); cx.fill(); }
-  cx.globalAlpha = 1;
-  cx.restore();
-  cx.setTransform(DPR,0,0,DPR,0,0);
-  drawZoomFx(det);
-  drawMini();
-}
-// Vue lointaine : blocs colorés lumineux, icône à taille d'écran constante
-function drawNodeFar(n,d,col,busy,a,tm){
-  const k = G.view.k, cxn = n.x+NW/2, cyn = n.y+NH/2;
-  cx.globalAlpha = a;
-  const R = Math.max(NW*0.62, 20/k);
-  const bw = Math.max(NW, 26/k), bh = Math.max(NH, 18/k);
-  cx.fillStyle = '#141a2a'; cx.globalAlpha = a;
-  rrect(cxn-bw/2,cyn-bh/2,bw,bh,Math.min(12,bh*0.3)); cx.fill();
-  cx.globalAlpha = a; cx.strokeStyle = sel===n.id ? '#fff' : col; cx.lineWidth = Math.max(2,1.5/k);
-  rrect(cxn-bw/2,cyn-bh/2,bw,bh,Math.min(12,bh*0.3)); cx.stroke();
-  if(k>0.09){
-    drawIcon(cx,n.type,cxn,cyn,Math.min(bw,bh)*0.36,col);
-  }
-  cx.globalAlpha = 1;
-}
-// Effets de zoom : stries radiales, vignette de vitesse, anneau de changement de niveau, indicateur
-function drawZoomFx(det){
-  cx.setTransform(DPR,0,0,DPR,0,0);
-  const sp = Math.min(1, Math.abs(zoomVel)/3.2), mxr = Math.hypot(W,H)/2;
-  if(sp>0.03){
-    const out = zoomVel<0;   // dézoom : les stries convergent vers le centre
-    cx.strokeStyle = 'rgba(160,230,255,'+(0.5*sp)+')'; cx.lineWidth = 1.5; cx.beginPath();
-    const t = performance.now()/1000;
-    for(let i=0;i<46;i++){
-      const ang = i*2.399+Math.floor(i/7)*0.3, ph = (i*0.37+t*(out?-1:1)*2.2)%1, f = ph<0?ph+1:ph;
-      const r0 = mxr*(0.25+0.65*f), r1 = r0 + mxr*0.18*sp;
-      cx.moveTo(W/2+Math.cos(ang)*r0, H/2+Math.sin(ang)*r0);
-      cx.lineTo(W/2+Math.cos(ang)*r1, H/2+Math.sin(ang)*r1);
-    }
-    cx.stroke();
-  }
-  if(lodFlash>0){
-    const r = mxr*(1-lodFlash)*1.1;
-    cx.strokeStyle = 'rgba(255,255,255,'+(0.35*lodFlash)+')'; cx.lineWidth = 3+10*lodFlash;
-    cx.beginPath(); cx.arc(W/2,H/2,r,0,Math.PI*2); cx.stroke();
-  }
-  if(zoomShow>0){
-    const a = Math.min(1,zoomShow), lab = G.view.k<0.28?'Vue globale':G.view.k<0.52?'Vue réseau':'Vue détaillée';
-    cx.globalAlpha = a; cx.textAlign='center'; cx.textBaseline='middle';
-    cx.fillStyle='#0a0e16cc'; rrect(zoomLX-90,zoomLY,180,34,10); cx.fill();
-    cx.fillStyle='#e6ecf8'; cx.font='700 13px system-ui'; cx.fillText(Math.round(G.view.k*100)+' %  -  '+lab, zoomLX, zoomLY+17);
-    cx.globalAlpha = 1; cx.textAlign='left';
-  }
-}
-function port(p,hot,out,col,linked){
-  const r = hot?8:5.5;
-  cx.beginPath(); cx.arc(p.x,p.y,r,0,Math.PI*2);
-  cx.fillStyle = (out||linked) ? col : '#141a2a'; cx.fill();
-  cx.strokeStyle = hot ? '#fff' : (out||linked ? '#0a0e16' : col+'bb'); cx.lineWidth=2; cx.stroke();
 }
 
 // Interactions 
@@ -369,10 +165,10 @@ cv.addEventListener('pointerdown', e=>{
   pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(pointers.size===2){
     const [a,b]=[...pointers.values()];
-    pinch={d:Math.hypot(a.x-b.x,a.y-b.y), k:G.view.k}; zoomT=null; drag=null; return;
+    pinch={d:Math.hypot(a.x-b.x,a.y-b.y), k:G.view.k}; setZoomT(null); drag=null; return;
   }
   if(e.button===1){
-    e.preventDefault(); zoomT=null;
+    e.preventDefault(); setZoomT(null);
     drag={kind:'pan',sx:e.clientX,sy:e.clientY,vx:G.view.x,vy:G.view.y}; return;
   }
   const w = toWorld(e.clientX,e.clientY);
@@ -428,7 +224,7 @@ cv.addEventListener('pointermove', e=>{
   if(pinch && pointers.size===2){
     const [a,b]=[...pointers.values()], mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
     const w = toWorld(mx,my), v=G.view;
-    v.k = Math.max(ZMIN, Math.min(ZMAX, pinch.k*Math.hypot(a.x-b.x,a.y-b.y)/pinch.d)); zoomShow = 1.2;
+    v.k = Math.max(ZMIN, Math.min(ZMAX, pinch.k*Math.hypot(a.x-b.x,a.y-b.y)/pinch.d)); setZoomShow(1.2);
     v.x = mx - W/2 - w.x*v.k; v.y = my - H/2 - w.y*v.k; return;
   }
   const w = toWorld(e.clientX,e.clientY);
@@ -523,15 +319,6 @@ addEventListener('keydown', e=>{
   if((e.ctrlKey||e.metaKey) && (e.key==='a'||e.key==='A')){ e.preventDefault(); for(const n of G.nodes) msel.add(n.id); sel=null; showSel(); return; }
   if((e.key==='Delete'||e.key==='Backspace') && sel){ const n=nodeById(sel); if(n) sell(n); }
 });
-
-// UI 
-const $ = id => document.getElementById(id);
-function ask(msg, yes){
-  const d=$('dlg'); $('dlgMsg').textContent=msg; d.style.display='flex';
-  $('dlgYes').onclick=()=>{ d.style.display='none'; yes(); };
-  $('dlgNo').onclick=()=>{ d.style.display='none'; };
-}
-function toast(msg,ms=2600){ const t=$('toast'); t.textContent=msg; t.style.opacity=1; clearTimeout(toast.h); toast.h=setTimeout(()=>t.style.opacity=0,ms); }
 
 function buildShop(){
   $('shop').innerHTML = '';
@@ -875,35 +662,6 @@ function drawSpark(){
   x.fillStyle='#8794b3'; x.font='18px system-ui'; x.fillText('max '+fmt(mx)+' / s',8,18);
 }
 setInterval(()=>{ if(!G) return; hist.push(G.lastRate); if(hist.length>150) hist.shift(); if(tab==='stat') drawSpark(); }, 2000);
-function fitView(){
-  if(!G.nodes.length) return;
-  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
-  for(const n of G.nodes){ x0=Math.min(x0,n.x); y0=Math.min(y0,n.y); x1=Math.max(x1,n.x+NW); y1=Math.max(y1,n.y+NH); }
-  const mm = W<=700 ? 30 : 120, k = Math.max(ZMIN,Math.min(1.5, Math.min((W-mm)/(x1-x0), (H-300)/(y1-y0)))); zoomT = null;
-  G.view.k = k; G.view.x = -((x0+x1)/2)*k; G.view.y = -((y0+y1)/2)*k - 20;
-}
-const mini = $('mini'), mx = mini.getContext('2d');
-let miniB = null;
-function drawMini(){
-  if(getComputedStyle(mini).display==='none') return;
-  const w=mini.width, h=mini.height;
-  mx.clearRect(0,0,w,h); mx.fillStyle='#0a0e16cc'; mx.fillRect(0,0,w,h);
-  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
-  for(const n of G.nodes){ x0=Math.min(x0,n.x); y0=Math.min(y0,n.y); x1=Math.max(x1,n.x+NW); y1=Math.max(y1,n.y+NH); }
-  const tl=toWorld(0,0), br=toWorld(W,H);
-  x0=Math.min(x0,tl.x); y0=Math.min(y0,tl.y); x1=Math.max(x1,br.x); y1=Math.max(y1,br.y);
-  const k=Math.min((w-8)/(x1-x0),(h-8)/(y1-y0)), ox=(w-(x1-x0)*k)/2, oy=(h-(y1-y0)*k)/2;
-  miniB = {x0,y0,k,ox,oy};
-  for(const n of G.nodes){ mx.fillStyle=COLORS[n.type]; mx.fillRect(ox+(n.x-x0)*k, oy+(n.y-y0)*k, Math.max(3,NW*k), Math.max(2,NH*k)); }
-  mx.strokeStyle='#ffffff99'; mx.lineWidth=1; mx.strokeRect(ox+(tl.x-x0)*k, oy+(tl.y-y0)*k, (br.x-tl.x)*k, (br.y-tl.y)*k);
-}
-mini.addEventListener('pointerdown', e=>{
-  if(!miniB) return;
-  const r = mini.getBoundingClientRect(), b = miniB;
-  const wx = b.x0 + ((e.clientX-r.left)*(mini.width/r.width) - b.ox)/b.k;
-  const wy = b.y0 + ((e.clientY-r.top)*(mini.height/r.height) - b.oy)/b.k;
-  G.view.x = -wx*G.view.k; G.view.y = -wy*G.view.k;
-});
 $('bOc').onclick = useOverclock;
 cv.addEventListener('dblclick', e=>{ const nd=findNode(toWorld(e.clientX,e.clientY)); if(nd){ msel.clear(); for(const m of G.nodes) if(m.type===nd.type) msel.add(m.id); sel=null; showSel(); toast(msel.size+' nœud(s) du même type'); } });
 cv.addEventListener('dblclick', e=>{ if(!findNode(toWorld(e.clientX,e.clientY)) && !findLink(toWorld(e.clientX,e.clientY))) fitView(); });
