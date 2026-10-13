@@ -1,4 +1,5 @@
 // Icones vectorielles des noeuds (canvas et images pour la boutique).
+import { DEFS } from '../data/nodes.js';
 // Icones vectorielles (dessinees dans un carre de -10 a 10)
 const ICONS = {
   source:  c=>{ c.beginPath(); for(let i=0;i<6;i++){ const a=i*Math.PI/3-Math.PI/6; c.lineTo(Math.cos(a)*9,Math.sin(a)*9); } c.closePath(); c.stroke(); c.beginPath(); c.arc(0,0,3,0,7); c.fill(); },
@@ -19,8 +20,15 @@ const ICONS = {
   dim:     c=>{ c.beginPath(); c.moveTo(0,-9); c.lineTo(8,-4.5); c.lineTo(8,4.5); c.lineTo(0,9); c.lineTo(-8,4.5); c.lineTo(-8,-4.5); c.closePath(); c.moveTo(-8,-4.5); c.lineTo(0,0); c.lineTo(8,-4.5); c.moveTo(0,0); c.lineTo(0,9); c.stroke(); },
   omega:   c=>{ c.beginPath(); c.moveTo(-9,8); c.lineTo(-4,8); c.bezierCurveTo(-8,4,-8,-9,0,-9); c.bezierCurveTo(8,-9,8,4,4,8); c.lineTo(9,8); c.stroke(); }
 };
+// Type sans icone dessinee : trace SVG de l'entree (icon), sinon son texte court (label)
+const FALLBACK = {};
+function fallbackIcon(type){
+  const d = DEFS[type]; if(!d) return null;
+  if(d.icon){ const p = new Path2D(d.icon); return c=>c.stroke(p); }
+  return c=>{ c.font = '700 7px system-ui'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(d.label, 0, 0.5); };
+}
 export function drawIcon(c, type, x, y, s, col){
-  const f = ICONS[type]; if(!f) return;
+  const f = ICONS[type] || FALLBACK[type] || (FALLBACK[type] = fallbackIcon(type)); if(!f) return;
   c.save(); c.translate(x,y); c.scale(s/10,s/10);
   c.strokeStyle = col; c.fillStyle = col; c.lineWidth = 1.7*(10/s>1.4?1.4:1); c.lineCap = 'round'; c.lineJoin = 'round';
   f(c); c.restore();

@@ -2,7 +2,7 @@
 import { emit } from './bus.js';
 import { G, addNode, connect, nodeById, removeNode } from './state.js';
 import { bpCost, bpUnlocked, buyCost, gUpCost, puCost, sellVal, techCost, unlocked, upCost } from './economy.js';
-import { NH, NW } from '../data/nodes.js';
+import { DEFS, NH, NW } from '../data/nodes.js';
 
 // Pose un schema pres du point ctr (coordonnees monde) ; renvoie les noeuds poses, ou null si impossible
 export function placeBlueprint(b, ctr){
@@ -18,7 +18,7 @@ export function placeBlueprint(b, ctr){
     if(free(px,py)){ ox=px; oy=py; found=true; }
   }
   G.money -= c;
-  const made = b.nodes.map(([t,cx_,cy_,th_])=>{ const m = addNode(t, ox+cx_*SX, oy+Math.round(cy_*SY/10)*10); if(th_) m.thr = th_; return m; });
+  const made = b.nodes.map(([t,cx_,cy_,...ps])=>{ const m = addNode(t, ox+cx_*SX, oy+Math.round(cy_*SY/10)*10); Object.keys(DEFS[t].params||{}).forEach((k,i)=>{ if(ps[i]) m[k] = ps[i]; }); return m; });
   for(const [a,ao,z,zi] of b.links) connect(made[a].id,ao,made[z].id,zi);
   return made;
 }
@@ -27,7 +27,7 @@ export function blueprintOf(ns){
   const SX = NW+60, SY = NH+40, mx = Math.min(...ns.map(n=>n.x)), my = Math.min(...ns.map(n=>n.y));
   const idx = new Map(ns.map((n,i)=>[n.id,i]));
   const links = G.links.filter(l=>idx.has(l.a) && idx.has(l.b)).map(l=>[idx.get(l.a),l.ao,idx.get(l.b),l.bi]);
-  return {nodes:ns.map(n=>{ const r=[n.type, Math.round((n.x-mx)/SX*100)/100, Math.round((n.y-my)/SY*100)/100]; if(n.type==='sorter' && n.thr) r.push(n.thr); return r; }), links};
+  return {nodes:ns.map(n=>{ const r=[n.type, Math.round((n.x-mx)/SX*100)/100, Math.round((n.y-my)/SY*100)/100]; const ks = Object.keys(DEFS[n.type].params||{}); if(ks.some(k=>n[k])) r.push(...ks.map(k=>n[k])); return r; }), links};
 }
 // Enregistre un groupe de noeuds comme schema personnel
 export function saveBlueprint(ns){

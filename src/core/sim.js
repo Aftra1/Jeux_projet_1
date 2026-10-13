@@ -2,11 +2,12 @@
 import { emit } from './bus.js';
 import { G, linkFrom, nodeById } from './state.js';
 import { fmt } from './format.js';
-import { MASTTH, RKC, bufCap, critChance, rankOf, revMult, rpOf, seedV, tierOf, timeOf, vmult } from './economy.js';
+import { MASTTH, RKC, bufCap, rankOf, tierOf, timeOf } from './economy.js';
+import { KINDS, OUTS } from './kinds.js';
 import { DEFS, NW, TIERS } from '../data/nodes.js';
 
    // cache des rangs
-function mastTick(n){
+export function mastTick(n){
   const t = n.type, r = rankOf(t), c = G.mast[t] = (G.mast[t]||0)+1;
   if(c===MASTTH[r]){ RKC[t] = r+1; emit('toast', 'Maîtrise : '+DEFS[t].name+' rang '+(r+1)+' (+4 % de vitesse)'); emit('blip', 900,0.2,0.07,'triangle'); }
 }
@@ -15,7 +16,7 @@ let income = [];
 export function resetIncome(){ income = []; }
 // debit : credits gagnes sur les 10 dernieres secondes
 export function updateRate(now){ income = income.filter(e=>now-e.t<10000); G.lastRate = income.reduce((s,e)=>s+e.v,0)/10; }
-function earn(v, n, crit){
+export function earn(v, n, crit){
   G.money += v; G.run += v; G.lifetime += v;
   income.push({t:performance.now(), v});
   if(n) emit('float', n.x+NW/2, n.y-4, '+'+fmt(v), crit?'#ff9f43':'#f6c453', crit?20:15);
@@ -33,63 +34,17 @@ function trySend(n){
     const last = l.packets[l.packets.length-1];
     if(!last || last.t > 0.18){
       l.packets.push({v:q.v,t:0}); n.outq.shift();
-      if(q.o<0 && d.outs===2 && n.type!=='sorter') n.rr = o+1;
+      if(q.o<0 && d.outs===2) n.rr = o+1;
       return;
     }
   }
-  if(q.o>=0 && n.type==='sorter' && !linkFrom(n.id,q.o) && linkFrom(n.id,1-q.o)){ q.o = 1-q.o; return; }   // le trieur se rabat sur l'autre sortie
-  if(q.o>=0 && !linkFrom(n.id,q.o)) n.outq.shift();   // sortie non branchée du clonage : le fichier est perdu
+  if(q.o>=0 && OUTS[d.out||'next'].fallback==='other' && !linkFrom(n.id,q.o) && linkFrom(n.id,1-q.o)){ q.o = 1-q.o; return; }   // sortie imposee absente : l'autre (Trieur)
+  if(q.o>=0 && !linkFrom(n.id,q.o)) n.outq.shift();   // sinon le fichier impose sur une sortie non branchee est perdu (Clonage)
 }
 
 function updateNode(n,dt){
-  const def = DEFS[n.type], t = timeOf(n);
-  if(def.val){                                   // sources
-    if(n.outq.length<2){
-      n.timer += dt;
-      if(n.timer>=t){ n.timer=0; n.outq.push({v:seedV(def)*vmult(n), o:-1}); mastTick(n); }
-    }
-  } else if(n.type==='lab'){
-    if(!n.work){
-      for(let k=0;k<n.inb.length;k++){
-        const i=(n.rr+k)%n.inb.length;
-        if(n.inb[i].length){ n.work = {v:n.inb[i].shift(), rem:t}; n.rr=i+1; break; }
-      }
-    }
-    if(n.work){
-      n.work.rem -= dt;
-      if(n.work.rem<=0){ const r=rpOf(n.work.v); G.rp+=r; G.rpTotal+=r; emit('float', n.x+NW/2, n.y-4, '+'+fmt(r)+' RP', '#76e4f7', 13); n.work=null; mastTick(n); }
-    }
-  } else if(n.type==='upload'){
-    if(!n.work){
-      for(let k=0;k<n.inb.length;k++){
-        const i=(n.rr+k)%n.inb.length;
-        if(n.inb[i].length){ n.work = {v:n.inb[i].shift(), rem:t}; n.rr=i+1; break; }
-      }
-    }
-    if(n.work){
-      n.work.rem -= dt;
-      if(n.work.rem<=0){
-        let v = n.work.v*revMult()*vmult(n), crit = Math.random()<critChance();
-        if(crit) v*=5;
-        earn(v,n,crit); G.files++; n.work=null; mastTick(n);
-      }
-    }
-  } else {
-    if(!n.work && n.outq.length===0){
-      if(n.type==='merge'){
-        if(n.inb[0].length && n.inb[1].length) n.work = {v:(n.inb[0].shift()+n.inb[1].shift())*1.3, rem:t};
-      } else if(n.inb[0].length) n.work = {v:n.inb[0].shift()*(def.mult||1), rem:t};
-    }
-    if(n.work){
-      n.work.rem -= dt;
-      if(n.work.rem<=0){
-        if(n.type==='clone') n.outq.push({v:n.work.v,o:0},{v:n.work.v,o:1});
-        else if(n.type==='sorter') n.outq.push({v:n.work.v,o:n.work.v>=(n.thr||10)?0:1});
-        else n.outq.push({v:n.work.v,o:-1});
-        n.work=null; mastTick(n);
-      }
-    }
-  }
+  const def = DEFS[n.type];
+  KINDS[def.kind].tick(n, def, dt, timeOf(n));
   trySend(n);
 }
 

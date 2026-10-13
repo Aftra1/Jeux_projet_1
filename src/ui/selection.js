@@ -5,12 +5,15 @@ import { lastPanel, setLastPanel } from './hud.js';
 import { renderTab } from './tabs.js';
 import { $, toast } from './dom.js';
 import { H, W, toWorld } from '../render/canvas.js';
-import { MASTTH, bpCost, bpLocked, bpUnlocked, bulkCost, buyCost, maxAffordable, rankOf, revMult, seedV, sellVal, specsFor, speedOf, tierOf, timeOf, unlocked, upCost } from '../core/economy.js';
+import { MASTTH, bpCost, bpLocked, bpUnlocked, bulkCost, buyCost, maxAffordable, rankOf, sellVal, specsFor, speedOf, tierOf, timeOf, unlocked, upCost } from '../core/economy.js';
 import { blueprintOf, chooseSpec, placeBlueprint, saveBlueprint, sell, sellNodes, upgradeCheapest, upgradeNode } from '../core/actions.js';
 import { G, addNode, nodeById } from '../core/state.js';
 import { fmt } from '../core/format.js';
 import { freeSpot } from '../core/geometry.js';
 import { DEFS, NH, SPECS, TIERS } from '../data/nodes.js';
+import { KINDS } from '../core/kinds.js';
+
+const pid = k => 'b'+k[0].toUpperCase()+k.slice(1);   // identifiant des boutons d'un reglage (thr -> bThrD, bThrU)
 
 export function buildBp(b,quiet){
   if(!bpUnlocked(b)) return;
@@ -73,12 +76,8 @@ export function showSel(){
   if(msel.size || selMode){ showMulti(); return; }
   const box = $('sel'), n = sel ? nodeById(sel) : null;
   if(!n){ box.style.display='none'; return; }
-  const d = DEFS[n.type], t = timeOf(n);
-  let extra;
-  if(d.val) extra = `1 fichier de valeur ${seedV(d)} toutes les ${t.toFixed(2)} s.`;
-  else if(n.type==='upload') extra = `1 fichier toutes les ${t.toFixed(2)} s (revenus ×${revMult().toFixed(2)}).`;
-  else if(n.type==='sorter') extra = `Seuil : valeur ≥ ${fmt(n.thr||10)} vers le haut, le reste vers le bas.`;
-  else extra = `${t.toFixed(2)} s par fichier.`;
+  const d = DEFS[n.type], t = timeOf(n), params = Object.entries(d.params||{});
+  let extra = KINDS[d.kind].info(n, d, t);
   const nm = (Math.floor(n.level/10)+1)*10, tr = tierOf(n.level), tcol = TIERS[tr][1];
   { const rk = rankOf(n.type); extra += ` Maîtrise : rang ${rk}/${MASTTH.length}`+(rk<MASTTH.length?` (${fmt(G.mast[n.type]||0)} / ${fmt(MASTTH[rk])} fichiers).`:' (maximum).'); }
   const s0 = 1/t, s1 = speedOf(n,n.level+1)/DEFS[n.type].t, gain = Math.round((s1/s0-1)*100);
@@ -93,7 +92,7 @@ export function showSel(){
     <div class="row"><button id="bu1"></button><button id="bu10"></button><button id="buP"></button><button id="buM"></button></div>
     ${spec}
     <div class="row"><button id="bDis">Déconnecter</button><button id="bDup">Dupliquer</button><button id="bSell">Vendre +${fmt(Math.floor(buyCost(n.type)*0.4))}</button></div>
-    ${n.type==='sorter'?'<div class="row"><button id="bThrD">Seuil ÷2</button><button id="bThrU">Seuil ×2</button></div>':''}`;
+    ${params.map(([k,p])=>`<div class="row"><button id="${pid(k)}D">${p.label} ÷2</button><button id="${pid(k)}U">${p.label} ×2</button></div>`).join('')}`;
   box.style.display='block'; setLastPanel('sel'); box._sig = n.id+':'+n.level+':'+n.spec;
   refreshSelButtons();
   $('bu1').onclick = ()=>upgradeNode(n,1);
@@ -107,9 +106,9 @@ export function showSel(){
   };
   $('bDis').onclick = ()=>{ G.links = G.links.filter(l=>l.a!==n.id && l.b!==n.id); };
   $('bSell').onclick = ()=>sell(n);
-  if(n.type==='sorter'){
-    $('bThrD').onclick = ()=>{ n.thr = Math.max(1,(n.thr||10)/2); showSel(); };
-    $('bThrU').onclick = ()=>{ n.thr = (n.thr||10)*2; showSel(); };
+  for(const [k,p] of params){   // reglages du noeud (seuil du Trieur...) : ÷2 et ×2
+    $(pid(k)+'D').onclick = ()=>{ n[k] = Math.max(p.min,(n[k]||p.def)/2); showSel(); };
+    $(pid(k)+'U').onclick = ()=>{ n[k] = (n[k]||p.def)*2; showSel(); };
   }
   $('bDup').onclick = ()=>{
     const c = buyCost(n.type);

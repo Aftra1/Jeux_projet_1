@@ -32,11 +32,6 @@ export function measure(spec, where){
   const f = a===undefined ? m : (ARGS[k]==='number' ? ()=>m(+a) : ()=>m(a));
   compiled.set(spec, f); return f;
 }
-export function validateProgression(){
-  for(const a of ACH){ measure(a.measure, 'succes '+a.id); if(typeof a.gte!=='number') throw new Error('Donnees invalides : seuil gte absent (succes '+a.id+')'); }
-  for(const o of OBJ){ measure(o.measure, 'objectif "'+o.d+'"'); if(typeof o.target!=='number') throw new Error('Donnees invalides : cible target absente (objectif "'+o.d+'")'); }
-}
-validateProgression();
 
 // succès
 export function checkAch(){

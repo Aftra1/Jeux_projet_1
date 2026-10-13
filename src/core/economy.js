@@ -2,6 +2,7 @@
 import { G } from './state.js';
 import { DEFS, TIERS } from '../data/nodes.js';
 import { price, stat } from './stats.js';
+import { specsOfType } from './registry.js';
 import { NODE_GROW, UPGRADE_GROW, tierMult } from '../data/stats.js';
 
 export const techCost = d => price('cost.tech', d.base, d.grow, G.tech[d.id]);
@@ -11,7 +12,7 @@ export const qpMult = q => Math.pow(1 + q, 0.6);   // bonus de revenus des point
 export const INFL = 0.9, FREEQ = 2;   // inflation : part du bonus quantique (au-delà des FREEQ premiers points) répercutée sur les prix
 export const infl = () => Math.pow(qpMult(Math.max(0, G.qpTotal - FREEQ)), INFL);
 export const buyCost = (type,extra=0) => price('cost.node', DEFS[type].cost, NODE_GROW, (G.bought[type]||0)+extra, {type});
-export const specsFor = n => ('val' in DEFS[n.type] || n.type==='upload') ? ['spd','val','eco'] : ['spd','eco'];
+export const specsFor = n => specsOfType(n.type);
 export const tierOf = lv => Math.min(TIERS.length-1, Math.floor(lv/10));
 export const vmult = n => stat('value', n);
 export const upCost = (n, lvl) => price('cost.upgrade', DEFS[n.type].cost, UPGRADE_GROW, lvl===undefined?n.level:lvl, n);

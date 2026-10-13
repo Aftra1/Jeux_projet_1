@@ -20206,6 +20206,85 @@
    0
   ]
  },
+ "save47": {
+  "loaded": true,
+  "same": true,
+  "diffs": [],
+  "nodes": 17,
+  "links": 4,
+  "money": 1000000001529240.4,
+  "run": 2000001529246.8918,
+  "files": 172,
+  "rp": 9000,
+  "mast": {
+   "source": 5120,
+   "compress": 415,
+   "sorter": 1410,
+   "upload": 106
+  },
+  "lv": [
+   0,
+   5,
+   10,
+   15,
+   20,
+   25,
+   30,
+   35,
+   0,
+   5,
+   10,
+   15,
+   20,
+   25,
+   30,
+   35,
+   0
+  ],
+  "bp": [
+   [
+    "source",
+    -300,
+    -250,
+    null
+   ],
+   [
+    "compress",
+    140,
+    -250,
+    null
+   ],
+   [
+    "sorter",
+    140,
+    -120,
+    4
+   ],
+   [
+    "upload",
+    -80,
+    -250,
+    null
+   ]
+  ],
+  "bpLinks": 7,
+  "panel": "<h3>Trieur — niveau 1</h3><p>Envoie les gros fichiers (valeur au-dessus du seuil) vers la sortie du haut, les autres vers le bas.</p><p>Seuil : valeur ≥ 4 vers le haut, le reste vers le bas. Maîtrise : rang 2/8 (1.41K / 7.20K fichiers).</p><div class=\"up-prev\"><span>Vitesse</span><b>31.45/s</b><i>→</i><b class=\"g\">40.88/s</b><em>+30 %</em></div>\n    <div class=\"up-tier\"><span style=\"color:#8794b3\">Brut</span><u><s style=\"width:0%;background:#8794b3\"></s></u><span>Palier ×1,5 dans 10</span></div>\n    <div class=\"row\"><button id=\"bu1\">×1<br>28.5K</button><button id=\"bu10\">×10<br>5.17M</button><button id=\"buP\">Palier (10)<br>5.17M</button><button id=\"buM\">Max (50)<br>762T</button></div>\n    <p class=\"up-hint\">Niveau 10 : spécialisation (Turbo ou Économe ; Rendement pour les sources et l'Upload).</p>\n    <div class=\"row\"><button id=\"bDis\">Déconnecter</button><button id=\"bDup\">Dupliquer</button><button id=\"bSell\">Vendre +20.5K</button></div>\n    <div class=\"row\"><button id=\"bThrD\">Seuil ÷2</button><button id=\"bThrU\">Seuil ×2</button></div>",
+  "thrD": 1,
+  "thrU": 2,
+  "rows": [
+   [
+    "sorter",
+    3.36,
+    3.45,
+    2
+   ],
+   [
+    "source",
+    0,
+    0
+   ]
+  ]
+ },
  "smoke": {
   "errs": [],
   "tabs": [

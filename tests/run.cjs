@@ -299,6 +299,30 @@ const SCENARIOS = {
     return out;
   },
 
+  // une sauvegarde de la version 47 (tous les types, Trieur regle, schema personnel avec seuil) : rechargement, schema, panneau du Trieur
+  save47(fx){
+    const ls = localStorage; for(const k of Object.keys(ls)) if(k.startsWith(KEY)) ls.removeItem(k);
+    const d = JSON.parse(JSON.stringify(fx)); d.savedAt = Date.now(); d.daily = new Date().toISOString().slice(0,10);
+    ls.setItem(KEY, JSON.stringify(d));
+    const loaded = load();
+    const strip = o => { const c = JSON.parse(JSON.stringify(o)); delete c.savedAt; for(const l of c.links||[]) l.packets = []; return JSON.stringify(c); };
+    const A = JSON.parse(strip(JSON.parse(serializeText()))), B = JSON.parse(strip(d)), diffs = [];
+    const walk = (x,y,p)=>{ if(JSON.stringify(x)===JSON.stringify(y)) return; if(x && y && typeof x==='object' && typeof y==='object'){ for(const k of new Set([...Object.keys(x),...Object.keys(y)])) walk(x[k],y[k],p+'.'+k); } else diffs.push(p); };
+    walk(B, A, '');
+    const out = {loaded, same:diffs.length===0, diffs, nodes:G.nodes.length, links:G.links.length};
+    Math.__seed(47); for(let i=0;i<600;i++) tick();
+    Object.assign(out, {money:G.money, run:G.run, files:G.files, rp:G.rp, mast:G.mast, lv:G.nodes.map(n=>n.level)});
+    const before = G.nodes.length; buildBp(G.mine[0], true); const made = G.nodes.slice(before);
+    out.bp = made.map(n=>[n.type, n.x, n.y, n.thr===undefined?null:n.thr]); out.bpLinks = G.links.length;
+    const so = G.nodes.find(n=>n.type==='sorter'); sel = so.id; showSel(); out.panel = $('sel').innerHTML;
+    $('bThrD').click(); $('bThrD').click(); $('bThrD').click(); out.thrD = so.thr; $('bThrU').click(); out.thrU = so.thr;
+    out.rows = blueprintOf([so, made[0]]).nodes;
+    sel = null; showSel();
+    for(const k of Object.keys(ls)) if(k.startsWith(KEY)) ls.removeItem(k);
+    newGame();
+    return out;
+  },
+
   // le rendu et les panneaux ne levent aucune exception
   smoke(){
     const errs = [];
@@ -330,6 +354,7 @@ const SCENARIOS = {
   await page.waitForFunction(()=>typeof G!=='undefined' && G && G.nodes);
   const fixture = JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures','legacy-v0.json'),'utf8'));
   const fixture46 = JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures','save-v46.json'),'utf8'));
+  const fixture47 = JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures','save-v47.json'),'utf8'));
   const got = {};
   for(const name of Object.keys(SCENARIOS)){
     if((name==='render') !== RENDER) continue;
@@ -340,7 +365,7 @@ const SCENARIOS = {
     // en temps reel entre deux scenarios change le nombre de tirages aleatoires consommes (test instable)
     got[name] = await page.evaluate(`(function(){ paused = true; parts.length = 0; floats.length = 0; lastBlip = 0; income.length = 0;
       const real = performance.now; let T = 1e6; performance.now = ()=>T; window.tick = ()=>{ T += 50; step(0.05); };
-      try{ return (${fn})(${(name==='legacyFixture'||name==='saveSafety')?JSON.stringify(fixture):name==='save46'?JSON.stringify(fixture46):''}); } finally{ performance.now = real; } })()`);
+      try{ return (${fn})(${(name==='legacyFixture'||name==='saveSafety')?JSON.stringify(fixture):name==='save46'?JSON.stringify(fixture46):name==='save47'?JSON.stringify(fixture47):''}); } finally{ performance.now = real; } })()`);
   }
   await browser.close();
 
@@ -349,6 +374,7 @@ const SCENARIOS = {
   const assert = (ok,msg)=>{ if(!ok){ fail++; console.log('  FAIL', msg); } };
   // invariants (independants des instantanes)
   if(!RENDER){ assert(got.save46.loaded && got.save46.same, 'sauvegarde v46 rechargee sans perte');
+  assert(got.save47.loaded && got.save47.same, 'sauvegarde v47 rechargee sans perte');
   assert(got.saveRoundtrip.same && got.saveRoundtrip.packetsReset, 'sauvegarde : aller-retour fidele');
   assert(got.smoke.errs.length===0, 'rendu/panneaux sans exception : '+got.smoke.errs.join(' | ')); }
   assert(consoleErrs.length===0, 'aucune erreur de console : '+consoleErrs.join(' | '));
