@@ -1,55 +1,11 @@
 'use strict';
-// Définitions 
-const NW = 160, NH = 70;
-const DEFS = {
-  source:  {name:'Source',        icon:'SRC', ins:0, outs:1, cost:15,    t:1.0,  val:1,    unlock:0,   desc:'Génère un fichier de valeur 1.'},
-  upload:  {name:'Upload',        icon:'UP', ins:3, outs:0, cost:20,    t:0.6,  unlock:0,           desc:'Envoie les fichiers vers le cloud et rapporte des crédits. 3 entrées.'},
-  compress:{name:'Compresseur',   icon:'CMP', ins:1, outs:1, cost:40,    t:0.8,  mult:2,   unlock:0, desc:'Double la valeur d\'un fichier.'},
-  split:   {name:'Diviseur',      icon:'DIV', ins:1, outs:2, cost:60,    t:0.2,  unlock:20,          desc:'Répartit les fichiers sur deux sorties, en alternance.'},
-  merge:   {name:'Fusion',        icon:'FUS', ins:2, outs:1, cost:140,   t:1.0,  unlock:100,         desc:'Fusionne 2 fichiers : (a + b) × 1,3.'},
-  encrypt: {name:'Chiffreur',     icon:'ENC', ins:1, outs:1, cost:300,   t:3.0,  mult:3,   unlock:200, desc:'Triple la valeur d\'un fichier.'},
-  boost:   {name:'Amplificateur',  icon:'AMP', ins:1, outs:1, cost:500,   t:0.4,  mult:1.5, unlock:400, desc:'Valeur x1,5, très rapide. Idéal en fin de chaîne.'},
-  clone:   {name:'Clonage',       icon:'CLN', ins:1, outs:2, cost:900,   t:1.2,  unlock:600,         desc:'Duplique un fichier sur les deux sorties.'},
-  sorter:  {name:'Trieur',        icon:'TRI', ins:1, outs:2, cost:1200,  t:0.15, unlock:800,         desc:'Envoie les gros fichiers (valeur au-dessus du seuil) vers la sortie du haut, les autres vers le bas.'},
-  ai:      {name:'Analyseur IA',  icon:'IA', ins:1, outs:1, cost:2000,  t:6.0,  mult:5,   unlock:1500, desc:'Valeur ×5. Lent mais puissant.'},
-  lab:     {name:'Laboratoire',   icon:'LAB', ins:3, outs:0, cost:2500,  t:1.5,  unlock:2000, desc:'Absorbe les fichiers et produit des points de recherche. 3 entrées.'},
-  mega:    {name:'Super Source',  icon:'SRC+', ins:0, outs:1, cost:6000,  t:3.0,  val:10,   unlock:4000, desc:'Génère des fichiers de valeur 10.'},
-  quantum: {name:'Quantique',     icon:'QNT', ins:1, outs:1, cost:40000, t:12.0, mult:10,  unlock:25000, desc:'Valeur ×10. Très lent, très puissant.'},
-  sing:    {name:'Singularité',   icon:'SNG', ins:1, outs:1, cost:2e6,   t:30.0, mult:22,  unlock:1e6, needRs:3, desc:'Valeur ×22. Réservé aux joueurs ayant fait 3 Reboots.'},
-  neural:  {name:'Réseau neuronal',icon:'NET', ins:1, outs:1, cost:1e8,   t:70.0, mult:21,  unlock:4e7, needRs:5, desc:'Valeur ×21. Réservé aux joueurs ayant fait 5 Reboots.'},
-  dim:     {name:'Dimension',     icon:'DIM', ins:1, outs:1, cost:6e9,   t:160.0,mult:20,  unlock:2e9, needRs:8, desc:'Valeur ×20. Réservé aux joueurs ayant fait 8 Reboots.'},
-  omega:   {name:'Oméga',         icon:'OMG', ins:1, outs:1, cost:3.5e11,t:360.0,mult:20,  unlock:1e11, needRs:11, desc:'Valeur ×20. Le sommet, après 11 Reboots.'},
-};
-const ORDER = Object.keys(DEFS);
-const COLORS = {source:'#4fd1c5',upload:'#f6c453',split:'#9f7aea',compress:'#63b3ed',merge:'#f687b3',encrypt:'#68d391',clone:'#f6ad55',sorter:'#a3e635',boost:'#ecc94b',ai:'#fc8181',mega:'#38b2ac',lab:'#76e4f7',quantum:'#b794f4',sing:'#ffffff',neural:'#f56565',dim:'#ed64a6',omega:'#faf089'};
-
-const GLOBALS = [
-  {id:'rev',  name:'Marketing',          desc:'+25 % de revenus par upload',          base:100, grow:2.1, max:60},
-  {id:'spd',  name:'Fibre optique',      desc:'+10 % de vitesse partout',             base:250, grow:2.4, max:45},
-  {id:'seed', name:'Meilleurs capteurs', desc:'+20 % de valeur des fichiers produits par les Sources',      base:500, grow:2.8, max:30},
-  {id:'buf',  name:'Mémoire tampon',     desc:'+1 capacité des files d\'attente',     base:400, grow:2.4, max:6},
-  {id:'crit', name:'Upload chanceux',    desc:'+3 % de chance d\'upload ×5',          base:1500,grow:2.6, max:20},
-];
-const PU = [
-  {id:'start', name:'Capital de départ',     desc:'Démarre chaque run avec plus de crédits (proportionnel à la hausse des prix)', base:1, grow:2, max:8, eff:l=>'Crédits de départ : '+fmt(startCash(l))},
-  {id:'spd',   name:'Surcadençage',          desc:'+5 % de vitesse permanente',             base:1, grow:2, max:16, eff:l=>'+'+l*5+' %'},
-  {id:'disc',  name:'Négociation',           desc:'5 % sur le prix des nœuds',              base:2, grow:2, max:6,  eff:l=>''+l*5+' %'},
-  {id:'off',   name:'Serveurs de nuit',      desc:'+8 % de gains hors-ligne (base 40 %, 3 h max)',   base:2, grow:2, max:5,  eff:l=>(40+l*8)+' %'},
-  {id:'rev',   name:'Amplificateur quantique', desc:'+10 % de revenus permanents', base:3, grow:2, max:16, eff:l=>'+'+l*10+' %'},
-  {id:'auto',  name:'Ingénieur automatique', desc:'Améliore automatiquement tes nœuds',      base:10,grow:1, max:1,  eff:l=>l?'Actif':'—'},
-];
-const TECH = [
-  {id:'trev', name:'Algorithmes de revenu',   desc:'+8 % de revenus par niveau',                base:20, grow:1.9, max:24, eff:l=>'+'+l*8+' %'},
-  {id:'tspd', name:'Architecture parallèle',  desc:'+4 % de vitesse par niveau',                base:25, grow:1.9, max:24, eff:l=>'+'+l*4+' %'},
-  {id:'tseed',name:'Formats optimisés',       desc:'+8 % de valeur des fichiers des Sources par niveau', base:35, grow:1.8, max:24, eff:l=>'+'+l*8+' %'},
-  {id:'tcost',name:'Économies d\'échelle',    desc:'-2 % sur le prix des nœuds par niveau',     base:40, grow:2.0, max:10, eff:l=>'-'+l*2+' %'},
-  {id:'tup',  name:'Maintenance prédictive',  desc:'-3 % sur le prix des améliorations',        base:50, grow:2.1, max:10, eff:l=>'-'+l*3+' %'},
-  {id:'tcrit',name:'Compression adaptative',  desc:'+2 % de chance d\'upload critique',         base:60, grow:2.0, max:10, eff:l=>'+'+l*2+' %'},
-  {id:'toc',  name:'Refroidissement liquide', desc:'Overclock +1 s de durée et -6 s de recharge', base:80, grow:1.8, max:10, eff:l=>'+'+l+' s / -'+l*6+' s'},
-  {id:'tlab', name:'Instruments de mesure',   desc:'+20 % de points de recherche par niveau',   base:30, grow:1.8, max:10, eff:l=>'+'+l*20+' %'},
-];
+import { COLORS, DEFS, NH, NW, ORDER, SPECS, TIERS } from './data/nodes.js';
+import { GLOBALS, PU, TECH } from './data/upgrades.js';
+import { BPS } from './data/blueprints.js';
+import { EVT } from './data/events.js';
+import './main.js';
 const techCost = d => Math.ceil(d.base * Math.pow(d.grow, G.tech[d.id]));
-const startCash = l => Math.floor((100 + 150 * l * l) * (G ? infl() : 1));   // suit l'inflation des prix
+export const startCash = l => Math.floor((100 + 150 * l * l) * (G ? infl() : 1));   // suit l'inflation des prix
 
 const ACH = [
   {id:'a1', name:'Premier upload',   desc:'Uploade 1 fichier',           t:()=>G.files>=1},
@@ -125,19 +81,10 @@ const BG = 1.28;   // croissance du prix par exemplaire déjà acheté
 const CS = 1.5;   // échelle globale des prix (équilibrage)
 const INFL = 0.9, FREEQ = 2;   // inflation : part du bonus quantique (au-delà des FREEQ premiers points) répercutée sur les prix
 const infl = () => Math.pow(qpMult(Math.max(0, G.qpTotal - FREEQ)), INFL);
-// Evenements reseau : bonus temporaires aleatoires
-const EVT = [
-  {id:'traffic', name:'Pic de trafic', desc:'Revenus x2',       dur:30},
-  {id:'surge',   name:'Surtension',    desc:'Vitesse x1,5',     dur:30},
-  {id:'sale',    name:'Soldes',        desc:'Prix -30 %',       dur:45},
-  {id:'gift',    name:'Don de données',desc:'Crédits offerts',  dur:0},
-];
 const evActive = id => !!G.ev && G.ev.id===id && G.playtime<G.ev.until;
 const saleMult = () => evActive('sale') ? 0.7 : 1;
 const buyCost = (type,extra=0) => Math.ceil(saleMult() * infl() * CS * DEFS[type].cost * Math.pow(BG, (G.bought[type]||0)+extra) * (1 - 0.05*G.pu.disc) * (1 - 0.02*G.tech.tcost));
-const SPECS = {spd:{name:'Turbo',desc:'Vitesse ×1,25'}, val:{name:'Rendement',desc:'Valeur ×1,25 (sources, Upload)'}, eco:{name:'Économe',desc:'Améliorations de ce nœud -30 %'}};
 const specsFor = n => ('val' in DEFS[n.type] || n.type==='upload') ? ['spd','val','eco'] : ['spd','eco'];
-const TIERS = [['Brut','#8794b3'],['Bronze','#d69e6b'],['Argent','#cbd5e0'],['Or','#f6c453'],['Platine','#76e4f7'],['Diamant','#b794f4'],['Mythique','#f687b3'],['Légende','#ffffff']];
 const tierOf = lv => Math.min(TIERS.length-1, Math.floor(lv/10));
 const vmult = n => n.spec==='val' && ('val' in DEFS[n.type] || n.type==='upload') ? 1.25 : 1;
 const upCost = (n, lvl) => Math.ceil(saleMult() * infl() * CS * DEFS[n.type].cost * 0.8 * Math.pow(1.6, lvl===undefined?n.level:lvl) * (1 - 0.03*G.tech.tup) * (n.spec==='eco'?0.7:1) + 10);
@@ -350,7 +297,7 @@ addEventListener('resize',resize); resize();
 const toWorld = (sx,sy)=>({x:(sx-W/2-G.view.x)/G.view.k, y:(sy-H/2-G.view.y)/G.view.k});
 
 const SUF = ['','K','M','B','T','Qa','Qi','Sx','Sp','Oc','No','Dc'];
-function fmt(v){
+export function fmt(v){
   if(!isFinite(v)) return 'Inf';
   if(v>=1e39) return v.toExponential(2).replace('e+','e');
   if(v<1000) return v<10 ? (Math.round(v*10)/10).toString() : Math.floor(v).toString();
@@ -642,58 +589,6 @@ function freeSpot(x,y,skip){
   }
   return {x,y};
 }
-// Schémas : groupes de nœuds préconstruits. nodes : [type, colonne, ligne], links : [de, sortie, vers, entrée]
-const BPS = [
-  {name:'Ligne de base', desc:'Source, Compresseur, Upload.',
-   nodes:[['source',0,0],['compress',1,0],['upload',2,0]], links:[[0,0,1,0],[1,0,2,0]]},
-  {name:'Ligne chiffrée', desc:'Source, Compresseur, Chiffreur, Upload.',
-   nodes:[['source',0,0],['compress',1,0],['encrypt',2,0],['upload',3,0]], links:[[0,0,1,0],[1,0,2,0],[2,0,3,0]]},
-  {name:'Double voie', desc:'Un Diviseur répartit sur deux Compresseurs, une Fusion regroupe avant l\'Upload.',
-   nodes:[['source',0,0.5],['split',1,0.5],['compress',2,0],['compress',2,1],['merge',3,0.5],['upload',4,0.5]],
-   links:[[0,0,1,0],[1,0,2,0],[1,1,3,0],[2,0,4,0],[3,0,4,1],[4,0,5,0]]},
-  {name:'Trio de Sources', desc:'Trois Sources compressées alimentent les trois entrées d\'un même Upload.',
-   nodes:[['source',0,0],['compress',1,0],['source',0,1],['compress',1,1],['source',0,2],['compress',1,2],['upload',2,1]],
-   links:[[0,0,1,0],[1,0,6,0],[2,0,3,0],[3,0,6,1],[4,0,5,0],[5,0,6,2]]},
-  {name:'Chaîne amplifiée', desc:'Source, Compresseur, Amplificateur, Analyseur IA, Upload.',
-   nodes:[['source',0,0],['compress',1,0],['boost',2,0],['ai',3,0],['upload',4,0]], links:[[0,0,1,0],[1,0,2,0],[2,0,3,0],[3,0,4,0]]},
-  {name:'Atelier de recherche', desc:'Source, Compresseur, Laboratoire : produit des points de recherche.',
-   nodes:[['source',0,0],['compress',1,0],['lab',2,0]], links:[[0,0,1,0],[1,0,2,0]]},
-  {name:'Tri intelligent', desc:'Le Trieur envoie les gros fichiers vers un Chiffreur, les petits directement à l\'Upload.',
-   nodes:[['source',0,0.5],['compress',1,0.5],['sorter',2,0.5],['encrypt',3,0],['upload',4,0.5]],
-   links:[[0,0,1,0],[1,0,2,0],[2,0,3,0],[3,0,4,0],[2,1,4,1]]},
-  {name:'Duo fusionné', desc:'Deux Sources fusionnées, puis compressées avant l\'Upload.',
-   nodes:[['source',0,0],['source',0,1],['merge',1,0.5],['compress',2,0.5],['upload',3,0.5]], links:[[0,0,2,0],[1,0,2,1],[2,0,3,0],[3,0,4,0]]},
-  {name:'Clonage double', desc:'Le Clonage duplique chaque fichier vers deux Uploads.',
-   nodes:[['source',0,0.5],['compress',1,0.5],['clone',2,0.5],['upload',3,0],['upload',3,1]], links:[[0,0,1,0],[1,0,2,0],[2,0,3,0],[2,1,4,0]]},
-  {name:'Arbre de fusion', desc:'Quatre Sources fusionnées deux par deux, puis ensemble, avant l\'Upload.',
-   nodes:[['source',0,0],['source',0,1],['source',0,2],['source',0,3],['merge',1,0.5],['merge',1,2.5],['merge',2,1.5],['upload',3,1.5]],
-   links:[[0,0,4,0],[1,0,4,1],[2,0,5,0],[3,0,5,1],[4,0,6,0],[5,0,6,1],[6,0,7,0]]},
-  {name:'Labo intensif', desc:'Trois Sources compressées nourrissent un Laboratoire (3 entrées).',
-   nodes:[['source',0,0],['compress',1,0],['source',0,1],['compress',1,1],['source',0,2],['compress',1,2],['lab',2,1]],
-   links:[[0,0,1,0],[1,0,6,0],[2,0,3,0],[3,0,6,1],[4,0,5,0],[5,0,6,2]]},
-  {name:'Triple Super Source', desc:'Trois Super Sources chiffrées dans un même Upload.',
-   nodes:[['mega',0,0],['encrypt',1,0],['mega',0,1],['encrypt',1,1],['mega',0,2],['encrypt',1,2],['upload',2,1]],
-   links:[[0,0,1,0],[1,0,6,0],[2,0,3,0],[3,0,6,1],[4,0,5,0],[5,0,6,2]]},
-  {name:'Usine quantique', desc:'Super Source, Chiffreur, Analyseur IA, Quantique, Upload.',
-   nodes:[['mega',0,0],['encrypt',1,0],['ai',2,0],['quantum',3,0],['upload',4,0]], links:[[0,0,1,0],[1,0,2,0],[2,0,3,0],[3,0,4,0]]},
-];
-BPS.push(
-  {name:'Chaîne singulière', desc:'Super Source, IA, Quantique, Singularité, Upload.',
-   nodes:[['mega',0,0],['ai',1,0],['quantum',2,0],['sing',3,0],['upload',4,0]], links:[[0,0,1,0],[1,0,2,0],[2,0,3,0],[3,0,4,0]]},
-  {name:'Réseau profond', desc:'Super Source, Quantique, Singularité, Réseau neuronal, Upload.',
-   nodes:[['mega',0,0],['quantum',1,0],['sing',2,0],['neural',3,0],['upload',4,0]], links:[[0,0,1,0],[1,0,2,0],[2,0,3,0],[3,0,4,0]]},
-  {name:'Chaîne dimensionnelle', desc:'Quantique, Singularité, Réseau neuronal, Dimension, Upload.',
-   nodes:[['mega',0,0],['quantum',1,0],['sing',2,0],['neural',3,0],['dim',4,0],['upload',5,0]], links:[[0,0,1,0],[1,0,2,0],[2,0,3,0],[3,0,4,0],[4,0,5,0]]},
-  {name:'Sommet oméga', desc:'Toute la montée : Quantique jusqu\'à Oméga, puis Upload.',
-   nodes:[['mega',0,0],['quantum',1,0],['sing',2,0],['neural',3,0],['dim',4,0],['omega',5,0],['upload',6,0]], links:[[0,0,1,0],[1,0,2,0],[2,0,3,0],[3,0,4,0],[4,0,5,0],[5,0,6,0]]},
-);
-BPS.push(
-  {name:'Labo à Super Source', desc:'Super Source, Chiffreur, Laboratoire : beaucoup de recherche par fichier.',
-   nodes:[['mega',0,0],['encrypt',1,0],['lab',2,0]], links:[[0,0,1,0],[1,0,2,0]]},
-  {name:'Grand laboratoire', desc:'Trois Super Sources compressées nourrissent un Laboratoire.',
-   nodes:[['mega',0,0],['compress',1,0],['mega',0,1],['compress',1,1],['mega',0,2],['compress',1,2],['lab',2,1]],
-   links:[[0,0,1,0],[1,0,6,0],[2,0,3,0],[3,0,6,1],[4,0,5,0],[5,0,6,2]]},
-);
 const bpIsLab = b => b.nodes.some(n=>n[0]==='lab');
 const bpTypes = b => [...new Set(b.nodes.map(n=>n[0]))];
 const bpUnlocked = b => bpTypes(b).every(unlocked);
