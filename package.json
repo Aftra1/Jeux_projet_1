@@ -3,16 +3,19 @@
   "private": true,
   "scripts": {
     "build": "node tools/build.cjs",
-    "pretest": "node tools/build.cjs",
+    "pretest": "node tools/build.cjs && node tools/check-deps.mjs",
     "test": "node tests/run.cjs",
     "test:update": "node tools/build.cjs && node tests/run.cjs --update",
     "test:render": "node tools/build.cjs && node tests/run.cjs --render",
     "test:render:update": "node tools/build.cjs && node tests/run.cjs --render --update",
-    "perf": "node tools/build.cjs && node tools/perf.cjs"
+    "perf": "node tools/build.cjs && node tools/perf.cjs",
+    "check": "node tools/check-deps.mjs",
+    "balance": "node tools/balance.mjs"
   },
   "devDependencies": {
     "acorn": "8.19.0",
-    "esbuild": "0.28.2"
+    "esbuild": "0.28.2",
+    "eslint-scope": "9.1.2"
   },
   "type": "module"
 }
