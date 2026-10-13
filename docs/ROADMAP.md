@@ -1,5 +1,7 @@
 # Feuille de route
 
+La numerotation des phases est conservee ; il n'y a plus de phase 2 (simulation deterministe, retiree avec le mode competitif).
+
 ## Objectifs retenus
 
 - Ajouter progressivement de nouveaux noeuds et de nouveaux evenements.
@@ -8,9 +10,11 @@
 
 ## Decisions
 
-- **Pas de serveur** : la phase « simulation deterministe » est abandonnee. Si un mode defi arrive, ce sera un « defi entre amis » non verifie.
-- Les « 20+ noeuds, 5 univers, mode competitif » etaient des hypotheses de depart, pas des engagements. La structure doit seulement permettre d'ajouter noeuds et evenements un par un sans toucher au reste.
+- **Pas de mode competitif**, sous aucune forme (ni classement, ni defi entre amis), et pas de serveur. Rien dans le plan n'en depend.
+- Les « 20+ noeuds, 5 univers » etaient des hypotheses de depart, pas des engagements. La structure doit seulement permettre d'ajouter noeuds et evenements un par un sans toucher au reste.
 - Aucun changement de gameplay ou d'equilibrage sans accord explicite.
+- Ordre : phase 1 puis phase 3, avec un point d'arret obligatoire apres la phase 1 (validation avant de continuer).
+- Publication de l'Artifact : regle en attente de decision (voir CLAUDE.md) ; d'ici la, aucune publication sans accord.
 
 ## Phase 0 : filet de securite (terminee)
 
@@ -44,10 +48,6 @@ Mesures de `tools/perf.js` (ms, meilleur de 3, rendu logiciel). « mobile 4x » 
 - `tools/bot.js` utilise les vraies formules du jeu au lieu d'une copie.
 - JSDoc `@ts-check` sur l'etat et les modules purs.
 
-## Phase 2 : retiree
-
-Simulation deterministe : abandonnee faute de serveur.
-
 ## Phase 3 : registre de noeuds et statistiques par modificateurs
 
 - Registre `NodeType` (`init`, `tick`, `send`, `draw`, ports) : ajouter un noeud = ajouter une entree.
@@ -61,7 +61,7 @@ Cache de sprites des corps de noeuds et des largeurs de texte, couches statique/
 
 ## Phase 5 : contenu
 
-Nouveaux noeuds et evenements en donnees, separation des textes (i18n), mode defi entre amis non verifie si souhaite.
+Nouveaux noeuds et evenements en donnees, separation des textes (i18n).
 
 ## Questions ouvertes
 

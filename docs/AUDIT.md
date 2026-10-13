@@ -13,7 +13,7 @@ Etat mesure sur le depot (commit `9dc87f1`). Les chiffres sont reproductibles av
 
 1. **Une sauvegarde illisible fait perdre la partie sans prevenir.** `load()` avale toute erreur et renvoie `false`, le jeu lance `newGame()` puis `setInterval(save, 5000)` ecrase l'ancienne sauvegarde. Pas de version de schema, pas de migration, pas de copie de secours.
 2. **L'import n'est pas valide.** `hydrate(JSON.parse(...))` accepte des `NaN`, des `Infinity`, des types inattendus. Le nom d'un schema (`G.mine[].name`) est insere dans un `innerHTML` : auto-XSS aujourd'hui, XSS stocke si des sauvegardes ou schemas sont un jour partages.
-3. **Economie entierement cote client** (`G.money` modifiable, `Date.now()` dans l'absence et le bonus quotidien, `Math.random()` dans la simulation). Cela n'est un probleme que pour un mode competitif verifie, qui n'est pas prevu (voir ROADMAP).
+3. **Economie entierement cote client** (`G.money` modifiable, `Date.now()` dans l'absence et le bonus quotidien, `Math.random()` dans la simulation). Ce ne serait un probleme que pour un mode competitif, retire du plan (voir ROADMAP) : aucune action prevue.
 
 ## P1 : architecture
 
