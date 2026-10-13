@@ -242,7 +242,9 @@ const SCENARIOS = {
     newGame(); G.money = 1e9; G.obj = 3; Math.__seed(31);
     G.nodes.length = 0; G.links.length = 0; G.nextId = 1;
     const ids = [];
-    for(let i=0;i<48;i++){ const n = addNode(ORDER[i%ORDER.length], (i%8)*230-900, Math.floor(i/8)*140-420, true); n.level = (i*7)%45; ids.push(n); if(i%5===0) n.spec = 'spd'; }
+    // liste figee des 17 types d'origine : un type ajoute plus tard ne change pas la scene
+    const TYPES = ['source','upload','compress','split','merge','encrypt','boost','clone','sorter','ai','lab','mega','quantum','sing','neural','dim','omega'];
+    for(let i=0;i<48;i++){ const n = addNode(TYPES[i%TYPES.length], (i%8)*230-900, Math.floor(i/8)*140-420, true); n.level = (i*7)%45; ids.push(n); if(i%5===0) n.spec = 'spd'; }
     for(let i=0;i<47;i++) if(i%8!==7) connect(ids[i].id,0,ids[i+1].id,0);
     connect(ids[7].id,0,ids[8].id,0); connect(ids[15].id,0,ids[0].id,0); connect(ids[40].id,0,ids[3].id,1);
     for(let i=0;i<500;i++) tick();
