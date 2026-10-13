@@ -15,9 +15,11 @@ Jeu incrémental inspiré d'Upload Labs : construis un réseau de nœuds qui tra
 
 Objectif de conception : la progression est très rapide au début, puis ralentit de plus en plus, sans jamais se bloquer.
 
-`tools/bot.js` et `tools/balance.js` simulent un joueur qui choisit chaque achat au meilleur retour sur investissement (il construit des lignes, les prolonge avec les paliers débloqués, achète les bonus, fait des Reboots). `tools/table.js` résume la sortie en une ligne par Reboot :
+`tools/bot.mjs` et `tools/balance.mjs` simulent un joueur qui choisit chaque achat au meilleur retour sur investissement (il construit des lignes, les prolonge avec les paliers débloqués, achète les bonus, fait des Reboots). `tools/table.cjs` résume la sortie en une ligne par Reboot :
 
-    NODE_PATH=$(npm root -g) node tools/balance.js 5 '{"rebootRatio":1.0,"minRun":120}' | node tools/table.js
+    node tools/balance.mjs 5 '{"rebootRatio":1.0,"minRun":120}' | node tools/table.cjs
+
+Le bot tourne dans Node avec le vrai coeur du jeu (`src/core`) : aucune formule recopiee. Option `"seed"` pour une execution reproductible.
 
 Mécanismes qui donnent cette courbe :
 
