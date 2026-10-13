@@ -51,14 +51,18 @@ Mesures de `tools/perf.js` (ms, meilleur de 3, rendu logiciel). « mobile 4x » 
 - Bot d'equilibrage (`tools/bot.mjs`) : dans Node, avec les vraies formules ; 7 h simulees en 9 s.
 - Performance : pas de regression mesurable (deux series croisees v46 / phase 1, ecarts dans le bruit d'environ 1 ms). Fichier publie : 129,6 Ko -> 164,8 Ko (pont et exports).
 
-## Phase 3 : registre de noeuds et statistiques par modificateurs (en cours : conception)
+## Phase 3 : registre de noeuds et statistiques par modificateurs (terminee, sauf retrait du pont)
 
 But : ajouter un noeud ou une source de bonus = ajouter une entree de donnees. Refonte sans changement de gameplay ni d'equilibrage.
 
-- Conception detaillee : `docs/PHASE3-CONCEPTION.md` (en attente d'accord avant tout code).
-- Registre de noeuds par genres (`producer`, `transform`, `combine`, `sink`) ; statistiques = pli ordonne de modificateurs `{stat, op, by, when}` ; une courbe de cout parametree ; conditions de succes et d'objectifs declaratives.
-- Instantanes inchanges : un ecart, meme infime, arrete le travail (pas de regeneration).
-- Preuve : un noeud fictif declare uniquement dans les tests ; guide `docs/AJOUTER-UN-NOEUD.md`.
+- Conception : `docs/PHASE3-CONCEPTION.md` ; guide : `docs/AJOUTER-UN-NOEUD.md`.
+- Statistiques (`core/stats.js`, ordre dans `data/stats.js`) : pli de gauche a droite sur une liste ordonnee ; groupes `@node`, `@upgrade`, `@temporary` pour les futures sources ; une courbe de cout (`price`) avec `BASE` et `GROWTH` a leur place historique.
+- Registre (`data/nodes.js`, `core/kinds.js`, `core/registry.js`) : genres `producer`, `transform` (sorties `next`, `copy`, `threshold`), `combine`, `sink` (`credits`, `research`) ; reglages par noeud (`params`).
+- Succes et objectifs declaratifs (`data/progression.js`, mesures nommees) ; textes d'effet derives des modificateurs.
+- Verification au chargement : genre, champ, statistique, operation, condition, groupe, sortie, recompense ou mesure inconnus = erreur explicite (test `validation`).
+- Exactitude : nouveau scenario `exact` (environ 7 000 valeurs et 15 simulations a pleine precision, instantane genere sur la version 47) ; sauvegarde reelle v47 (`save47`). Aucun instantane, aucune empreinte de rendu ni sortie du bot n'a change.
+- Preuve : test `fictif`, un noeud Filtre et une technologie declares uniquement dans le test.
+- Performance : `step` a 600 noeuds, mobile 4x : 0,2-0,4 ms -> 0,4-0,5 ms (chaines simples) ; 0,6-0,85 ms -> 1,05-1,45 ms (reseau mixte, pire cas, mesure ajoutee a `npm run perf`). Limite fixee : 2 ms. Valeur des facteurs globaux mise en cache pendant un pas (exact : ils ne changent qu'entre deux pas). Rendu : pas d'ecart mesurable.
 
 ### Dette : le pont de compatibilite
 

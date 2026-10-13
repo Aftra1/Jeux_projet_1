@@ -71,7 +71,7 @@ export function registerUpgrade(store, d){
   const where = `amelioration ${store}.${d && d.id}`;
   const e = checkUpgrade(d, where); if(e.length) invalid(e.join(' ; '));
   if(list.some(x=>x.id===d.id)) invalid(`${where} deja definie`);
-  const made = addMods(d.mods, {key:store+'.'+d.id, lvl:()=>G[store][d.id], group:'upgrade'});
+  const made = addMods(d.mods, {key:store+'.'+d.id, lvl:[store, d.id], group:'upgrade'});
   compileStats(made);   // ne modifie rien si une erreur est levee
   list.push(d);
   if(G && G[store][d.id]===undefined) G[store][d.id] = 0;

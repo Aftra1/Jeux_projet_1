@@ -106,17 +106,17 @@ Meme direction artistique, details soignes : ombre portee plate sous les noeuds 
 - Import : verification de la structure, cles dangereuses ignorees, schemas personnels mal formes retires, message d'erreur explicite. Les noms de schemas sont echappes a l'affichage.
 - Tests : `npm test` (voir docs/ROADMAP.md).
 
-## Architecture (v42, phase 1)
+## Architecture (phases 1 et 3)
 
 Le jeu est decoupe en modules ES dans `src/`, regroupes par esbuild en un seul fichier (`dist/artifact.html` pour l'Artifact, `dist/index.html` pour jouer en local).
 
-- `src/data/` : donnees (noeuds, ameliorations, schemas, evenements).
-- `src/core/` : logique du jeu, sans DOM, executable dans Node (etat, economie, simulation, evenements, contrats, progression, prestige, actions, sauvegarde). Il signale messages, sons et effets par un bus d'evenements synchrone (`core/bus.js`).
+- `src/data/` : donnees pures (registre des noeuds, ameliorations, schemas, evenements, succes et objectifs, statistiques, assistants de modificateurs). N'importe que `data/` ; ses fonctions ne lisent que leurs arguments.
+- `src/core/` : logique du jeu, sans DOM, executable dans Node : etat, economie, moteur de statistiques (`stats.js`), genres de noeuds (`kinds.js`), registre et verification des donnees (`registry.js`), simulation, evenements, contrats, progression, prestige, actions, sauvegarde. Il signale messages, sons et effets par un bus d'evenements synchrone (`core/bus.js`).
 - `src/render/` : canvas (dessin, vue, icones, effets, mini-carte).
 - `src/ui/` : interface DOM (etat d'interface, panneaux, boutique, sons). `src/input/` : souris, tactile, clavier.
 - `src/main.js` : branchements et boucle de jeu.
-- Regle verifiee par `npm test` : `core` n'importe ni `ui`, ni `render`, ni `input`, et n'utilise aucune API de la page.
+- Regles verifiees par `npm test` : `core` n'importe ni `ui`, ni `render`, ni `input`, et n'utilise aucune API de la page ; `data` n'importe que `data`.
+- Ajouter un noeud ou une source de bonus : `docs/AJOUTER-UN-NOEUD.md`.
 - Pour garder le comportement de la version 46, chaque nom de premier niveau reste accessible sur `window` (console, tests).
 
 Commandes : `npm run build`, `npm test`, `npm run test:render`, `npm run perf`, `node tools/balance.mjs <heures> '<options>' | node tools/table.cjs`.
-

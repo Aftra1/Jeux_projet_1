@@ -4,6 +4,7 @@ import { G, linkFrom, nodeById } from './state.js';
 import { fmt } from './format.js';
 import { MASTTH, RKC, bufCap, rankOf, tierOf, timeOf } from './economy.js';
 import { KINDS, OUTS } from './kinds.js';
+import { beginStep, endStep } from './stats.js';
 import { DEFS, NW, TIERS } from '../data/nodes.js';
 
    // cache des rangs
@@ -61,14 +62,17 @@ function updateLinks(dt){
   }
 }
 export function step(dt){
-  G.playtime += dt;
-  updateLinks(dt);
-  for(const n of G.nodes){
-    updateNode(n,dt);
-    const tr = tierOf(n.level);
-    if(n.tr===undefined) n.tr = tr;
-    else if(tr!==n.tr){ if(tr>n.tr) tierUp(n,tr); n.tr = tr; }
-  }
+  beginStep();
+  try{
+    G.playtime += dt;
+    updateLinks(dt);
+    for(const n of G.nodes){
+      updateNode(n,dt);
+      const tr = tierOf(n.level);
+      if(n.tr===undefined) n.tr = tr;
+      else if(tr!==n.tr){ if(tr>n.tr) tierUp(n,tr); n.tr = tr; }
+    }
+  } finally{ endStep(); }
 }
 function tierUp(n,tr){
   const col = TIERS[tr][1];

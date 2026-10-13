@@ -1,6 +1,11 @@
 # Phase 3 : conception (registre de noeuds, statistiques par modificateurs)
 
-Statut : proposition, en attente d'accord. Aucun code ecrit.
+Statut : validee puis realisee (phase 3). Ecarts par rapport a la proposition :
+- Regle des groupes (precision A) : `@node`, `@upgrade`, `@temporary` dans chaque statistique ; voir `docs/AJOUTER-UN-NOEUD.md`.
+- Verification au chargement (precision B) : `core/registry.js`, `core/stats.js`, `core/progression.js` ; test `validation`.
+- Performance (precision C) : cache de la valeur des facteurs globaux pendant un pas de simulation ; mesure du pire cas dans `npm run perf`.
+- Capital de depart : reste une formule nommee (`startCash`), pas une statistique.
+- Textes d'effet particuliers : Capital de depart, Negociation, Serveurs de nuit, Refroidissement liquide, Ingenieur automatique.
 
 Contrainte directrice : resultat identique au bit pres. Tous les choix ci-dessous en decoulent, en particulier l'ordre des multiplications.
 

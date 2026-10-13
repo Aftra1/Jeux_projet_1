@@ -41,11 +41,28 @@ const SIZES = [100, 300, 600];
       }, [N, RUNS]);
       rows.push({cfg:label, ...r});
     }
+    // reseau mixte de 600 noeuds : tous les genres, ameliorations, specialisations, Overclock et evenement actifs (pire cas de step)
+    const m = await page.evaluate(RUNS=>{
+      newGame(); paused = true; G.nodes.length = 0; G.links.length = 0; G.money = 1e30; G.ev = {id:'surge', until:1e9}; G.oc.until = 1e9;
+      Object.assign(G.glob,{rev:10,spd:10,seed:5,buf:2,crit:5}); for(const t in G.tech) G.tech[t] = 3;
+      const mids = ['compress','split','encrypt','boost','clone','sorter','ai','quantum','merge'];
+      for(let row=0; G.nodes.length<600; row++){
+        const y = row*100, s = addNode(row%2?'mega':'source',0,y,true), md = addNode(mids[row%mids.length],200,y,true), m2 = addNode('compress',400,y,true);
+        const e1 = addNode(row%3?'upload':'lab',600,y,true), e2 = addNode('upload',800,y,true);
+        for(const n of [s,md,m2,e1,e2]){ n.level = (row*7)%40; n.spec = ['spd','eco',undefined][row%3]; }
+        connect(s.id,0,md.id,0); if(md.type==='merge') connect(addNode('source',0,y+50,true).id,0,md.id,1);
+        connect(md.id,0,m2.id,0); connect(m2.id,0,e1.id,0); if(DEFS[md.type].outs>1) connect(md.id,1,e2.id,0);
+      }
+      for(let i=0;i<200;i++) step(0.05);
+      let best = 1e9; for(let r=0;r<RUNS;r++){ const t = performance.now(); for(let i=0;i<40;i++) step(0.05); best = Math.min(best,(performance.now()-t)/40); }
+      const out = {nodes:'mixte '+G.nodes.length, step:+best.toFixed(2)}; G.ev = null; G.oc.until = 0; return out;
+    }, RUNS);
+    rows.push({cfg:label, ...m, drawLocal:'-', drawCentre:'-', drawTout:'-', save:'-'});
     await ctx.close();
   }
   await browser.close();
   if(process.argv.includes('--json')) return console.log(JSON.stringify(rows));
   const pad = (s,n)=>String(s).padEnd(n);
-  console.log(pad('config',11)+pad('noeuds',8)+pad('step',8)+pad('draw local',12)+pad('draw centre',13)+pad('draw tout',11)+'sauvegarde (ms)');
-  for(const r of rows) console.log(pad(r.cfg,11)+pad(r.nodes,8)+pad(r.step,8)+pad(r.drawLocal,12)+pad(r.drawCentre,13)+pad(r.drawTout,11)+r.save);
+  console.log(pad('config',11)+pad('noeuds',11)+pad('step',8)+pad('draw local',12)+pad('draw centre',13)+pad('draw tout',11)+'sauvegarde (ms)');
+  for(const r of rows) console.log(pad(r.cfg,11)+pad(r.nodes,11)+pad(r.step,8)+pad(r.drawLocal,12)+pad(r.drawCentre,13)+pad(r.drawTout,11)+r.save);
 })();
