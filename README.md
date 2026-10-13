@@ -117,6 +117,6 @@ Le jeu est decoupe en modules ES dans `src/`, regroupes par esbuild en un seul f
 - `src/main.js` : branchements et boucle de jeu.
 - Regles verifiees par `npm test` : `core` n'importe ni `ui`, ni `render`, ni `input`, et n'utilise aucune API de la page ; `data` n'importe que `data`.
 - Ajouter un noeud ou une source de bonus : `docs/AJOUTER-UN-NOEUD.md`.
-- Pour garder le comportement de la version 46, chaque nom de premier niveau reste accessible sur `window` (console, tests).
+- Deux sorties : `dist/artifact.html` / `dist/index.html` (version publiee, seul `window.__game` est expose) et `dist/test.html` (version de test : un pont expose chaque nom de premier niveau sur `window` pour les tests et l'outil de performance). La serie « boite noire » (`tests/blackbox.cjs`, dans `npm test`) verifie par de vrais clics que les deux versions donnent exactement le meme resultat.
 
 Commandes : `npm run build`, `npm test`, `npm run test:render`, `npm run perf`, `node tools/balance.mjs <heures> '<options>' | node tools/table.cjs`.

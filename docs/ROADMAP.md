@@ -64,18 +64,12 @@ But : ajouter un noeud ou une source de bonus = ajouter une entree de donnees. R
 - Preuve : test `fictif`, un noeud Filtre et une technologie declares uniquement dans le test.
 - Performance : `step` a 600 noeuds, mobile 4x : 0,2-0,4 ms -> 0,4-0,5 ms (chaines simples) ; 0,6-0,85 ms -> 1,05-1,45 ms (reseau mixte, pire cas, mesure ajoutee a `npm run perf`). Limite fixee : 2 ms. Valeur des facteurs globaux mise en cache pendant un pas (exact : ils ne changent qu'entre deux pas). Rendu : pas d'ecart mesurable.
 
-### Dette : le pont de compatibilite
+### Pont de compatibilite : retire de la version publiee (fin de phase 3)
 
-Le pont expose 282 noms sur `window` (+35 Ko) et contourne l'isolation des modules. Les tests en utilisent environ 80, `tools/perf.cjs` 11 ; le jeu lui-meme n'en depend pas (modules stricts, aucun gestionnaire `onclick="..."` dans le HTML genere).
-
-Plan propose :
-1. Deux sorties de build : `dist/index.html` (version de test, avec pont) et `dist/artifact.html` (publiee, sans pont).
-2. Tous les scenarios continuent sur la version de test.
-3. Une serie « boite noire » tourne sur la version publiee : demarrage, 17 clics d'achat, chargement d'une sauvegarde v46 par localStorage, empreintes de rendu. Elle n'utilise que le DOM, localStorage et un petit `window.__game` explicite (deja present, a completer).
-4. Option separee, a valider : minification (gain de taille a mesurer).
-
-Quand : derniere etape de la phase 3, apres la preuve du noeud fictif. Les noms changent pendant la phase 3, et la phase 4 doit mesurer la performance sur le fichier reellement publie.
-Cout : un commit, quelques heures. Gain : -35 Ko environ. Risque : les tests ne visent plus exactement le fichier publie ; couvert par la serie boite noire.
+- `dist/artifact.html` et `dist/index.html` : version publiee, sans pont (seul `window.__game` reste expose). `dist/test.html` : version de test avec le pont, utilisee par `tests/run.cjs` et `tools/perf.cjs`.
+- Serie « boite noire » (`tests/blackbox.cjs`, dans `npm test`) : partie neuve (achats par la boutique, ameliorations, quantique, recherche, selection au clic droit, specialisations, liaisons tracees a la souris, 10 s de jeu), sauvegardes reelles v46 et v47 rechargees par localStorage puis 30 s de jeu. Horloge et images pilotees, hasard seede. La version publiee doit donner exactement le meme etat, les memes textes et les memes pixels que la version de test, et ne doit exposer aucun nom interne.
+- Controles : version publiee de la phase 3 comparee a la vraie version 47 : identique sur les 3 cas ; temoin altere (Compresseur x2,0000001) : detecte sur les 3 cas.
+- Taille du fichier publie : 165,2 Ko (version 47, avec pont) -> 168,4 Ko (phase 3, sans pont) ; le pont pesait environ 21 Ko, le code de la phase 3 en ajoute environ 24. Pas de minification (decision).
 
 ## Phase 4 : performance du rendu
 

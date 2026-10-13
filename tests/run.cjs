@@ -420,7 +420,9 @@ const SCENARIOS = {
     Math.random = ()=>{ a = (a + 0x6D2B79F5)>>>0; let t = a; t = mul(t ^ (t>>>15), t|1); t ^= t + mul(t ^ (t>>>7), t|61); return ((t ^ (t>>>14))>>>0)/4294967296; };
     try{ localStorage.clear(); }catch(e){}
   });
-  await page.goto('file://'+path.join(ROOT,'dist','index.html'));
+  // version de test (avec le pont) ; une copie plus ancienne n'a que dist/index.html, qui contenait alors le pont
+  const testPage = fs.existsSync(path.join(ROOT,'dist','test.html')) ? 'test.html' : 'index.html';
+  await page.goto('file://'+path.join(ROOT,'dist',testPage));
   await page.waitForFunction(()=>typeof G!=='undefined' && G && G.nodes);
   const fixture = JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures','legacy-v0.json'),'utf8'));
   const fixture46 = JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures','save-v46.json'),'utf8'));

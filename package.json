@@ -4,7 +4,7 @@
   "scripts": {
     "build": "node tools/build.cjs",
     "pretest": "node tools/build.cjs && node tools/check-deps.mjs",
-    "test": "node tests/run.cjs",
+    "test": "node tests/run.cjs && node tests/blackbox.cjs",
     "test:update": "node tools/build.cjs && node tests/run.cjs --update",
     "test:render": "node tools/build.cjs && node tests/run.cjs --render",
     "test:render:update": "node tools/build.cjs && node tests/run.cjs --render --update",

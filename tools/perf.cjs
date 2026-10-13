@@ -18,7 +18,7 @@ const SIZES = [100, 300, 600];
     const ctx = await browser.newContext({viewport:{width:w,height:h}, deviceScaleFactor:dpr});
     const page = await ctx.newPage();
     const c = await ctx.newCDPSession(page); await c.send('Emulation.setCPUThrottlingRate', {rate:thr});
-    await page.goto('file://'+path.join(__dirname,'..','dist','index.html'));
+    await page.goto('file://'+path.join(__dirname,'..','dist','test.html'));   // version de test : le pont donne acces a l'etat interne
     await page.waitForFunction(()=>typeof G!=='undefined' && G && G.nodes);
     for(const N of SIZES){
       const r = await page.evaluate(([N, RUNS])=>{

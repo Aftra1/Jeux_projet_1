@@ -1,11 +1,13 @@
 // Build : produit le jeu en un seul fichier.
 //   dist/artifact.html : fragment publie comme Artifact (la plateforme ajoute doctype, charset et viewport)
-//   dist/index.html    : le meme fragment dans une page complete, pour jouer en local et pour les tests
+//   dist/index.html    : le meme fragment dans une page complete, pour jouer en local (version publiee)
+//   dist/test.html     : version de test, avec le pont (tests de caracterisation, outil de performance)
 // Usage : node tools/build.cjs
 //
-// Les modules de src/ sont regroupes par esbuild en un script IIFE. Pour garder le comportement de la version 46
-// (un script classique dont tous les noms de premier niveau etaient globaux : console, tests, outils), un « pont »
-// genere expose chaque nom de premier niveau de chaque module sur window, en lecture et, pour les `let`, en ecriture.
+// Les modules de src/ sont regroupes par esbuild en un script IIFE. La version publiee n'expose que window.__game.
+// La version de test ajoute un « pont » genere qui expose chaque nom de premier niveau de chaque module sur window,
+// en lecture et, pour les `let`, en ecriture (comme le script unique de la version 46) : les tests lisent et modifient
+// l'etat interne. La serie « boite noire » (tests/blackbox.cjs) verifie que les deux versions se comportent pareil.
 const fs = require('fs'), path = require('path');
 const esbuild = require('esbuild'), acorn = require('acorn');
 const ROOT = path.join(__dirname, '..'), SRC = path.join(ROOT, 'src'), DIST = path.join(ROOT, 'dist');
@@ -68,11 +70,11 @@ const bridgePlugin = {
   },
 };
 
-async function bundleJs(){
+async function bundleJs(bridge){
   const r = await esbuild.build({
-    stdin: {contents: 'import "./src/main.js";\nimport "pont:global";\n', resolveDir: ROOT, sourcefile: 'entree.js', loader: 'js'},
+    stdin: {contents: 'import "./src/main.js";\n' + (bridge ? 'import "pont:global";\n' : ''), resolveDir: ROOT, sourcefile: 'entree.js', loader: 'js'},
     bundle: true, format: 'iife', write: false, charset: 'utf8', minify: false, target: 'es2022',
-    plugins: [bridgePlugin], logLevel: 'warning',
+    plugins: bridge ? [bridgePlugin] : [], logLevel: 'warning',
   });
   return r.outputFiles[0].text;
 }
@@ -81,12 +83,14 @@ async function bundleJs(){
   const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   const body = html.match(/<body>([\s\S]*)<\/body>/)[1].replace(/<!-- script du jeu[^>]*-->/, '');
   const css = fs.readFileSync(path.join(ROOT, 'style.css'), 'utf8');
-  const js = await bundleJs();
-  const fragment = '<title>Upload Lab</title>\n<style>\n:root{color-scheme:dark}\n' + css + '\n</style>\n' + body + '\n<script>\n' + js + '\n</script>\n';
   const head = html.match(/<head>([\s\S]*)<\/head>/)[1].replace(/<link rel="stylesheet"[^>]*>\n?/, '').replace(/<title>[^<]*<\/title>\n?/, '');
-  const page = '<!doctype html>\n<html lang="fr">\n<head>' + head + '</head>\n<body>\n' + fragment + '</body>\n</html>\n';
+  const fragmentOf = js => '<title>Upload Lab</title>\n<style>\n:root{color-scheme:dark}\n' + css + '\n</style>\n' + body + '\n<script>\n' + js + '\n</script>\n';
+  const pageOf = fragment => '<!doctype html>\n<html lang="fr">\n<head>' + head + '</head>\n<body>\n' + fragment + '</body>\n</html>\n';
+  const fragment = fragmentOf(await bundleJs(false)), test = fragmentOf(await bundleJs(true));
   fs.mkdirSync(DIST, {recursive: true});
   fs.writeFileSync(path.join(DIST, 'artifact.html'), fragment);
-  fs.writeFileSync(path.join(DIST, 'index.html'), page);
-  console.log('build : dist/artifact.html (' + fragment.length + ' octets), dist/index.html');
+  fs.writeFileSync(path.join(DIST, 'index.html'), pageOf(fragment));
+  fs.writeFileSync(path.join(DIST, 'test.html'), pageOf(test));
+  const ko = n => (n/1000).toFixed(1).replace('.', ',') + ' Ko';
+  console.log('build : dist/artifact.html (' + ko(Buffer.byteLength(fragment)) + ', publie, sans pont), dist/index.html, dist/test.html (' + ko(Buffer.byteLength(test)) + ', avec pont)');
 })().catch(e => { console.error(e.message || e); process.exit(1); });
