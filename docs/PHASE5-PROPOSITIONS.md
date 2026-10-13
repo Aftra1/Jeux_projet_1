@@ -1,6 +1,7 @@
 # Phase 5, etape 1 : propositions de contenu
 
-Propositions uniquement : aucun code de jeu n'est ecrit avant le choix de l'utilisateur. Chiffres indicatifs, a simuler avec le bot avant toute decision.
+Choix de l'utilisateur (lot 1, implemente) : N1, N3, E1, E3, poids des evenements, texte de Negociation. Reportes : N2 (prochain lot probable), N4, N5, E2.
+Valeurs non precisees ci-dessous et choisies a l'implementation : Concentrateur prix 4 000 ; Serveur cloud prix 200 000 ; poids 1 pour chaque evenement, intervalle divise par la somme des poids (frequence par heure des 4 anciens inchangee).
 
 Progression actuelle (deblocage par credits gagnes dans le run) : Source, Upload, Compresseur (0), Diviseur (20), Fusion (100), Chiffreur (200), Amplificateur (400), Clonage (600), Trieur (800), Analyseur IA (1 500), Laboratoire (2 000), Super Source (4 000), Quantique (25 000), Singularite (1 M, 3 Reboots), Reseau neuronal (4e7, 5 Reboots), Dimension (2e9, 8 Reboots), Omega (1e11, 11 Reboots).
 
