@@ -1,5 +1,6 @@
-// Serie « boite noire » : la version publiee (dist/index.html, sans pont) et la version de test (dist/test.html,
-// avec pont) recoivent exactement les memes actions et doivent donner exactement les memes resultats.
+// Serie « boite noire » : les versions publiees (dist/index.html, un seul fichier ; dist/multi/index.html, page + game.js),
+// sans pont, et la version de test (dist/test.html, avec pont) recoivent exactement les memes actions et doivent donner
+// exactement les memes resultats.
 // Les actions ne passent que par le DOM (clics reels), localStorage et window.__game : rien d'interne.
 // Temps maitrise : horloge, requestAnimationFrame et Date (Date.now et new Date()) remplaces avant le chargement, hasard seede.
 //   node tests/blackbox.cjs
@@ -99,7 +100,9 @@ const loaded = fx => async page=>{
   const cases = [['partie neuve', null, fresh], ['sauvegarde v46', fx46, loaded(fx46)], ['sauvegarde v47', fx47, loaded(fx47)]];
   let fail = 0;
   for(const [name, save, actions] of cases){
-    const pub = await run(browser, 'index.html', save, actions), tst = await run(browser, 'test.html', save, actions);
+    const tst = await run(browser, 'test.html', save, actions);
+    for(const [label, file] of [['', 'index.html'], [' (plusieurs fichiers)', 'multi/index.html']]){
+    const pub = await run(browser, file, save, actions);
     const problems = [];
     if(pub.bridge.length) problems.push('version publiee : noms internes exposes sur window : '+pub.bridge.join(', '));
     if(!tst.bridge.length) problems.push('version de test sans pont');
@@ -110,10 +113,11 @@ const loaded = fx => async page=>{
       const A = JSON.stringify(pub.out,null,1).split('\n'), B = JSON.stringify(tst.out,null,1).split('\n');
       const i = A.findIndex((l,k)=>l!==B[k]); problems.push('ecart publiee / test ligne '+(i+1)+'\n   publiee : '+A[i]+'\n   test    : '+B[i]);
     }
-    console.log((problems.length?'FAIL ':'ok   ')+'boite noire : '+name+(problems.length?'\n  '+problems.join('\n  '):''));
+    console.log((problems.length?'FAIL ':'ok   ')+'boite noire : '+name+label+(problems.length?'\n  '+problems.join('\n  '):''));
     if(problems.length) fail++;
+    }
   }
   await browser.close();
-  console.log(fail ? `\n${fail} echec(s) (boite noire)` : '\nboite noire : version publiee identique a la version de test');
+  console.log(fail ? `\n${fail} echec(s) (boite noire)` : '\nboite noire : versions publiees (un seul fichier, plusieurs fichiers) identiques a la version de test');
   process.exit(fail?1:0);
 })();

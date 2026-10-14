@@ -2,6 +2,8 @@
 //   dist/artifact.html : fragment publie comme Artifact (la plateforme ajoute doctype, charset et viewport)
 //   dist/index.html    : le meme fragment dans une page complete, pour jouer en local (version publiee)
 //   dist/test.html     : version de test, avec le pont (tests de caracterisation, outil de performance)
+//   dist/multi/        : version publiee en plusieurs fichiers : artifact.html (page : balisage et CSS) + game.js (script),
+//                        index.html pour jouer en local ; une mise a jour ne demande que la lecture de la petite page
 // Usage : node tools/build.cjs
 //
 // Les modules de src/ sont regroupes par esbuild en un script IIFE. La version publiee n'expose que window.__game.
@@ -84,13 +86,17 @@ async function bundleJs(bridge){
   const body = html.match(/<body>([\s\S]*)<\/body>/)[1].replace(/<!-- script du jeu[^>]*-->/, '');
   const css = fs.readFileSync(path.join(ROOT, 'style.css'), 'utf8');
   const head = html.match(/<head>([\s\S]*)<\/head>/)[1].replace(/<link rel="stylesheet"[^>]*>\n?/, '').replace(/<title>[^<]*<\/title>\n?/, '');
-  const fragmentOf = js => '<title>Upload Lab</title>\n<style>\n:root{color-scheme:dark}\n' + css + '\n</style>\n' + body + '\n<script>\n' + js + '\n</script>\n';
+  const fragmentOf = (js, src) => '<title>Upload Lab</title>\n<style>\n:root{color-scheme:dark}\n' + css + '\n</style>\n' + body + (src ? '\n<script src="' + src + '"></script>\n' : '\n<script>\n' + js + '\n</script>\n');
   const pageOf = fragment => '<!doctype html>\n<html lang="fr">\n<head>' + head + '</head>\n<body>\n' + fragment + '</body>\n</html>\n';
-  const fragment = fragmentOf(await bundleJs(false)), test = fragmentOf(await bundleJs(true));
+  const js = await bundleJs(false), fragment = fragmentOf(js), test = fragmentOf(await bundleJs(true)), multi = fragmentOf(null, 'game.js');
   fs.mkdirSync(DIST, {recursive: true});
   fs.writeFileSync(path.join(DIST, 'artifact.html'), fragment);
   fs.writeFileSync(path.join(DIST, 'index.html'), pageOf(fragment));
   fs.writeFileSync(path.join(DIST, 'test.html'), pageOf(test));
+  const MULTI = path.join(DIST, 'multi'); fs.mkdirSync(MULTI, {recursive: true});
+  fs.writeFileSync(path.join(MULTI, 'artifact.html'), multi);
+  fs.writeFileSync(path.join(MULTI, 'index.html'), pageOf(multi));
+  fs.writeFileSync(path.join(MULTI, 'game.js'), js);
   const ko = n => (n/1000).toFixed(1).replace('.', ',') + ' Ko';
-  console.log('build : dist/artifact.html (' + ko(Buffer.byteLength(fragment)) + ', publie, sans pont), dist/index.html, dist/test.html (' + ko(Buffer.byteLength(test)) + ', avec pont)');
+  console.log('build : dist/artifact.html (' + ko(Buffer.byteLength(fragment)) + ', publie, sans pont), dist/index.html, dist/test.html (' + ko(Buffer.byteLength(test)) + ', avec pont), dist/multi/ (page ' + ko(Buffer.byteLength(multi)) + ' + game.js ' + ko(Buffer.byteLength(js)) + ')');
 })().catch(e => { console.error(e.message || e); process.exit(1); });
