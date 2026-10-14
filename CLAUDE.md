@@ -5,9 +5,9 @@ Ce fichier se suffit a lui-meme : il est relu au debut de chaque session et copi
 ## Le projet
 
 - Upload Lab : jeu incremental (gestion, chaine de production) ou l'on relie des noeuds (Source -> Compresseur -> ... -> Upload) sur un canvas pour gagner des credits. Interface en francais, sans emoji.
-- Publie comme Artifact claude.ai (page privee, URL fixe) : un seul fichier HTML qui contient CSS et JS (version 49) ; version en plusieurs fichiers prete (`dist/multi/`), publication en attente de « ok publie ».
+- Publie comme Artifact claude.ai (page privee, URL fixe), en plusieurs fichiers depuis la version 50 : la page (balisage et CSS, `dist/multi/artifact.html`) et `game.js`.
 - Depot GitHub `aftra1/jeux_projet_1`, branche de travail : celle indiquee par la session (phase 5 lot 1 : `ccr-3d0f0ff4-dye37q`, partie de `claude/phase3-publish-phase5-proposals-cc7rpd`). Pas de pull request sans demande explicite.
-- Jeu publie : https://claude.ai/artifact/V5QUMQCPDnLTjdGnSA6c5X (version 49, phase 5 lot 1, fichier unique, sans pont ; publiee le 2026-10-14).
+- Jeu publie : https://claude.ai/artifact/V5QUMQCPDnLTjdGnSA6c5X (version 50, phase 5 lot 2, plusieurs fichiers : page 19,6 Ko + `game.js` 153,1 Ko, sans pont ; publiee le 2026-10-14). Meme lien, meme cle de sauvegarde (`uploadlab2`, format v1) : sauvegardes conservees.
 - Ce document publie : https://claude.ai/artifact/PXGHM5TAQ9JeCsNnTpSCpE (page privee, republiee au meme lien a chaque mise a jour).
 
 ## Architecture (phases 1 et 3)
@@ -43,7 +43,7 @@ Sauvegarde : localStorage, cle `uploadlab2`, format versionne (`ver`, migrations
 - `npm run test:render` : empreintes de pixels du rendu (propres a la machine). `--root=<dossier>` teste une autre copie.
 - `npm run test:update` : regenere les instantanes, uniquement pour un changement de comportement voulu.
 - `npm run perf` : tableau de performance (bureau et mobile simule, CPU ralenti 4x), dont le pire cas `mixte` (600 noeuds, tous genres et bonus actifs).
-- `node tools/balance.mjs <heures> '<options JSON>' | node tools/table.cjs` : bot d'equilibrage dans Node (option `seed` pour une execution reproductible). Option `strat` : `lignes` (par defaut, `tools/bot.mjs`, lignes independantes) ou `reseau` (`tools/bot-net.mjs` : fusions Fusion / Concentrateur, puits partages Upload / Serveur cloud, Recycleur ; option `exclude` : types non achetes). Sortie `reseau` par Reboot : achats par type, minute du premier achat, part des revenus (`share`), minute ou le Reboot devient possible (`ready`).
+- `node tools/balance.mjs <heures> '<options JSON>' | node tools/table.cjs` : bot d'equilibrage dans Node (option `seed` pour une execution reproductible). Option `cloudRev` (etude seulement, le jeu n'est pas modifie) : valeur des fichiers du Serveur cloud multipliee. Option `strat` : `lignes` (par defaut, `tools/bot.mjs`, lignes independantes) ou `reseau` (`tools/bot-net.mjs` : fusions Fusion / Concentrateur, puits partages Upload / Serveur cloud, Recycleur ; option `exclude` : types non achetes). Sortie `reseau` par Reboot : achats par type, minute du premier achat, part des revenus (`share`), minute ou le Reboot devient possible (`ready`).
 - `node tools/doc-page.cjs CLAUDE.md <sortie.html>` : page de ce document, republiee au lien ci-dessus.
 - Playwright : `/opt/pw-browsers/chromium` (ou `PW_CHROMIUM`), module trouve via `npm root -g`.
 
@@ -51,7 +51,7 @@ Sauvegarde : localStorage, cle `uploadlab2`, format versionne (`ver`, migrations
 
 - Pas de mode competitif, sous aucune forme (ni classement, ni defi entre amis), pas de serveur. Simulation deterministe abandonnee.
 - Objectifs : ajouter progressivement des noeuds et des evenements ; bonne tenue sur mobile.
-- Fichier final produit par esbuild. Version 49 publiee en un seul fichier ; prochaine publication prevue en plusieurs fichiers (page + `game.js`, meme lien), apres « ok publie ».
+- Fichier final produit par esbuild. Publication en plusieurs fichiers adoptee (version 50) : page + `game.js`, meme lien ; CSS garde dans la page.
 - Aucun changement de gameplay ou d'equilibrage sans accord explicite.
 - Un commit par etape, message clair, tests verts a chaque commit. Chiffres avant/apres pour la performance.
 - Tests d'abord : figer le comportement avant de modifier ; verifier les tests par des regressions volontaires.
@@ -70,10 +70,14 @@ Sauvegarde : localStorage, cle `uploadlab2`, format versionne (`ver`, migrations
 - Serie boite noire : `Date` entierement remplace (pas seulement `Date.now`), le test ne depend plus du jour reel ; verifie sur la version 48 et le lot 1, et par regressions volontaires (credits -0,1 %, niveaux de technologie perdus au chargement : detectes).
 - Bot d'equilibrage : il utilise les nouveaux noeuds (strategie `reseau`) pour mesurer leur equilibrage. Poids des evenements : 1 (decide).
 - Phase 5 lot 2 (choix de l'utilisateur) : N2 Recycleur et E2 Conference scientifique, valeurs de la proposition (Recycleur : prix 1 500, 2 s, x4 sous le seuil, seuil 1 a 10 ; Conference : 45 s, recherche x3, poids 1, seulement avec un Laboratoire).
-- Publication du jeu : chaque publication coute environ 95 000 tokens (lecture obligatoire de la version en ligne). On publie rarement : une seule fois en fin de lot de contenu, jamais pour un changement invisible. Ne rien publier pour tester. Piste moins couteuse (plusieurs fichiers : test concluant, pas encore adoptee) : voir « Questions ouvertes », question 2.
+- Publication du jeu : la version 50 a coute environ 95 000 tokens (derniere lecture complete du fichier unique de 167 Ko). Cout attendu des prochaines publications : environ 10 000 tokens (lecture de la page en ligne, 19,6 Ko, et liste des fichiers ; `game.js` est remplace sans etre relu, car vu dans la liste). Etapes : `Artifact read` de l'URL, lire la page entiere, `Artifact list` scope `files`, puis publier `dist/multi/artifact.html` avec `files: {"game.js": "dist/multi/game.js"}` au meme `url`. On publie toujours rarement : une fois en fin de lot de contenu, jamais pour un changement invisible, jamais pour tester.
 - Git : avant une regression volontaire ou toute manipulation risquee, commiter ou faire un `git stash`. Jamais de `git checkout` sur un fichier modifie non commite (restaurer par une modification inverse ou `git stash pop`).
 - Phase 5 lot 1 (choix de l'utilisateur) : N1 Concentrateur, N3 Serveur cloud, E1 Maintenance programmee, E3 Serveurs chanceux, poids des evenements (frequence par heure des 4 existants inchangee), texte de Negociation. Reportes : N2 Recycleur (prochain lot probable), N4, N5, E2. Changements d'equilibrage voulus ; seuil d'arret : premiers Reboots plus de 30 % plus rapides au bot.
 - Economie de tokens (budget limite) : sorties de commandes courtes (echecs et resume seulement) ; lire seulement les parties de fichiers necessaires ; tests cibles pendant le travail, batteries completes en fin de phase ; une seule serie de mesures de perf, sauf ecart au-dela du bruit ; une nouvelle session par phase (CLAUDE.md suffit a reprendre). La rigueur reste prioritaire : economiser sur le bruit, jamais sur les verifications.
+- Mesure d'equilibrage : le hasard des evenements fait varier les resultats d'environ 20 %. Pour toute decision d'equilibrage, au moins 3 graines, avec moyenne et ecart. Une seule serie suffit pour verifier qu'une refonte ne change rien.
+- Bot `reseau` : il reboote quand le gain egale le total de points quantiques (doublement), apres un minimum de 10 min. A partir du 6e Reboot, le rapport des points entre deux variantes est donc fige ; comparer plutot le temps pour atteindre un niveau de points (100, 1 000, 10 000, 100 000).
+- Concentrateur : aucun changement, c'est le successeur de la Fusion. Deux Fusions en cascade sur 3 branches donnent x4,68 (((1 + 1) x 1,3 + 1) x 1,3) contre x4,2 pour le Concentrateur ; le bot ne construit pas de cascades, sa mesure surestime donc la domination du Concentrateur.
+- Trieur : a revoir avec le lot 3 (N5 Pari quantique). Contrats en fin de partie : a reevaluer plus tard avec la strategie reseau (l'ancienne analyse n'est plus fiable).
 - Format des reponses : pendant le travail, aucune narration. En fin de phase ou a un arret, un rapport dans ce format exact :
   ETAT : termine / arret d'urgence (raison) ; COMMITS : liste courte ; TESTS : npm test vert ? ecarts ? sauvegardes OK ? ; PERF : avant/apres, lignes utiles seulement ; INCIDENTS : problemes, cause, correction (phrases completes, non compressees) ; DECISIONS ATTENDUES : questions numerotees, avec recommandation ; CONSOMMATION : chiffre /usage de la phase ; CLAUDE.MD : a jour et republie (oui/non). Bref partout, sauf INCIDENTS et DECISIONS ATTENDUES.
 
@@ -84,24 +88,22 @@ Sauvegarde : localStorage, cle `uploadlab2`, format versionne (`ver`, migrations
 - Phase 2 : n'existe plus.
 - Phase 3, registre de noeuds et statistiques par modificateurs : terminee, validee, publiee (version 48, sans pont).
 - Phase 4, performance du rendu : plus tard, si besoin (budget mobile tenu).
-- Phase 5, contenu : propositions (`docs/PHASE5-PROPOSITIONS.md`) ; lot 1 publie (version 49, fichier unique, 2026-10-14) ; lot 2 implemente, en attente de « ok publie » (publication prevue en plusieurs fichiers). Reportes : N4, N5.
+- Phase 5, contenu : propositions (`docs/PHASE5-PROPOSITIONS.md`) ; lot 1 publie (version 49, fichier unique, 2026-10-14) ; lot 2 publie (version 50, plusieurs fichiers, 2026-10-14) ; etude du bonus de revenus du Serveur cloud (valeur a valider). Lot 3 a choisir (N5 Pari quantique, avec le Trieur). Reportes : N4, N5.
 
 Performance (rendu logiciel, mobile simule CPU 4x) : draw 1,7 a 6,6 ms selon la vue (budget 16 ms). `step` a 600 noeuds : 0,37 ms (chaines simples), 0,8 ms (pire cas mixte ; inchange par le lot 2) ; limite 2 ms. Fichier publie : 172,2 Ko (un seul fichier) ou page 19,1 Ko + `game.js` 153,1 Ko.
 
 ## Questions ouvertes
 
-1. Lot 2 et premiere publication en plusieurs fichiers : « ok publie » attendu (liste des changements visibles dans le rapport de fin de lot 2). Cout attendu : lecture de la page en ligne (une fois, 165 Ko pour passer du fichier unique a la page) puis, aux publications suivantes, lecture de la petite page (19 Ko) et liste des fichiers seulement.
-2. Concentrateur : au bot (strategie `reseau`), plus de 98 % des revenus des le 2e run, et la Fusion n'est plus qu'une etape avant lui (achetee puis vendue a chaque run). Proposition d'ajustement dans le rapport du lot 2 ; aucune valeur changee.
-3. Serveur cloud : jamais achete par le bot (les puits ne sont jamais le goulot : les troncs de paliers lents limitent le debit). Proposition dans le rapport du lot 2.
-4. Trieur : avec des fichiers de valeur identique dans une branche (cas general du jeu), il n'a pas d'usage avec le Recycleur ; le bot ne l'achete pas. A decider (ex. N5 Pari quantique, qui cree des valeurs differentes).
-5. Plus tard : equilibrage des contrats en fin de partie (le seuil +25 % de debit en 90 s devient difficile quand les ameliorations sont rares) ; a simuler avant toute decision.
+1. Serveur cloud : bonus de revenus a valider (simule sans rien publier, 3 graines, 7 h, bot `reseau`, option `cloudRev`). Sans bonus : jamais achete. Avec x1,10, x1,15 ou x1,25 : achete a chaque run apres le 1er Reboot (100 %, vers la minute 2, environ 3 par run), plus de 99,7 % des revenus, l'Upload ne sert plus qu'au premier run. Points quantiques a 7 h : x1,049 +- 0,032 / x1,095 +- 0,037 / x1,159 +- 0,025 (gain fige au 6e Reboot, vers 1 h). Temps pour atteindre 1 000 / 10 000 / 100 000 points : inchange a l'ecart pres (x1 : 55 / 116 / 275 min ; x1,25 : 53 / 116 / 272 min). Recommandation : x1,25.
+2. Lot 3 : choix du contenu (N5 Pari quantique et usage du Trieur).
+3. Plus tard : contrats en fin de partie, a reevaluer avec la strategie reseau.
 
 ## Journal (5 dernieres modifications)
 
-Avant : visuels, mobile, commandes souris, sauvegarde robuste, phase 0 (perf), phase 1 (modules, esbuild, bot dans Node), version 47, phase 3 (statistiques par modificateurs, registre de noeuds, preuve par noeud fictif, version 48 sans pont, invariant du cache par pas), phase 5 etape 1 (propositions), lot 1 (Concentrateur, Serveur cloud, Maintenance programmee, Serveurs chanceux, poids des evenements, Negociation ; version 49).
+Avant : visuels, mobile, commandes souris, sauvegarde robuste, phase 0 (perf), phase 1 (modules, esbuild, bot dans Node), version 47, phase 3 (statistiques par modificateurs, registre de noeuds, preuve par noeud fictif, version 48 sans pont, invariant du cache par pas), phase 5 etape 1 (propositions), lot 1 (Concentrateur, Serveur cloud, Maintenance programmee, Serveurs chanceux, poids des evenements, Negociation ; version 49), serie boite noire independante du jour reel.
 
-1. Serie boite noire independante du jour reel (`Date` remplace) ; regressions volontaires detectees.
-2. Bot : strategie `reseau` (fusions, puits partages, Recycleur), mesures d'achats, de parts de revenus et de minute de Reboot possible ; ancienne strategie inchangee.
-3. Lot 2 : Recycleur (`transform` avec `multOf`, reglage `max`) et Conference scientifique (condition `need`) ; scenario `lot2`.
-4. Build en plusieurs fichiers (`dist/multi/`) ; serie boite noire sur les deux versions publiables.
-5. Documentation (`AJOUTER-UN-NOEUD`, `PHASE5-PROPOSITIONS`, ce fichier).
+1. Bot : strategie `reseau` (fusions, puits partages, Recycleur), mesures d'achats, de parts de revenus et de minute de Reboot possible ; ancienne strategie inchangee.
+2. Lot 2 : Recycleur (`transform` avec `multOf`, reglage `max`) et Conference scientifique (condition `need`) ; scenario `lot2`.
+3. Build en plusieurs fichiers (`dist/multi/`) ; serie boite noire sur les deux versions publiables.
+4. Documentation (`AJOUTER-UN-NOEUD`, `PHASE5-PROPOSITIONS`, ce fichier).
+5. Version 50 publiee (lot 2, plusieurs fichiers) ; option `cloudRev` du bot et etude du bonus du Serveur cloud ; regle de mesure a 3 graines.
