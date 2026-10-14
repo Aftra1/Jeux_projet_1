@@ -1,7 +1,7 @@
 // Serie « boite noire » : la version publiee (dist/index.html, sans pont) et la version de test (dist/test.html,
 // avec pont) recoivent exactement les memes actions et doivent donner exactement les memes resultats.
 // Les actions ne passent que par le DOM (clics reels), localStorage et window.__game : rien d'interne.
-// Temps maitrise : horloge, requestAnimationFrame et Date.now remplaces avant le chargement, hasard seede.
+// Temps maitrise : horloge, requestAnimationFrame et Date (Date.now et new Date()) remplaces avant le chargement, hasard seede.
 //   node tests/blackbox.cjs
 const fs = require('fs'), path = require('path'), cp = require('child_process');
 function pw(){ try{ return require('playwright'); }catch(e){ return require(path.join(cp.execSync('npm root -g').toString().trim(),'playwright')); } }
@@ -17,7 +17,11 @@ function init({NOW, save}){
   let a = 12345; const mul = Math.imul;
   Math.random = ()=>{ a = (a + 0x6D2B79F5)>>>0; let t = a; t = mul(t ^ (t>>>15), t|1); t ^= t + mul(t ^ (t>>>7), t|61); return ((t ^ (t>>>14))>>>0)/4294967296; };
   let T = 1000; const raf = [];
-  performance.now = ()=>T; Date.now = ()=>NOW;
+  // horloge murale figee : Date.now et new Date() sans argument rendent NOW (le bonus quotidien ne depend plus du jour reel)
+  const RealDate = Date;
+  class FixedDate extends RealDate { constructor(...a){ super(...(a.length ? a : [NOW])); } static now(){ return NOW; } }
+  window.Date = FixedDate;
+  performance.now = ()=>T;
   window.requestAnimationFrame = f=>{ raf.push(f); return raf.length; };
   window.__frames = n=>{ for(let i=0;i<n;i++){ T += 50; for(const f of raf.splice(0)) f(T); } };
   try{ localStorage.clear(); if(save){ const d = JSON.parse(save); d.savedAt = NOW; d.daily = new Date(NOW).toISOString().slice(0,10); localStorage.setItem('uploadlab2', JSON.stringify(d)); } }catch(e){}
