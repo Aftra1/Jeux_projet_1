@@ -45,6 +45,7 @@ Sauvegarde : localStorage, cle `uploadlab2`, format versionne (`ver`, migrations
 - `node tools/balance.mjs <heures> '<options JSON>' | node tools/table.cjs` : bot d'equilibrage dans Node (option `seed` pour une execution reproductible).
 - `node tools/doc-page.cjs CLAUDE.md <sortie.html>` : page de ce document, republiee au lien ci-dessus.
 - Playwright : `/opt/pw-browsers/chromium` (ou `PW_CHROMIUM`), module trouve via `npm root -g`.
+- Visual Studio Code : ouvrir le dossier (ou `upload-lab.code-workspace`) ; `.vscode/` fournit les taches (installer, construire, tester, perf, bot) et `F5` pour jouer (Chrome ou Edge). Instructions dans `README.md`.
 
 ## Decisions prises
 

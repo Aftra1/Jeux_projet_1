@@ -17,7 +17,9 @@ function init({NOW, save}){
   let a = 12345; const mul = Math.imul;
   Math.random = ()=>{ a = (a + 0x6D2B79F5)>>>0; let t = a; t = mul(t ^ (t>>>15), t|1); t ^= t + mul(t ^ (t>>>7), t|61); return ((t ^ (t>>>14))>>>0)/4294967296; };
   let T = 1000; const raf = [];
-  performance.now = ()=>T; Date.now = ()=>NOW;
+  performance.now = ()=>T;
+  const RealDate = Date;   // date figee : new Date() et Date.now() renvoient NOW (bonus quotidien, gains hors ligne)
+  window.Date = class extends RealDate { constructor(...a){ super(...(a.length ? a : [NOW])); } static now(){ return NOW; } };
   window.requestAnimationFrame = f=>{ raf.push(f); return raf.length; };
   window.__frames = n=>{ for(let i=0;i<n;i++){ T += 50; for(const f of raf.splice(0)) f(T); } };
   try{ localStorage.clear(); if(save){ const d = JSON.parse(save); d.savedAt = NOW; d.daily = new Date(NOW).toISOString().slice(0,10); localStorage.setItem('uploadlab2', JSON.stringify(d)); } }catch(e){}
