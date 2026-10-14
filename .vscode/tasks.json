@@ -1,0 +1,11 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    { "label": "Installer les dependances", "type": "shell", "command": "npm install", "problemMatcher": [] },
+    { "label": "Construire le jeu", "type": "npm", "script": "build", "group": { "kind": "build", "isDefault": true }, "problemMatcher": [] },
+    { "label": "Lancer les tests", "type": "npm", "script": "test", "group": { "kind": "test", "isDefault": true }, "problemMatcher": [] },
+    { "label": "Tests du rendu (pixels)", "type": "npm", "script": "test:render", "group": "test", "problemMatcher": [] },
+    { "label": "Mesurer la performance", "type": "npm", "script": "perf", "problemMatcher": [] },
+    { "label": "Bot d'equilibrage (2 h simulees)", "type": "shell", "command": "node tools/balance.mjs 2 '{\"seed\":1}' | node tools/table.cjs", "problemMatcher": [] }
+  ]
+}

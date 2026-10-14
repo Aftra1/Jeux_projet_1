@@ -120,3 +120,13 @@ Le jeu est decoupe en modules ES dans `src/`, regroupes par esbuild en un seul f
 - Deux sorties : `dist/artifact.html` / `dist/index.html` (version publiee, seul `window.__game` est expose) et `dist/test.html` (version de test : un pont expose chaque nom de premier niveau sur `window` pour les tests et l'outil de performance). La serie « boite noire » (`tests/blackbox.cjs`, dans `npm test`) verifie par de vrais clics que les deux versions donnent exactement le meme resultat.
 
 Commandes : `npm run build`, `npm test`, `npm run test:render`, `npm run perf`, `node tools/balance.mjs <heures> '<options>' | node tools/table.cjs`.
+
+## Ouvrir dans Visual Studio Code
+
+1. Installer [Node.js](https://nodejs.org) (version 20 ou plus) et Visual Studio Code.
+2. Cloner le depot (branche `claude/jeu-upload-lab-dnrod3`) ou decompresser l'archive, puis `Fichier > Ouvrir le dossier` (ou ouvrir `upload-lab.code-workspace`).
+3. `Terminal > Executer la tache > Installer les dependances` (`npm install`).
+4. `F5` (« Jouer ») construit le jeu et l'ouvre dans Chrome ou Edge. Sans Visual Studio Code : ouvrir `dist/index.html` dans un navigateur apres `npm run build`.
+5. `Ctrl+Maj+B` construit ; la tache « Lancer les tests » lance `npm test`.
+
+Les tests et l'outil de performance utilisent Playwright : `npm install -g playwright` puis `npx playwright install chromium` (une fois). Les empreintes de pixels (`test:render`) sont propres a chaque machine : sur un autre ordinateur, `npm run test:render:update` les recree.

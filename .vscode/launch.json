@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Jouer (Chrome, version publiee)",
+      "type": "chrome", "request": "launch",
+      "url": "file:///${workspaceFolder}/dist/index.html",
+      "preLaunchTask": "Construire le jeu"
+    },
+    {
+      "name": "Jouer (Edge, version publiee)",
+      "type": "msedge", "request": "launch",
+      "url": "file:///${workspaceFolder}/dist/index.html",
+      "preLaunchTask": "Construire le jeu"
+    },
+    {
+      "name": "Bot d'equilibrage (Node, pas a pas)",
+      "type": "node", "request": "launch",
+      "program": "${workspaceFolder}/tools/balance.mjs",
+      "args": ["1", "{\"seed\":1}"]
+    }
+  ]
+}
