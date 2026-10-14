@@ -10,7 +10,7 @@
 // sur le genre sink du coeur) et par genre de groupe (revenu reel de chaque puits reparti selon l'estimation).
 import { G, addNode, connect, newGame, removeNode } from '../src/core/state.js';
 import { step } from '../src/core/sim.js';
-import { KINDS } from '../src/core/kinds.js';
+import * as kinds from '../src/core/kinds.js';   // espace de noms : le bot tourne aussi sur une version sans paramsOf (avant le lot 2)
 import { speedOf, revMult, critChance, seedV, vmult, buyCost, upCost, gUpCost, puCost, techCost, qpGain, unlocked, sellVal } from '../src/core/economy.js';
 import { doReboot } from '../src/core/prestige.js';
 import { checkObj, checkAch } from '../src/core/progression.js';
@@ -27,9 +27,9 @@ const COMBS = [['merge',2],['hub',3]];
 export function runBotNet(hours, opt = {}){
   newGame();
   const log = [], groups = [], sinks = [];   // sinks : {node, groups, lab} ; groupe : {feeds:[[noeuds]], comb, trunk:[noeuds], sink, slot}
-  let t = 0, mileT = [], mile = 0, lastRun = G.run, rebootAt = 0, labBuilt = false, lastBuild = -999;
+  let t = 0, mileT = [], mile = 0, ready = -1, lastRun = G.run, rebootAt = 0, labBuilt = false, lastBuild = -999;
   let bought = {}, first = {}, share = {};
-  const avail = ty => unlocked(ty) && !(opt.exclude||[]).includes(ty);   // option exclude : types que le bot n'achete pas
+  const avail = ty => !!DEFS[ty] && unlocked(ty) && !(opt.exclude||[]).includes(ty);   // option exclude : types que le bot n'achete pas
   const probe = s => ({type:s.type, level:s.level, spec: s.level>=9 ? 'spd' : undefined});   // Turbo des que possible
   const cap = s => speedOf(probe(s))/DEFS[s.type].t;
   const lv0 = ty => ({type:ty, level:0});
@@ -37,10 +37,10 @@ export function runBotNet(hours, opt = {}){
   // [debit, valeur] d'un groupe a l'entree du puits
   function flow(g){
     let r = Infinity; const vs = [];
-    for(const f of g.feeds){ let v = 1; for(const s of f){ const d = DEFS[s.type]; r = Math.min(r, cap(s)); if(d.val) v = seedV(d)*vmult(probe(s)); else if(d.mult) v *= d.mult; } vs.push(v); }
+    for(const f of g.feeds){ let v = 1; for(const s of f){ const d = DEFS[s.type]; r = Math.min(r, cap(s)); if(d.val) v = seedV(d)*vmult(probe(s)); else if(d.multOf) v *= d.multOf(v, kinds.paramsOf(s, d)); else if(d.mult) v *= d.mult; } vs.push(v); }
     let v = vs[0];
     if(g.comb){ r = Math.min(r, cap(g.comb)); v = DEFS[g.comb.type].f(...vs); }
-    for(const s of g.trunk){ r = Math.min(r, cap(s)); v *= DEFS[s.type].mult || 1; }
+    for(const s of g.trunk){ const d = DEFS[s.type]; r = Math.min(r, cap(s)); v *= d.multOf ? d.multOf(v, kinds.paramsOf(s, d)) : d.mult || 1; }
     return [r, v];
   }
   function sinkRev(s, flows, lab){
@@ -48,6 +48,8 @@ export function runBotNet(hours, opt = {}){
     const c = cap(s), k = rs>c ? c/rs : 1;
     return rv*k*vmult(probe(s))*revMult()*(1 + 4*critChance())*(lab ? (opt.labW||0.4) : 1);
   }
+  // un Recycleur du groupe recoit-il des fichiers sous son seuil (x4 effectif) ?
+  const recActive = g => g.feeds.some(f=>{ let v = 1; for(const s of f){ const d = DEFS[s.type]; if(d.val) v = seedV(d)*vmult(probe(s)); else if(d.multOf){ const m = d.multOf(v, kinds.paramsOf(s, d)); if(m>1) return true; v *= m; } else if(d.mult) v *= d.mult; } return false; });
   const sinkInc = S => sinkRev(S.node, S.groups.map(flow), S.lab);
   const total = () => sinks.reduce((a,S)=>a+sinkInc(S), 0);
   const nodesOf = g => g.feeds.flat().concat(g.comb ? [g.comb] : [], g.trunk);
@@ -68,6 +70,7 @@ export function runBotNet(hours, opt = {}){
     const g = {feeds:[f], comb:null, trunk, sink:S, slot:freeSlot(S)}; S.groups.push(g); groups.push(g); rewire(g); lastBuild = t;
   }
   function extend(g, ty){ g.trunk.push(buy(ty)); rewire(g); }
+  function insertFeed(g, fi, ty){ g.feeds[fi].splice(1, 0, buy(ty)); rewire(g); }
   function swapHead(g, fi){ const n = buy('mega'); removeNode(g.feeds[fi][0]); g.feeds[fi][0] = n; rewire(g); }
   // ajoute des branches et (re)pose le combineur cb ; l'ancien combineur est vendu
   function fuse(g, cb){
@@ -90,12 +93,12 @@ export function runBotNet(hours, opt = {}){
   const stats = arr => (from)=>{ const a=arr.filter(x=>x>=from); const g=[]; for(let i=1;i<a.length;i++) g.push(a[i]-a[i-1]); if(!g.length) return {n:a.length}; g.sort((x,y)=>x-y); return {n:a.length, med:Math.round(g[g.length>>1]), p90:Math.round(g[Math.floor(g.length*0.9)]), max:Math.round(g[g.length-1])}; };
   const mileStats = stats(mileT);
   // revenus reels par puits : mesures autour du genre sink du coeur (seul earn() y change G.money)
-  const earned = new Map(), tick0 = KINDS.sink.tick;
-  KINDS.sink.tick = function(n, d, dt, tt){ const m = G.money; tick0.call(this, n, d, dt, tt); if(G.money!==m) earned.set(n.id, (earned.get(n.id)||0) + G.money - m); };
+  const earned = new Map(), tick0 = kinds.KINDS.sink.tick;
+  kinds.KINDS.sink.tick = function(n, d, dt, tt){ const m = G.money; tick0.call(this, n, d, dt, tt); if(G.money!==m) earned.set(n.id, (earned.get(n.id)||0) + G.money - m); };
   function account(){
     for(const S of sinks){ const e = earned.get(S.node.id); if(!e || S.lab) continue;
       const w = S.groups.map(g=>{ const [r,v] = flow(g); return r*v; }), tw = w.reduce((a,b)=>a+b,0) || 1;
-      S.groups.forEach((g,i)=>{ const c = g.comb ? g.comb.type : 'ligne'; share[c] = (share[c]||0) + e*w[i]/tw; });
+      S.groups.forEach((g,i)=>{ const c = g.comb ? g.comb.type : 'ligne'; share[c] = (share[c]||0) + e*w[i]/tw; if(recActive(g)) share['recycle actif'] = (share['recycle actif']||0) + e*w[i]/tw; });
       share['puits '+S.node.type] = (share['puits '+S.node.type]||0) + e; share.total = (share.total||0) + e;
     }
     earned.clear();
@@ -112,10 +115,11 @@ export function runBotNet(hours, opt = {}){
     acc=0; account();
     G.lastRate=(G.run-lastRun)/(per*dt); lastRun=G.run;
     checkObj(); checkAch(); evTick(); lastRun=G.run;
-    const gn=qpGain();
-    if(gn>=Math.max(1,Math.ceil(G.qpTotal*(opt.rebootRatio||1))) && t-rebootAt>(opt.minRun||600)){
-      log.push(Object.assign({t:Math.round(t/60),ev:'reboot',gaps:mileStats(rebootAt),rev:+revMult().toFixed(1),run:fmt(G.run),gain:gn,qpTotal:G.qpTotal+gn,rate:fmt(G.lastRate)}, snap()));
-      reboot(); rebootAt=t; mile=0; continue;
+    const gn=qpGain(), canReboot = gn>=Math.max(1,Math.ceil(G.qpTotal*(opt.rebootRatio||1)));
+    if(canReboot && ready<0) ready = t-rebootAt;   // condition de Reboot remplie (avant le minimum de 10 min impose au bot)
+    if(canReboot && t-rebootAt>(opt.minRun||600)){
+      log.push(Object.assign({t:Math.round(t/60),ev:'reboot',ready:+(ready/60).toFixed(1),gaps:mileStats(rebootAt),rev:+revMult().toFixed(1),run:fmt(G.run),gain:gn,qpTotal:G.qpTotal+gn,rate:fmt(G.lastRate)}, snap()));
+      reboot(); rebootAt=t; mile=0; ready=-1; continue;
     }
     const labTypes = () => ['source','compress'].concat(TIERS.filter(unlocked), ['lab']);
     if(avail('lab') && !labBuilt){ const ty=labTypes(); if(G.money>=lineCost(ty)*(opt.labMoney||1.5)){ newGroup(ty, null, 'lab', true); labBuilt=true; } }
@@ -133,6 +137,10 @@ export function runBotNet(hours, opt = {}){
           g.feeds.forEach((f,fi)=>{ if(f[0].type!=='source' || !avail('mega')) return;
             const gain = withG(i, Object.assign({}, g, {feeds:g.feeds.map((x,j)=>j===fi ? [lv0('mega')].concat(x.slice(1)) : x)}));
             if(gain>0) c.push({cost:lineCost(['mega']),gain,f:()=>swapHead(g,fi)}); });
+          // Recycleur juste apres la source de la branche, la ou les fichiers sont les plus petits (x4 sous son seuil)
+          g.feeds.forEach((f,fi)=>{ if(!avail('recycle') || f.some(n=>n.type==='recycle')) return;
+            const gain = withG(i, Object.assign({}, g, {feeds:g.feeds.map((x,j)=>j===fi ? [x[0], lv0('recycle')].concat(x.slice(1)) : x)}));
+            if(gain>0) c.push({cost:lineCost(['recycle']),gain,f:()=>insertFeed(g,fi,'recycle')}); });
           for(const [cb,k2] of COMBS){
             if(!avail(cb) || g.feeds.length>=k2 || (g.comb && g.comb.type===cb)) continue;
             const head = g.feeds[0][0].type, add = []; for(let x=g.feeds.length;x<k2;x++) add.push([head,'compress']);
@@ -173,7 +181,7 @@ export function runBotNet(hours, opt = {}){
     { const cur = total(); if(cur>=mile*1.1 || mile===0){ mileT.push(t); mile = cur; } }
     for(let k=0;k<50;k++){ const d=TECH.filter(x=>G.tech[x.id]<x.max && techCost(x)<=G.rp).sort((a,b)=>techCost(a)-techCost(b))[0]; if(!d || !buyTech(d)) break; }
   }
-  } finally { KINDS.sink.tick = tick0; }
+  } finally { kinds.KINDS.sink.tick = tick0; }
   log.push(Object.assign({end:true,gaps:mileStats(rebootAt),t:Math.round(t/60),run:fmt(G.run),life:fmt(G.lifetime),rate:fmt(G.lastRate),qpT:G.qpTotal,resets:G.resets,rp:fmt(G.rpTotal),obj:G.obj,nodes:G.nodes.length}, snap()));
   return log;
 }
