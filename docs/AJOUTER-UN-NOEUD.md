@@ -21,13 +21,13 @@ Depuis la phase 3, un type de noeud ou une source de bonus est une **entree de d
    | Genre | Parametres | Ports | Exemples |
    |---|---|---|---|
    | `producer` | `val` (valeur des fichiers produits) | 0 entree | Source, Super Source |
-   | `transform` | `mult` (x valeur, 1 par defaut), `out` | 1 entree | Compresseur, Diviseur, Clonage, Trieur |
+   | `transform` | `mult` (x valeur, 1 par defaut) ou `multOf` (fonction pure : `(valeur, reglages) => multiplicateur`), `out` | 1 entree | Compresseur, Diviseur, Clonage, Trieur, Recycleur : `multOf:(v,p)=>v<p.thr?4:1` |
    | `combine` | `f` (fonction pure des valeurs d'entree) | 2 entrees ou plus | Fusion : `f:(a,b)=>(a+b)*1.3` |
    | `sink` | `reward` : `'credits'` ou `'research'` | 0 sortie | Upload, Laboratoire |
 
    Sorties (`out`) : `'next'` (par defaut, alternance entre 2 sorties), `'copy'` (une copie sur chaque sortie), `'threshold'` (seuil reglable : `params:{thr:{def:10, min:1, label:'Seuil'}}`).
 
-3. Champs facultatifs : `needRs` (Reboots necessaires), `icon` (sans trace, le texte `label` sert d'icone), `params` (reglages du noeud : boutons ÷2 / ×2 dans le panneau, valeur gardee dans les schemas).
+3. Champs facultatifs : `needRs` (Reboots necessaires), `icon` (sans trace, le texte `label` sert d'icone), `params` (reglages du noeud : boutons ÷2 / ×2 dans le panneau, valeur gardee dans les schemas ; `max` facultatif : plafond du reglage, applique aussi a une valeur venue d'une sauvegarde).
 
 4. Lancer `npm test`. Une faute de frappe (genre, champ, sortie, recompense) arrete le chargement avec un message explicite, par exemple :
    `Donnees invalides : noeud "filter" : champ inconnu "mutl" (genre transform)`.
@@ -52,6 +52,8 @@ Une source de bonus est un modificateur declare dans l'entree qui le donne : ame
 - `when` (facultatif) : `'type:<noeud>'`, `'spec:<specialisation>'`, `'event:<evenement>'`, `'overclock'`. Les conditions `type:` et `spec:` ne sont permises que sur une statistique de noeud (`speed`, `value`, `cost.node`, `cost.upgrade`).
 - Le niveau vient de la source : niveau de l'amelioration, 1 pendant un evenement ou pour une specialisation choisie.
 - Texte d'effet different de celui de l'assistant : `eff:(niveau, {fmt, startCash})=>'...'`.
+
+Evenement : champ facultatif `weight` (frequence relative, 1 par defaut) et `need` (mesure qui doit etre positive pour que l'evenement puisse etre tire, ex. `need:'count:lab'`). L'intervalle entre deux evenements est divise par la somme des poids des evenements tirables : un evenement conditionnel ne change pas la frequence par heure des autres.
 
 ## Ou se place un nouveau modificateur : la regle des groupes
 
