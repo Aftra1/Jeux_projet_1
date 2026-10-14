@@ -2,6 +2,7 @@
 // Un type = une entree. Comportement : genre (kind) defini dans core/kinds.js, avec ses parametres :
 //   producer {val}            produit des fichiers de valeur val (sans entree)
 //   transform {mult, out}     un fichier en entree, valeur x mult ; out : 'next' (alternance), 'copy' (une copie par sortie), 'threshold' (seuil thr)
+//             {multOf}        ou valeur x multOf(valeur, reglages du noeud) : multiplicateur qui depend du fichier (Recycleur)
 //   combine {f}               attend un fichier sur chaque entree, valeur f(a, b, ...)
 //   sink {reward}             consomme les fichiers : 'credits' (Upload) ou 'research' (Laboratoire)
 // Champs communs : name, label (texte court), color, desc, ins, outs, t (s), cost, unlock (credits du run), needRs (Reboots),
@@ -20,6 +21,8 @@ export const DEFS = {
   boost:   {name:'Amplificateur',  label:'AMP', color:'#ecc94b', kind:'transform', mult:1.5, ins:1, outs:1, cost:500,   t:0.4,  unlock:400, desc:'Valeur x1,5, très rapide. Idéal en fin de chaîne.'},
   clone:   {name:'Clonage',       label:'CLN', color:'#f6ad55', kind:'transform', out:'copy', ins:1, outs:2, cost:900,   t:1.2,  unlock:600,         desc:'Duplique un fichier sur les deux sorties.'},
   sorter:  {name:'Trieur',        label:'TRI', color:'#a3e635', kind:'transform', out:'threshold', params:{thr:{def:10, min:1, label:'Seuil'}}, ins:1, outs:2, cost:1200,  t:0.15, unlock:800, desc:'Envoie les gros fichiers (valeur au-dessus du seuil) vers la sortie du haut, les autres vers le bas.'},
+  recycle: {name:'Recycleur',     label:'REC', color:'#a7f3d0', kind:'transform', multOf:(v,p)=>v<p.thr?4:1, params:{thr:{def:10, min:1, max:10, label:'Seuil'}}, ins:1, outs:1, cost:1500, t:2.0, unlock:1000, desc:'Valeur ×4 pour les petits fichiers (sous le seuil, 10 au plus), inchangée pour les autres.',
+            icon:'M-7 2 A7 7 0 0 1 5 -5 M5 -5 L1 -6 M5 -5 L5 -1 M7 -2 A7 7 0 0 1 -5 5 M-5 5 L-1 6 M-5 5 L-5 1'},
   ai:      {name:'Analyseur IA',  label:'IA',  color:'#fc8181', kind:'transform', mult:5,   ins:1, outs:1, cost:2000,  t:6.0,  unlock:1500, desc:'Valeur ×5. Lent mais puissant.'},
   lab:     {name:'Laboratoire',   label:'LAB', color:'#76e4f7', kind:'sink', reward:'research', ins:3, outs:0, cost:2500,  t:1.5,  unlock:2000, desc:'Absorbe les fichiers et produit des points de recherche. 3 entrées.'},
   hub:     {name:'Concentrateur', label:'CON', color:'#fda4af', kind:'combine', f:(a,b,c)=>(a+b+c)*1.4, ins:3, outs:1, cost:4000,  t:1.5,  unlock:3000, desc:'Fusionne 3 fichiers : (a + b + c) × 1,4.',

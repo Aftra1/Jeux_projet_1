@@ -32,6 +32,8 @@ export const OUTS = {
     info:(n,d)=>`Seuil : valeur ≥ ${fmt(n.thr||d.params.thr.def)} vers le haut, le reste vers le bas.`},
 };
 
+// reglages d'un noeud (seuil...) : valeur choisie ou valeur par defaut, bornee par max
+export const paramsOf = (n,d) => Object.fromEntries(Object.entries(d.params||{}).map(([k,p])=>[k, Math.min(p.max===undefined ? Infinity : p.max, n[k]||p.def)]));
 // prise d'une entree en tourniquet (puits)
 function takeRR(n,t){
   for(let k=0;k<n.inb.length;k++){
@@ -60,13 +62,13 @@ export const KINDS = {
     info:(n,d,t)=>`1 fichier de valeur ${seedV(d)} toutes les ${t.toFixed(2)} s.`,
   },
   transform: {
-    fields:{mult:'number', out:'out', params:'params'}, required:[], ins:[1,1], outs:[1,8],
+    fields:{mult:'number', multOf:'function', out:'out', params:'params'}, required:[], ins:[1,1], outs:[1,8],
     specs:()=>BASE_SPECS,
     tick(n,d,dt,t){
-      if(!n.work && n.outq.length===0 && n.inb[0].length) n.work = {v:n.inb[0].shift()*(d.mult||1), rem:t};
+      if(!n.work && n.outq.length===0 && n.inb[0].length){ const v = n.inb[0].shift(); n.work = {v: d.multOf ? v*d.multOf(v, paramsOf(n,d)) : v*(d.mult||1), rem:t}; }
       work(n,d,dt);
     },
-    info:(n,d,t)=>OUTS[d.out||'next'].info ? OUTS[d.out||'next'].info(n,d) : perFile(t),
+    info:(n,d,t)=>OUTS[d.out||'next'].info ? OUTS[d.out||'next'].info(n,d) : Object.entries(paramsOf(n,d)).map(([k,v])=>`${d.params[k].label} : ${fmt(v)}. `).join('')+perFile(t),
   },
   combine: {
     fields:{f:'function', out:'out'}, required:['f'], ins:[2,8], outs:[1,8],

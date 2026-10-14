@@ -108,7 +108,7 @@ export function showSel(){
   $('bSell').onclick = ()=>sell(n);
   for(const [k,p] of params){   // reglages du noeud (seuil du Trieur...) : ÷2 et ×2
     $(pid(k)+'D').onclick = ()=>{ n[k] = Math.max(p.min,(n[k]||p.def)/2); showSel(); };
-    $(pid(k)+'U').onclick = ()=>{ n[k] = (n[k]||p.def)*2; showSel(); };
+    $(pid(k)+'U').onclick = ()=>{ n[k] = Math.min(p.max===undefined ? Infinity : p.max, (n[k]||p.def)*2); showSel(); };
   }
   $('bDup').onclick = ()=>{
     const c = buyCost(n.type);

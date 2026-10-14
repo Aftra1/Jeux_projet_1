@@ -377,6 +377,35 @@ const SCENARIOS = {
     return {errs, msgs};
   },
 
+  // Phase 5 lot 2 : Recycleur (multiplicateur selon la valeur, seuil plafonne) et Conference scientifique (condition de tirage)
+  lot2(){
+    const errs = [], out = {}, ok = (c, m)=>{ if(!c) errs.push(m); };
+    newGame(); Math.__seed(2027);
+    const d = DEFS.recycle, r = addNode('recycle', 0, 120);
+    out.mult = [9.99, 10, 25].map(v=>d.multOf(v, paramsOf(r, d)));
+    ok(out.mult.join()==='4,1,1', 'Recycleur : x4 sous le seuil, x1 a partir du seuil');
+    r.thr = 5; out.thr5 = [4.9, 5].map(v=>d.multOf(v, paramsOf(r, d))); ok(out.thr5.join()==='4,1', 'seuil abaisse');
+    r.thr = 1e9; ok(paramsOf(r, d).thr===10, 'seuil plafonne a 10 (valeur venue d\'une sauvegarde)');
+    r.thr = 8; setSel(r.id); showSel(); document.getElementById('bThrU').click(); out.thrUp = r.thr; ok(r.thr===10, 'bouton x2 plafonne a 10');
+    out.panel = document.getElementById('sel').querySelector('p:nth-of-type(2)').textContent;
+    document.getElementById('bThrD').click(); ok(r.thr===5, 'bouton /2'); setSel(null); showSel();
+    // Conference scientifique : jamais tiree sans Laboratoire ; frequence des autres inchangee
+    const draws = n=>{ const c = {}; for(let i=0;i<n;i++){ G.ev = null; G.evNext = G.playtime = 1000+i; evTick(); const id = G.ev ? G.ev.id : 'gift'; c[id] = (c[id]||0)+1; } return c; };
+    const gap = ()=>{ Math.__seed(99); G.ev = null; G.evNext = G.playtime = 5000; evTick(); return G.evNext - G.playtime; };
+    newGame(); G.obj = 3; G.lastRate = 1; Math.__seed(5);
+    out.noLab = draws(700); ok(!out.noLab.conf, 'Conference sans Laboratoire');
+    const g0 = gap(); addNode('lab', 0, 200); const g1 = gap();
+    Math.__seed(5); out.withLab = draws(700); ok(out.withLab.conf>0, 'Conference avec Laboratoire');
+    out.gaps = [g0, g1]; ok(Math.abs(g0*6 - g1*7) < 1e-9, 'intervalle divise par la somme des poids tirables (6 puis 7)');
+    G.ev = {id:'conf', until:G.playtime+45}; const r3 = rpOf(100); G.ev = null; const r1 = rpOf(100);
+    out.rp = [r1, r3]; ok(Math.abs(r3/r1 - 3) < 1e-12, 'points de recherche x3 pendant la Conference');
+    EVT.push({id:'ex', name:'X', desc:'d', dur:1, need:'count:labo'});
+    try{ validateAll(); errs.push('need invalide : aucune erreur'); }catch(e){ out.needErr = e.message; ok(e.message.includes('type de noeud inconnu dans la mesure "count:labo"'), 'need invalide : message'); }
+    finally{ EVT.pop(); }
+    newGame();
+    return {errs, out};
+  },
+
   // Preuve : un noeud et une source de bonus ajoutes uniquement par des donnees, sans autre modification du code
   fictif(){
     const errs = [], out = {};
@@ -463,6 +492,7 @@ const SCENARIOS = {
   assert(got.save47.loaded && got.save47.same, 'sauvegarde v47 rechargee sans perte');
   assert(got.validation.errs.length===0, 'validation des donnees : '+got.validation.errs.join(' | '));
   assert(got.fictif.errs.length===0, 'noeud fictif : '+got.fictif.errs.join(' | '));
+  assert(got.lot2.errs.length===0, 'lot 2 : '+got.lot2.errs.join(' | '));
   assert(got.saveRoundtrip.same && got.saveRoundtrip.packetsReset, 'sauvegarde : aller-retour fidele');
   assert(got.smoke.errs.length===0, 'rendu/panneaux sans exception : '+got.smoke.errs.join(' | ')); }
   assert(consoleErrs.length===0, 'aucune erreur de console : '+consoleErrs.join(' | '));

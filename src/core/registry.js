@@ -36,6 +36,7 @@ export function checkNode(id, d){
     if(ty==='out' && !OUTS[v]) e.push(`${where} : sortie inconnue "${v}" ; sorties : ${Object.keys(OUTS).join(', ')}`);
     if(ty==='reward' && !REWARDS[v]) e.push(`${where} : recompense inconnue "${v}" ; recompenses : ${Object.keys(REWARDS).join(', ')}`);
     if(ty==='params') for(const [p,s] of Object.entries(v)) if(!s || !isFin(s.def) || !isFin(s.min) || typeof s.label!=='string') e.push(`${where} : parametre "${p}" incomplet (def, min, label)`);
+    else if(s.max!==undefined && !(isFin(s.max) && s.max>=s.min && s.max>=s.def)) e.push(`${where} : parametre "${p}" : max invalide`);
   }
   if(!(d.t>0)) e.push(`${where} : "t" doit etre superieur a 0`);
   if(Number.isInteger(d.ins) && (d.ins<K.ins[0] || d.ins>K.ins[1])) e.push(`${where} : ${d.ins} entree(s) ; le genre ${d.kind} en demande ${K.ins.join(' a ')}`);
@@ -84,8 +85,9 @@ export function validateAll(){
   for(const id of ORDER){ const x = checkNode(id, DEFS[id]); if(x.length) e.push(...x); else addType(id, DEFS[id]); }
   for(const [s,list] of Object.entries(UPG_LISTS)) for(const d of list) e.push(...checkUpgrade(d, `amelioration ${s}.${d.id}`));
   for(const ev of EVT){
-    for(const k of Object.keys(ev)) if(!['id','name','desc','dur','weight','mods'].includes(k)) e.push(`evenement ${ev.id} : champ inconnu "${k}"`);
+    for(const k of Object.keys(ev)) if(!['id','name','desc','dur','weight','need','mods'].includes(k)) e.push(`evenement ${ev.id} : champ inconnu "${k}"`);
     if(ev.weight!==undefined && !(ev.weight>0)) e.push(`evenement ${ev.id} : poids invalide "${ev.weight}"`);
+    if(ev.need!==undefined){ try{ measure(ev.need, 'evenement '+ev.id); }catch(x){ e.push(x.message.replace('Donnees invalides : ','')); } }
   }
   for(const k in SPECS) for(const f of Object.keys(SPECS[k])) if(!['name','desc','mods'].includes(f)) e.push(`specialisation ${k} : champ inconnu "${f}"`);
   const m = (spec, where, num, k) => { try{ measure(spec, where); }catch(x){ e.push(x.message.replace('Donnees invalides : ','')); } if(typeof num!=='number') e.push(`${where} : nombre "${k}" absent`); };
