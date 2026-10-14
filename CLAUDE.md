@@ -7,7 +7,7 @@ Ce fichier se suffit a lui-meme : il est relu au debut de chaque session et copi
 - Upload Lab : jeu incremental (gestion, chaine de production) ou l'on relie des noeuds (Source -> Compresseur -> ... -> Upload) sur un canvas pour gagner des credits. Interface en francais, sans emoji.
 - Publie comme Artifact claude.ai (page privee, URL fixe) : un seul fichier HTML qui contient CSS et JS.
 - Depot GitHub `aftra1/jeux_projet_1`, branche de travail : celle indiquee par la session (phase 5 lot 1 : `ccr-3d0f0ff4-dye37q`, partie de `claude/phase3-publish-phase5-proposals-cc7rpd`). Pas de pull request sans demande explicite.
-- Jeu publie : https://claude.ai/artifact/V5QUMQCPDnLTjdGnSA6c5X (version 48, phase 3, sans pont).
+- Jeu publie : https://claude.ai/artifact/V5QUMQCPDnLTjdGnSA6c5X (version 49, phase 5 lot 1, fichier unique, sans pont ; publiee le 2026-10-14).
 - Ce document publie : https://claude.ai/artifact/PXGHM5TAQ9JeCsNnTpSCpE (page privee, republiee au meme lien a chaque mise a jour).
 
 ## Architecture (phases 1 et 3)
@@ -51,7 +51,7 @@ Sauvegarde : localStorage, cle `uploadlab2`, format versionne (`ver`, migrations
 
 - Pas de mode competitif, sous aucune forme (ni classement, ni defi entre amis), pas de serveur. Simulation deterministe abandonnee.
 - Objectifs : ajouter progressivement des noeuds et des evenements ; bonne tenue sur mobile.
-- Un seul fichier final pour l'Artifact, produit par esbuild.
+- Un seul fichier final pour l'Artifact, produit par esbuild. Toujours en vigueur : le passage a plusieurs fichiers a ete prepare mais pas adopte (voir « Questions ouvertes »).
 - Aucun changement de gameplay ou d'equilibrage sans accord explicite.
 - Un commit par etape, message clair, tests verts a chaque commit. Chiffres avant/apres pour la performance.
 - Tests d'abord : figer le comportement avant de modifier ; verifier les tests par des regressions volontaires.
@@ -67,6 +67,7 @@ Sauvegarde : localStorage, cle `uploadlab2`, format versionne (`ver`, migrations
 - Pont retire de la version publiee (fin de phase 3), garde dans la version de test ; pas de minification pour l'instant.
 - Negociation : texte corrige (phase 5 lot 1) : « -5 % sur le prix des noeuds par niveau », effet « -10 % ».
 - Phase 3 validee et publiee (version 48). Phase 4 (rendu) reportee : « plus tard, si besoin ».
+- Serie boite noire : depend de la vraie date du jour (bonus quotidien, `new Date()` dans `core/save.js`, non remplace par le test). Elle echoue sur les cas v46 et v47 des que la date du jour differe du 2026-10-13 (`NOW` du test) : faux echec, verifie le 2026-10-14 (memes echecs sur la version 48 ; avec la date du jour, les 3 cas passent). Correction du test a decider.
 - Publication du jeu : chaque publication coute environ 95 000 tokens (lecture obligatoire de la version en ligne). On publie rarement : une seule fois en fin de lot de contenu, jamais pour un changement invisible. Ne rien publier pour tester. Pistes moins couteuses (documentation de l'outil, non essayees) : voir « Questions ouvertes ».
 - Git : avant une regression volontaire ou toute manipulation risquee, commiter ou faire un `git stash`. Jamais de `git checkout` sur un fichier modifie non commite (restaurer par une modification inverse ou `git stash pop`).
 - Phase 5 lot 1 (choix de l'utilisateur) : N1 Concentrateur, N3 Serveur cloud, E1 Maintenance programmee, E3 Serveurs chanceux, poids des evenements (frequence par heure des 4 existants inchangee), texte de Negociation. Reportes : N2 Recycleur (prochain lot probable), N4, N5, E2. Changements d'equilibrage voulus ; seuil d'arret : premiers Reboots plus de 30 % plus rapides au bot.
@@ -81,24 +82,24 @@ Sauvegarde : localStorage, cle `uploadlab2`, format versionne (`ver`, migrations
 - Phase 2 : n'existe plus.
 - Phase 3, registre de noeuds et statistiques par modificateurs : terminee, validee, publiee (version 48, sans pont).
 - Phase 4, performance du rendu : plus tard, si besoin (budget mobile tenu).
-- Phase 5, contenu : propositions (`docs/PHASE5-PROPOSITIONS.md`) ; lot 1 implemente (7 commits), en attente de lecture et de « ok publie ». Lot 2 probable : N2 Recycleur.
+- Phase 5, contenu : propositions (`docs/PHASE5-PROPOSITIONS.md`) ; lot 1 publie (version 49, fichier unique, 2026-10-14). Lot 2 probable : N2 Recycleur.
 
 Performance (rendu logiciel, mobile simule CPU 4x) : draw 1,7 a 6,3 ms selon la vue (budget 16 ms). `step` a 600 noeuds : 0,35 ms (chaines simples), 0,8 ms (pire cas mixte, 0,75 avant le lot 1 : bruit) ; limite 2 ms. Fichier publie : 170,6 Ko.
 
 ## Questions ouvertes
 
-1. Lot 1 de la phase 5 : lecture et « ok publie » (liste des changements visibles dans le rapport de fin de lot).
-2. Publication moins couteuse (documentation de l'outil Artifact ; le jeu n'a pas ete republie) : (a) `read` avec `path:"index.html"` enregistre la page dans un fichier local sans l'afficher, mais ne compte pas pour autoriser une republication (constate en republiant ce document : l'outil le dit explicitement) : piste fermee ; (b) page en plusieurs fichiers : petite page HTML + `game.js` publie dans `files` ; une mise a jour n'exige alors que la lecture de la petite page et une liste des fichiers (`list`, `scope:"files"`), mais cela change la decision « un seul fichier HTML » ; (c) jamais un nouveau lien : les sauvegardes (localStorage) sont liees a l'origine de l'artifact.
+1. Serie boite noire : corriger le test pour qu'il ne depende plus de la date du jour (recommande : remplacer aussi `Date` dans `init()` de `tests/blackbox.cjs`, ou fixer `daily` a la date reelle). Tant que ce n'est pas fait, `npm test` echoue a partir du 2026-10-14.
+2. Publication en plusieurs fichiers : test de l'utilisateur concluant (Artifact jetable https://claude.ai/artifact/W4oRi5VDTqMHSCVwso6RXZ : `<script src>` vers un fichier annexe execute, localStorage lu et ecrit, compteur a 2 apres rechargement). Non adopte pour le lot 1 : la consigne etait « un test echoue -> fichier unique », et la serie boite noire a echoue (cause : question 1). A decider pour la prochaine publication, une fois le test corrige : petite page HTML + `game.js` dans `files`, meme lien (sauvegardes conservees). Cout attendu alors : lecture de la petite page et liste des fichiers au lieu d'environ 95 000 tokens ; cout actuel (fichier unique) inchange : environ 95 000 tokens par publication.
 3. Poids des nouveaux evenements : 1 (aussi frequents que chacun des 4 anciens, soit 50 % d'evenements en plus par heure) ; alternative 0,5.
 4. Bot : il ne construit ni fusion ni puits multiples, donc il ne mesure pas le Concentrateur ni le Serveur cloud (jamais achetes) ; une strategie de bot plus riche serait a ecrire si l'on veut les mesurer.
 5. Plus tard : equilibrage des contrats en fin de partie (le seuil +25 % de debit en 90 s devient difficile quand les ameliorations sont rares) ; a simuler avant toute decision.
 
 ## Journal (5 dernieres modifications)
 
-Avant : visuels, mobile, commandes souris, sauvegarde robuste, phase 0 (perf), phase 1 (modules, esbuild, bot dans Node), version 47, phase 3 (statistiques par modificateurs, registre de noeuds, preuve par noeud fictif, version 48 sans pont, invariant du cache par pas), phase 5 etape 1 (propositions).
+Avant : visuels, mobile, commandes souris, sauvegarde robuste, phase 0 (perf), phase 1 (modules, esbuild, bot dans Node), version 47, phase 3 (statistiques par modificateurs, registre de noeuds, preuve par noeud fictif, version 48 sans pont, invariant du cache par pas), phase 5 etape 1 (propositions), bot avec evenements reseau.
 
-1. Bot : evenements reseau (`evTick`) et remplacement de l'Upload par un autre puits de credits ; mesure de reference.
-2. Evenements : poids (`weight`, intervalle = `EVT_GAP` / somme des poids), Maintenance programmee, Serveurs chanceux.
-3. Noeuds : Concentrateur (`hub`, combine 3 entrees, x1,4, deblocage 3 000, prix 4 000) et Serveur cloud (`cloud`, puits 5 entrees, 0,3 s, deblocage 150 000 apres 1 Reboot, prix 200 000).
-4. Tests : scene de rendu sur la liste figee des 17 types d'origine ; textes des ameliorations quantiques figes (`smoke`).
-5. Texte de Negociation corrige.
+1. Evenements : poids (`weight`, intervalle = `EVT_GAP` / somme des poids), Maintenance programmee, Serveurs chanceux.
+2. Noeuds : Concentrateur (`hub`, combine 3 entrees, x1,4, deblocage 3 000, prix 4 000) et Serveur cloud (`cloud`, puits 5 entrees, 0,3 s, deblocage 150 000 apres 1 Reboot, prix 200 000).
+3. Tests : scene de rendu sur la liste figee des 17 types d'origine ; textes des ameliorations quantiques figes (`smoke`).
+4. Texte de Negociation corrige.
+5. Lot 1 publie (version 49, fichier unique) ; serie boite noire : faux echec lie a la date du jour, diagnostique ; test multi-fichiers concluant, non adopte.
